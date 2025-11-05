@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accountability Tracker Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Accountability Tracker Dashboard</h1>
+            <div class="header-actions">
+                <button id="importBtn" class="btn btn-primary">Import CSV</button>
+                <button id="exportBtn" class="btn btn-secondary">Export Data</button>
+                <button id="newWeekBtn" class="btn btn-success">+ New Week</button>
+            </div>
+        </header>
+
+        <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+
+        <!-- Dashboard Overview -->
+        <section class="dashboard-overview">
+            <div class="stat-card">
+                <h3>Current Week Strikes</h3>
+                <div class="stat-value" id="currentStrikes">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Weeks Tracked</h3>
+                <div class="stat-value" id="totalWeeks">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Average Strikes/Week</h3>
+                <div class="stat-value" id="avgStrikes">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Best Category</h3>
+                <div class="stat-value" id="bestCategory">-</div>
+            </div>
+        </section>
+
+        <!-- Current Week Tracking -->
+        <section class="current-week">
+            <h2>Current Week: <span id="currentWeekDate">-</span></h2>
+            <div class="week-controls">
+                <button id="prevWeek" class="btn btn-nav">← Previous Week</button>
+                <button id="todayBtn" class="btn btn-nav">Today</button>
+                <button id="nextWeek" class="btn btn-nav">Next Week →</button>
+            </div>
+
+            <div id="weekGrid" class="week-grid">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+        </section>
+
+        <!-- Analytics Section -->
+        <section class="analytics">
+            <h2>Analytics</h2>
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <canvas id="strikesOverTimeChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="categoryBreakdownChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="completionRateChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="weekdayPatternChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Goal Categories Management -->
+        <section class="categories-management">
+            <h2>Manage Goals</h2>
+            <div id="categoriesList">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+            <button id="addGoalBtn" class="btn btn-primary">+ Add New Goal</button>
+        </section>
+
+        <!-- History View -->
+        <section class="history">
+            <h2>History</h2>
+            <div id="historyList">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal for Adding Goals -->
+    <div id="addGoalModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Add New Goal</h2>
+            <form id="addGoalForm">
+                <label for="goalCategory">Category:</label>
+                <select id="goalCategory" required>
+                    <option value="Physical Health">Physical Health</option>
+                    <option value="Mental Health">Mental Health</option>
+                    <option value="Budgeting">Budgeting</option>
+                    <option value="Work">Work</option>
+                    <option value="Monthly Goals">Monthly Goals</option>
+                    <option value="Cooking">Cooking</option>
+                    <option value="Other">Other</option>
+                </select>
+
+                <label for="goalName">Goal Name:</label>
+                <input type="text" id="goalName" required>
+
+                <label for="goalTarget">Target (e.g., x7 for 7 times per week):</label>
+                <input type="text" id="goalTarget">
+
+                <button type="submit" class="btn btn-primary">Add Goal</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
