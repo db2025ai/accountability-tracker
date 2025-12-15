@@ -1,5 +1,8 @@
 // Accountability Tracker Dashboard Application
 
+// CONFIGURATION: Set your Google Sheets ID here
+const GOOGLE_SHEETS_ID = '1QAqERRHCrw22hSjLFY3WBY95W2W9jBxik6Lw5jHtMy0';
+
 class AccountabilityTracker {
     constructor() {
         this.data = {
@@ -17,6 +20,7 @@ class AccountabilityTracker {
         };
         this.currentWeekIndex = 0;
         this.charts = {};
+        this.googleSheetsUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/export?format=csv&gid=0`;
         this.init();
     }
 
@@ -231,6 +235,37 @@ class AccountabilityTracker {
         }
     }
 
+    // Load data directly from Google Sheets
+    async loadFromGoogleSheets() {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'loading-overlay';
+        loadingDiv.innerHTML = '<div class="loading-spinner"><h2>Syncing from Google Sheets...</h2><p>Fetching your latest data...</p></div>';
+        document.body.appendChild(loadingDiv);
+
+        try {
+            // Use a CORS proxy to fetch the Google Sheets data
+            const proxyUrl = 'https://api.allorigins.win/raw?url=';
+            const response = await fetch(proxyUrl + encodeURIComponent(this.googleSheetsUrl));
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch from Google Sheets');
+            }
+
+            const csvText = await response.text();
+
+            // Remove loading overlay
+            document.body.removeChild(loadingDiv);
+
+            // Import the CSV data
+            await this.importCSV(csvText);
+
+        } catch (error) {
+            console.error('Error loading from Google Sheets:', error);
+            document.body.removeChild(loadingDiv);
+            alert(`Failed to load from Google Sheets: ${error.message}\n\nPlease try importing the CSV file manually instead.`);
+        }
+    }
+
     parseCSVLine(line) {
         const cells = [];
         let current = '';
@@ -323,6 +358,11 @@ class AccountabilityTracker {
 
     // Event Listeners
     setupEventListeners() {
+        // Google Sheets Sync
+        document.getElementById('loadFromSheetsBtn').addEventListener('click', async () => {
+            await this.loadFromGoogleSheets();
+        });
+
         // Import/Export
         document.getElementById('importBtn').addEventListener('click', () => {
             document.getElementById('csvFileInput').click();

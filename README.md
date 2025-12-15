@@ -53,10 +53,17 @@ Four interactive charts powered by Chart.js:
 
 ## Getting Started
 
-### Quick Start
+### Quick Start (Recommended - Auto-Sync)
 1. Open `index.html` in a modern web browser
-2. Import your existing CSV file using the "Import CSV" button
-3. Start tracking your goals!
+2. Click **"🔄 Sync from Google Sheets"** button
+3. Your data will automatically load from your Google Sheet!
+4. Click sync anytime to get the latest updates
+
+### Alternative: Manual CSV Import
+1. Open `index.html` in a modern web browser
+2. Export your Google Sheet as CSV (File → Download → CSV)
+3. Click **"Import CSV File"** button and select your CSV
+4. Start tracking your goals!
 
 ### First Time Setup
 If you don't have existing data:
@@ -67,8 +74,20 @@ If you don't have existing data:
 
 ## How to Use
 
-### Importing Your Existing Spreadsheet
-1. Click the **Import CSV** button in the header
+### Syncing from Google Sheets (Easiest!)
+The dashboard is pre-configured with your Google Sheets ID. Just:
+1. Click **"🔄 Sync from Google Sheets"** in the header
+2. Wait a few seconds while it fetches your data
+3. Your dashboard will automatically populate with all your tracking data!
+
+**To change the Google Sheet:**
+1. Open `app.js` in a text editor
+2. Find line 4: `const GOOGLE_SHEETS_ID = '...'`
+3. Replace with your Google Sheets ID (from the URL)
+4. Save and reload the page
+
+### Manual CSV Import (Alternative)
+1. Click the **Import CSV File** button in the header
 2. Select your CSV file from Google Sheets or Excel
 3. The app will parse and load all your historical data
 
