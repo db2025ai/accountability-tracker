@@ -29,8 +29,21 @@ class AccountabilityTracker {
 
     // Data Persistence (Memory)
     saveData() {
-        localStorage.setItem('accountabilityData', JSON.stringify(this.data));
-        console.log('Data saved to local storage');
+        try {
+            const dataStr = JSON.stringify(this.data);
+            // Check if data is too large (LocalStorage limit is typically 5-10MB)
+            if (dataStr.length > 5000000) {
+                console.warn('Data is very large, save may fail');
+                if (!confirm('Your data is very large. Saving may fail or cause performance issues. Continue?')) {
+                    return;
+                }
+            }
+            localStorage.setItem('accountabilityData', dataStr);
+            console.log('Data saved to local storage');
+        } catch (error) {
+            console.error('Failed to save data:', error);
+            alert('Warning: Could not save data to local storage. Your data may be too large. Consider exporting to CSV for backup.');
+        }
     }
 
     loadData() {
@@ -108,83 +121,114 @@ class AccountabilityTracker {
     }
 
     // CSV Import/Export
-    importCSV(csvText) {
-        const lines = csvText.split('\n');
-        const weeks = [];
-        let currentWeek = null;
-        let goals = [];
+    async importCSV(csvText) {
+        // Show loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'loading-overlay';
+        loadingDiv.innerHTML = '<div class="loading-spinner"><h2>Importing data...</h2><p>Please wait, this may take a moment.</p></div>';
+        document.body.appendChild(loadingDiv);
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
+        // Use setTimeout to allow browser to render loading indicator
+        await new Promise(resolve => setTimeout(resolve, 100));
 
-            const cells = this.parseCSVLine(line);
+        try {
+            const lines = csvText.split('\n');
+            const weeks = [];
+            let currentWeek = null;
+            let goals = [];
 
-            // Check if this is a week header (contains dates)
-            if (cells[0] && cells[0].includes('Week') || this.isDateFormat(cells[1])) {
-                if (currentWeek) {
-                    weeks.push(currentWeek);
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                const cells = this.parseCSVLine(line);
+
+                // Check if this is a week header (contains dates)
+                if (cells[0] && cells[0].includes('Week') || this.isDateFormat(cells[1]) || this.isDateFormat(cells[0])) {
+                    if (currentWeek) {
+                        weeks.push(currentWeek);
+                    }
+
+                    // Parse the week dates
+                    const dateStr = cells[1] || cells[0];
+                    currentWeek = {
+                        startDate: this.parseDate(dateStr).toISOString(),
+                        days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+                        entries: {}
+                    };
+                    continue;
                 }
 
-                // Parse the week dates
-                const dateStr = cells[1];
-                currentWeek = {
-                    startDate: this.parseDate(dateStr).toISOString(),
-                    days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-                    entries: {}
-                };
-                continue;
-            }
-
-            // Check if this is the day header row
-            if (cells.some(cell => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].includes(cell))) {
-                continue;
-            }
-
-            // Check if this is a category header
-            if (cells[0] && this.data.categories.some(cat => cells[0].includes(cat)) && !cells[1]) {
-                continue;
-            }
-
-            // Parse goal entry
-            if (cells[1] && currentWeek) {
-                const goalName = cells[1];
-                const category = this.inferCategory(goalName, i, lines);
-
-                // Find or create goal
-                let goalIndex = goals.findIndex(g => g.name === goalName && g.category === category);
-                if (goalIndex === -1) {
-                    goals.push({ category, name: goalName, target: '' });
-                    goalIndex = goals.length - 1;
+                // Check if this is the day header row
+                if (cells.some(cell => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].includes(cell))) {
+                    continue;
                 }
 
-                // Parse tracking data (cells 2-8 are the days)
-                const tracking = [];
-                for (let d = 2; d < 9; d++) {
-                    const value = cells[d] || '';
-                    tracking.push(value);
+                // Check if this is a category header
+                if (cells[0] && this.data.categories.some(cat => cells[0].includes(cat)) && !cells[1]) {
+                    continue;
                 }
 
-                currentWeek.entries[goalIndex] = {
-                    goal: goals[goalIndex],
-                    tracking: tracking
-                };
+                // Parse goal entry
+                if (cells[1] && currentWeek) {
+                    const goalName = cells[1];
+                    const category = this.inferCategory(goalName, i, lines);
+
+                    // Find or create goal
+                    let goalIndex = goals.findIndex(g => g.name === goalName && g.category === category);
+                    if (goalIndex === -1) {
+                        goals.push({ category, name: goalName, target: '' });
+                        goalIndex = goals.length - 1;
+                    }
+
+                    // Parse tracking data (cells 2-8 are the days)
+                    const tracking = [];
+                    for (let d = 2; d < 9; d++) {
+                        const value = cells[d] || '';
+                        tracking.push(value);
+                    }
+
+                    currentWeek.entries[goalIndex] = {
+                        goal: goals[goalIndex],
+                        tracking: tracking
+                    };
+                }
+
+                // Yield to browser every 100 lines
+                if (i % 100 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
             }
+
+            if (currentWeek) {
+                weeks.push(currentWeek);
+            }
+
+            // Update data
+            this.data.goals = goals;
+            this.data.weeks = weeks;
+            this.currentWeekIndex = weeks.length - 1;
+
+            // Save in chunks to avoid blocking
+            await new Promise(resolve => setTimeout(resolve, 0));
+            this.saveData();
+
+            // Render in stages
+            await new Promise(resolve => setTimeout(resolve, 0));
+            this.render();
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+            this.renderCharts();
+
+            // Remove loading indicator
+            document.body.removeChild(loadingDiv);
+
+            alert(`Successfully imported ${weeks.length} weeks and ${goals.length} goals!`);
+        } catch (error) {
+            console.error('Import error:', error);
+            document.body.removeChild(loadingDiv);
+            alert(`Error importing CSV: ${error.message}`);
         }
-
-        if (currentWeek) {
-            weeks.push(currentWeek);
-        }
-
-        // Update data
-        this.data.goals = goals;
-        this.data.weeks = weeks;
-        this.currentWeekIndex = weeks.length - 1;
-        this.saveData();
-        this.render();
-        this.renderCharts();
-
-        alert(`Successfully imported ${weeks.length} weeks and ${goals.length} goals!`);
     }
 
     parseCSVLine(line) {
@@ -288,8 +332,8 @@ class AccountabilityTracker {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (event) => {
-                    this.importCSV(event.target.result);
+                reader.onload = async (event) => {
+                    await this.importCSV(event.target.result);
                 };
                 reader.readAsText(file);
             }
