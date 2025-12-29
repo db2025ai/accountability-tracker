@@ -1,6 +1,52 @@
-# Accountability Tracker Dashboard
+# 🎯 Accountability Tracker Dashboard
 
-A comprehensive web-based accountability tracking system with data visualization, memory persistence, and CSV import/export capabilities.
+**Track your habits. Stay accountable. Achieve your goals.**
+
+A web-based accountability system with interactive tracking, data visualization, and Google Sheets sync.
+
+## 🚀 Quick Start - Pick Your Version
+
+### **v2 - Interactive Tracker** ⭐ RECOMMENDED
+**File:** `accountability-tracker-v2.html` (Download `accountability-tracker-v2.zip`)
+
+Perfect for daily use:
+- ✅ Click cells to edit strikes
+- ✅ Add/remove goals anytime
+- ✅ Add new weeks as needed
+- ✅ Motivational quotes (15 rotating)
+- ✅ Auto-save to browser
+- ✅ Export CSV for Google Sheets
+
+**Just double-click the HTML file - everything loads instantly!**
+
+### **v1 - Clean Dashboard**
+**File:** `accountability-tracker-v1.html` (Download `accountability-tracker-v1.zip`)
+
+Perfect for viewing:
+- Read-only analysis
+- Historical trends
+- Consolidated data view
+- No editing needed
+
+---
+
+## 📋 What's Included
+
+**Your Data:**
+- 37 recurring goals across 7 categories
+- 41 weeks of tracking (Jan 2024 - Jan 2025)
+- Goals evolution captured (triathlon training, habit changes, etc.)
+
+**Categories:**
+- Physical Health (10 goals)
+- Mental Health (9 goals)
+- Budgeting (6 goals)
+- Work (5 goals)
+- Monthly (4 goals)
+- Cooking (2 goals)
+- Other (1 goal)
+
+---
 
 ## Features
 
