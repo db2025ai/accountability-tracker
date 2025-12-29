@@ -12,28 +12,43 @@
 - View toggles (all/12/6 weeks)
 - **Read-only** - just for viewing
 
-### v2 - Interactive Live Tracker (Recommended) ⭐
+### v2 - Interactive Live Tracker
 **File:** `accountability-tracker-v2.html`
-**Best for:** Daily tracking, managing habits, staying accountable
+**Best for:** Weekly tracking with simple strike counts
 - ✅ **Click cells to edit** strikes
 - ✅ **Add/remove goals** anytime
 - ✅ **Add new weeks** as you go
 - ✅ **Motivational quotes** (rotate every 15s)
 - ✅ **Auto-save** to browser
 - ✅ **Export to CSV** for Google Sheets sync
-- All features from v1 PLUS interactivity
+- Tracks one strike count per week
+
+### v3 - Day-by-Day Tracker (Recommended) ⭐
+**File:** `accountability-tracker-v3.html`
+**Best for:** Detailed daily tracking with averages
+- ✅ **Track by individual day** (Sun-Sat for each week)
+- ✅ **See averages** alongside totals
+- ✅ **Click any day cell to edit**
+- ✅ **Add new weeks** with 7-day tracking
+- ✅ **All v2 features** PLUS daily granularity
+- Perfect for understanding which days you struggle most
 
 ---
 
 ## 🚀 Which Version Should I Use?
 
+### Use **v3** if you want to: ⭐ RECOMMENDED
+- Track habits day-by-day (Sun-Sat)
+- See which specific days you struggle
+- View averages alongside totals
+- Most detailed tracking available
+- **This is the recommended version for serious tracking!**
+
 ### Use **v2** if you want to:
-- Track your habits daily
-- Edit strikes with clicks
-- Add new goals or remove old ones
-- Stay motivated with quotes
-- Sync to Google Sheets regularly
-- **This is the recommended version!**
+- Simple weekly strike counts
+- Lighter weight tracking
+- Don't need daily granularity
+- All the interactive features without the detail
 
 ### Use **v1** if you only want to:
 - View historical data
@@ -48,12 +63,23 @@
 All versions available at:
 `https://github.com/db2025ai/accountability-tracker`
 
-**Latest (v2):** `accountability-tracker-v2.zip` (13KB)
-**Previous (v1):** `accountability-tracker-v1.zip` (10KB)
+**Latest (v3):** `accountability-tracker-v3.zip` (260KB - larger due to daily data)
+**Previous (v2):** `accountability-tracker-v2.zip` (60KB)
+**Original (v1):** `accountability-tracker-v1.zip` (46KB)
 
 ---
 
 ## 🔄 Version History
+
+### v3 (Day-by-Day Tracker) - December 2024
+- **NEW:** Day-by-day tracking (Sun-Sat for each week)
+- **NEW:** Average strikes per week displayed
+- **NEW:** Click individual days to edit
+- **NEW:** Historical data converted to daily format
+- Add new weeks with 7-day structure
+- CSV export includes daily columns
+- All v2 features retained
+- Stores data in localStorage as 'accountabilityTrackerV3'
 
 ### v2 (Interactive) - December 2024
 - Added click-to-edit functionality
@@ -78,14 +104,16 @@ All versions available at:
 
 ## 🆕 Future Versions
 
-### v3 (Planned)
+### v4 (Planned)
 - Direct Google Sheets API integration (OAuth)
-- Mobile-responsive design improvements
 - Streak tracking and celebrations
-- Goal templates
+- Mobile app version
+- Goal templates and categories
 - Weekly email reports
+- AI-powered insights
 - Custom quote collections
 - Dark mode
+- Keyboard shortcuts
 
 **Got feature requests?** Open an issue on GitHub!
 
@@ -94,8 +122,9 @@ All versions available at:
 ## 💡 Naming Convention
 
 Going forward, all files use simple version numbers:
-- `accountability-tracker-v1.html` - Version 1
-- `accountability-tracker-v2.html` - Version 2
-- `accountability-tracker-v3.html` - Version 3 (when released)
+- `accountability-tracker-v1.html` - Version 1 (Read-only)
+- `accountability-tracker-v2.html` - Version 2 (Interactive weekly)
+- `accountability-tracker-v3.html` - Version 3 (Day-by-day) ⭐
+- `accountability-tracker-v4.html` - Version 4 (Coming soon)
 
 Clean, simple, easy to remember! 🎯
