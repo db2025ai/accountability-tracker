@@ -1,0 +1,3668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accountability Tracker v3 - Live + Historical</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #4a90e2, #7b68ee);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .quote-container {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid white;
+        }
+
+        .quote-text {
+            font-style: italic;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .quote-author {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            text-align: right;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #4a90e2;
+        }
+
+        .stat-card .subvalue {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .action-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #4a90e2;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #357abd;
+        }
+
+        .btn-success {
+            background: #52c41a;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #3f9414;
+        }
+
+        .btn-warning {
+            background: #faad14;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d48806;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .section-header {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+
+        .section-header h2 {
+            color: #4a90e2;
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .section-header p {
+            color: #6c757d;
+            font-size: 0.95rem;
+        }
+
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        th, td {
+            padding: 8px 6px;
+            text-align: center;
+            border: 1px solid #e1e4e8;
+        }
+
+        th {
+            background: #4a90e2;
+            color: white;
+            position: sticky;
+            top: 0;
+            font-weight: 600;
+            z-index: 10;
+        }
+
+        th.day-header {
+            font-size: 0.75rem;
+            min-width: 50px;
+        }
+
+        th.week-header {
+            font-size: 0.7rem;
+            min-width: 80px;
+            background: #7b68ee;
+        }
+
+        td.goal-name {
+            text-align: left;
+            font-weight: 500;
+            background: #f8f9fa;
+            position: sticky;
+            left: 0;
+            max-width: 350px;
+            min-width: 250px;
+            z-index: 5;
+        }
+
+        .goal-name .remove-btn {
+            margin-left: 10px;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .goal-name:hover .remove-btn {
+            opacity: 1;
+        }
+
+        .category-row {
+            background: #7b68ee !important;
+            color: white !important;
+            font-weight: 700;
+            text-align: left !important;
+        }
+
+        /* Editable cells */
+        td.editable {
+            cursor: pointer;
+            position: relative;
+            min-width: 50px;
+        }
+
+        td.editable:hover {
+            background: #e7f3ff !important;
+            box-shadow: inset 0 0 0 2px #4a90e2;
+        }
+
+        td.editable input {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: transparent;
+            text-align: center;
+            font-size: 0.85rem;
+            padding: 0;
+        }
+
+        td.editable input:focus {
+            outline: 2px solid #4a90e2;
+            background: white;
+        }
+
+        /* Color coding */
+        .strike-0 { background: #d4edda; color: #155724; }
+        .strike-1 { background: #fff3cd; color: #856404; }
+        .strike-2 { background: #ffeaa7; color: #6c5503; }
+        .strike-3 { background: #fdcb6e; color: #533400; }
+        .strike-4 { background: #fab1a0; color: #721c24; }
+        .strike-5-plus { background: #e74c3c; color: white; font-weight: bold; }
+        .strike-null { background: #f8f9fa; color: #ccc; }
+
+        .comparison {
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+
+        .comparison.better {
+            color: #52c41a;
+            font-weight: bold;
+        }
+
+        .comparison.worse {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            height: 400px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .save-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #52c41a;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .save-indicator.show {
+            opacity: 1;
+        }
+
+        .divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #4a90e2, transparent);
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Interactive Accountability Tracker v3</h1>
+            <p class="subtitle">Live daily tracking + Historical weekly performance</p>
+            <div class="quote-container">
+                <div class="quote-text" id="quoteText">Loading inspiration...</div>
+                <div class="quote-author" id="quoteAuthor"></div>
+            </div>
+        </header>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="action-bar">
+            <button class="btn btn-primary" id="syncToSheetsBtn">☁️ Sync to Google Sheets</button>
+            <button class="btn btn-success" id="startNewWeekBtn">🆕 Start New Week</button>
+            <button class="btn btn-success" id="addGoalBtn">➕ Add New Goal</button>
+            <button class="btn btn-warning" id="exportBtn">📥 Export CSV</button>
+            <button class="btn btn-secondary" id="viewToggle">📊 Show All History</button>
+        </div>
+
+        <!-- CURRENT WEEK SECTION -->
+        <div class="section-header">
+            <h2>📅 Current Week - Live Daily Tracking</h2>
+            <p>Track your habits day-by-day and see how you're doing vs. your historical average</p>
+        </div>
+
+        <div class="table-container">
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color strike-0"></div>
+                    <span>0 strikes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-1"></div>
+                    <span>1 strike</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-2"></div>
+                    <span>2 strikes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-3"></div>
+                    <span>3 strikes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-4"></div>
+                    <span>4 strikes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-5-plus"></div>
+                    <span>5+ strikes</span>
+                </div>
+            </div>
+            <div id="currentWeekTable"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- HISTORICAL SECTION -->
+        <div class="section-header">
+            <h2>📊 Historical Performance</h2>
+            <p>41 weeks of data - See your journey and trends over time</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="evolutionChart"></canvas>
+        </div>
+
+        <div class="table-container">
+            <div id="historicalTable"></div>
+        </div>
+    </div>
+
+    <!-- Add Goal Modal -->
+    <div id="addGoalModal" class="modal">
+        <div class="modal-content">
+            <h2>Add New Goal</h2>
+            <div class="form-group">
+                <label for="goalCategory">Category:</label>
+                <select id="goalCategory">
+                    <option value="Physical Health">Physical Health</option>
+                    <option value="Mental Health">Mental Health</option>
+                    <option value="Budgeting">Budgeting</option>
+                    <option value="Work">Work</option>
+                    <option value="Monthly">Monthly</option>
+                    <option value="Cooking">Cooking</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="goalName">Goal Name:</label>
+                <input type="text" id="goalName" placeholder="e.g., Read 10 pages daily">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-primary" id="saveGoalBtn">Save Goal</button>
+                <button class="btn btn-secondary" id="cancelGoalBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="save-indicator" id="saveIndicator">✓ Changes saved</div>
+
+    <script>
+
+// Interactive Accountability Tracker v3.1 - Live + Historical
+
+const GOOGLE_SHEETS_ID = '1QAqERRHCrw22hSjLFY3WBY95W2W9jBxik6Lw5jHtMy0';
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const QUOTES = [
+    { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+    { text: "Success is the sum of small efforts repeated day in and day out.", author: "Robert Collier" },
+    { text: "Don't watch the clock; do what it does. Keep going.", author: "Sam Levenson" },
+    { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+    { text: "Discipline is choosing between what you want now and what you want most.", author: "Abraham Lincoln" },
+    { text: "You don't have to be great to start, but you have to start to be great.", author: "Zig Ziglar" },
+    { text: "The difference between who you are and who you want to be is what you do.", author: "Bill Phillips" },
+    { text: "Small daily improvements over time lead to stunning results.", author: "Robin Sharma" },
+    { text: "The only impossible journey is the one you never begin.", author: "Tony Robbins" },
+    { text: "Your future is created by what you do today, not tomorrow.", author: "Robert Kiyosaki" },
+    { text: "Excellence is not a destination; it is a continuous journey that never ends.", author: "Brian Tracy" },
+    { text: "Success doesn't come from what you do occasionally. It comes from what you do consistently.", author: "Marie Forleo" },
+    { text: "The harder you work for something, the greater you'll feel when you achieve it.", author: "Anonymous" },
+    { text: "Dream bigger. Do bigger.", author: "Anonymous" },
+    { text: "Don't stop when you're tired. Stop when you're done.", author: "Anonymous" }
+];
+
+class InteractiveTracker {
+    constructor() {
+        this.data = null;
+        this.displayMode = 'all'; // all, 12, 6
+        this.chart = null;
+        this.currentQuoteIndex = 0;
+        this.init();
+    }
+
+    async init() {
+        await this.loadData();
+        this.setupEventListeners();
+        this.rotateQuote();
+        this.render();
+        setInterval(() => this.rotateQuote(), 15000);
+    }
+
+    async loadData() {
+        const stored = localStorage.getItem('accountabilityTrackerV3_1');
+
+        if (stored) {
+            this.data = JSON.parse(stored);
+            console.log('Loaded from localStorage');
+        } else {
+            this.data = EMBEDDED_DATA;
+            this.saveData();
+            console.log('Loaded embedded data');
+        }
+    }
+
+    saveData() {
+        localStorage.setItem('accountabilityTrackerV3_1', JSON.stringify(this.data));
+        this.showSaveIndicator();
+    }
+
+    showSaveIndicator() {
+        const indicator = document.getElementById('saveIndicator');
+        indicator.classList.add('show');
+        setTimeout(() => indicator.classList.remove('show'), 2000);
+    }
+
+    rotateQuote() {
+        const quote = QUOTES[this.currentQuoteIndex];
+        document.getElementById('quoteText').textContent = `"${quote.text}"`;
+        document.getElementById('quoteAuthor').textContent = `— ${quote.author}`;
+        this.currentQuoteIndex = (this.currentQuoteIndex + 1) % QUOTES.length;
+    }
+
+    setupEventListeners() {
+        document.getElementById('syncToSheetsBtn').addEventListener('click', () => {
+            this.syncToGoogleSheets();
+        });
+
+        document.getElementById('startNewWeekBtn').addEventListener('click', () => {
+            this.startNewWeek();
+        });
+
+        document.getElementById('addGoalBtn').addEventListener('click', () => {
+            document.getElementById('addGoalModal').classList.add('active');
+        });
+
+        document.getElementById('cancelGoalBtn').addEventListener('click', () => {
+            document.getElementById('addGoalModal').classList.remove('active');
+        });
+
+        document.getElementById('saveGoalBtn').addEventListener('click', () => {
+            this.addNewGoal();
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            this.exportCSV();
+        });
+
+        document.getElementById('viewToggle').addEventListener('click', (e) => {
+            if (this.displayMode === 'all') {
+                this.displayMode = 12;
+                e.target.textContent = '📊 Show Recent 12';
+            } else if (this.displayMode === 12) {
+                this.displayMode = 6;
+                e.target.textContent = '📊 Show Recent 6';
+            } else {
+                this.displayMode = 'all';
+                e.target.textContent = '📊 Show All History';
+            }
+            this.renderHistoricalTable();
+        });
+    }
+
+    startNewWeek() {
+        const currentWeekName = this.data.current_week.week_name;
+        const newWeekName = prompt('Enter new week (e.g., 1/5-1/11):', this.getNextWeekName());
+
+        if (!newWeekName) return;
+
+        const confirmed = confirm(
+            `Archive current week "${currentWeekName}" to history and start fresh week "${newWeekName}"?\n\n` +
+            'This will:\n' +
+            '1. Save current week data to historical section\n' +
+            '2. Reset all daily strikes to 0 for the new week\n' +
+            '3. Keep tracking your same goals'
+        );
+
+        if (confirmed) {
+            // Archive current week to historical data
+            this.archiveCurrentWeek();
+            
+            // Start new week
+            this.data.current_week.week_name = newWeekName;
+            
+            // Reset all daily strikes to 0
+            for (const category in this.data.current_week.goals_by_category) {
+                this.data.current_week.goals_by_category[category].forEach(goal => {
+                    goal.strikes_by_day = [0, 0, 0, 0, 0, 0, 0];
+                    goal.week_total = 0;
+                });
+            }
+
+            this.saveData();
+            this.render();
+            alert(`New week "${newWeekName}" started! Time to crush it! 💪`);
+        }
+    }
+
+    archiveCurrentWeek() {
+        const weekName = this.data.current_week.week_name;
+        
+        // Add week to historical data
+        this.data.historical.weeks.push(weekName);
+        this.data.historical.total_weeks++;
+
+        // Add strikes for each goal
+        for (const category in this.data.current_week.goals_by_category) {
+            const currentGoals = this.data.current_week.goals_by_category[category];
+            const historicalGoals = this.data.historical.categories[category];
+
+            currentGoals.forEach((currentGoal, idx) => {
+                if (historicalGoals[idx]) {
+                    // Calculate week total from daily strikes
+                    const weekTotal = currentGoal.strikes_by_day.reduce((sum, day) => sum + day, 0);
+                    
+                    // Add to historical strikes_by_week
+                    historicalGoals[idx].strikes_by_week.push(weekTotal);
+                    historicalGoals[idx].total_strikes += weekTotal;
+                    historicalGoals[idx].weeks_tracked++;
+                    historicalGoals[idx].last_seen = weekName;
+                }
+            });
+        }
+    }
+
+    getNextWeekName() {
+        const today = new Date();
+        const month = today.getMonth() + 1;
+        const day = today.getDate();
+        return `${month}/${day}-${month}/${day + 6}`;
+    }
+
+    addNewGoal() {
+        const category = document.getElementById('goalCategory').value;
+        const name = document.getElementById('goalName').value.trim();
+
+        if (!name) {
+            alert('Please enter a goal name');
+            return;
+        }
+
+        // Add to current week
+        const newCurrentGoal = {
+            name: name,
+            category: category,
+            strikes_by_day: [0, 0, 0, 0, 0, 0, 0],
+            week_total: 0,
+            personal_avg: 0
+        };
+
+        this.data.current_week.goals_by_category[category].push(newCurrentGoal);
+
+        // Add to historical data
+        const newHistoricalGoal = {
+            name: name,
+            category: category,
+            strikes_by_week: new Array(this.data.historical.total_weeks).fill(null),
+            total_strikes: 0,
+            weeks_tracked: 0,
+            first_seen: this.data.current_week.week_name,
+            last_seen: this.data.current_week.week_name
+        };
+
+        this.data.historical.categories[category].push(newHistoricalGoal);
+        this.data.historical.total_goals++;
+
+        this.saveData();
+        this.render();
+
+        document.getElementById('addGoalModal').classList.remove('active');
+        document.getElementById('goalName').value = '';
+
+        alert(`Goal "${name}" added to ${category}!`);
+    }
+
+    removeGoal(category, goalIndex) {
+        const goal = this.data.current_week.goals_by_category[category][goalIndex];
+
+        if (confirm(`Remove goal "${goal.name}"? This will remove it from both current and historical data.`)) {
+            this.data.current_week.goals_by_category[category].splice(goalIndex, 1);
+            this.data.historical.categories[category].splice(goalIndex, 1);
+            this.data.historical.total_goals--;
+            this.saveData();
+            this.render();
+        }
+    }
+
+    updateCurrentWeekStrike(category, goalIndex, dayIndex, newValue) {
+        const goal = this.data.current_week.goals_by_category[category][goalIndex];
+        goal.strikes_by_day[dayIndex] = newValue;
+        goal.week_total = goal.strikes_by_day.reduce((sum, day) => sum + day, 0);
+
+        this.saveData();
+        this.renderCurrentWeekTable();
+        this.renderStats();
+    }
+
+    updateHistoricalStrike(category, goalIndex, weekIndex, newValue) {
+        const goal = this.data.historical.categories[category][goalIndex];
+        const oldValue = goal.strikes_by_week[weekIndex] || 0;
+        
+        goal.strikes_by_week[weekIndex] = newValue;
+        goal.total_strikes = goal.total_strikes - oldValue + newValue;
+        
+        // Recalculate weeks tracked
+        goal.weeks_tracked = goal.strikes_by_week.filter(s => s !== null).length;
+
+        this.saveData();
+        this.renderHistoricalTable();
+        this.renderStats();
+        this.renderChart();
+    }
+
+    async syncToGoogleSheets() {
+        if (confirm('Export current data as CSV for Google Sheets?')) {
+            this.exportCSV();
+            alert(
+                'CSV exported!\n\n' +
+                'To sync to Google Sheets:\n' +
+                '1. Open downloaded CSV\n' +
+                '2. Go to your Google Sheet\n' +
+                '3. File → Import → Upload CSV\n' +
+                '4. Choose "Append to current sheet" or "Replace sheet"'
+            );
+        }
+    }
+
+    exportCSV() {
+        let csv = 'Section,Category,Goal,Week,Sun,Mon,Tue,Wed,Thu,Fri,Sat,Total,Personal Avg\n';
+
+        // Current week data
+        const cw = this.data.current_week;
+        for (const category in cw.goals_by_category) {
+            cw.goals_by_category[category].forEach(goal => {
+                csv += `Current,"${category}","${goal.name}","${cw.week_name}",`;
+                csv += goal.strikes_by_day.join(',');
+                csv += `,${goal.week_total},${goal.personal_avg.toFixed(2)}\n`;
+            });
+        }
+
+        // Historical data
+        csv += '\nSection,Category,Goal';
+        this.data.historical.weeks.forEach(week => {
+            csv += `,"${week}"`;
+        });
+        csv += ',Total,Average\n';
+
+        for (const category in this.data.historical.categories) {
+            this.data.historical.categories[category].forEach(goal => {
+                csv += `Historical,"${category}","${goal.name}"`;
+                goal.strikes_by_week.forEach(strikes => {
+                    csv += `,${strikes === null ? '' : strikes}`;
+                });
+                const avg = goal.weeks_tracked > 0 ? (goal.total_strikes / goal.weeks_tracked).toFixed(2) : '0.00';
+                csv += `,${goal.total_strikes},${avg}\n`;
+            });
+        }
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `accountability-tracker-v3.1-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+    }
+
+    render() {
+        this.renderStats();
+        this.renderCurrentWeekTable();
+        this.renderHistoricalTable();
+        this.renderChart();
+    }
+
+    renderStats() {
+        const cw = this.data.current_week;
+        
+        let currentWeekTotal = 0;
+        let goalCount = 0;
+        let historicalAvg = 0;
+        let historicalTotal = 0;
+
+        // Current week totals
+        for (const category in cw.goals_by_category) {
+            cw.goals_by_category[category].forEach(goal => {
+                currentWeekTotal += goal.week_total;
+                goalCount++;
+            });
+        }
+
+        // Historical totals
+        for (const category in this.data.historical.categories) {
+            this.data.historical.categories[category].forEach(goal => {
+                historicalTotal += goal.total_strikes;
+            });
+        }
+
+        const totalWeeks = this.data.historical.total_weeks;
+        historicalAvg = totalWeeks > 0 ? (historicalTotal / totalWeeks).toFixed(1) : 0;
+
+        const comparison = currentWeekTotal < parseFloat(historicalAvg) ? 'better' : 'worse';
+        const comparisonText = currentWeekTotal < parseFloat(historicalAvg) 
+            ? '🎉 Below average!' 
+            : '⚠️ Above average';
+
+        const html = `
+            <div class="stat-card">
+                <h3>Current Week</h3>
+                <div class="value">${currentWeekTotal}</div>
+                <div class="subvalue ${comparison}">${comparisonText}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Historical Avg</h3>
+                <div class="value">${historicalAvg}</div>
+                <div class="subvalue">${totalWeeks} weeks tracked</div>
+            </div>
+            <div class="stat-card">
+                <h3>Active Goals</h3>
+                <div class="value">${goalCount}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Week Progress</h3>
+                <div class="value">${cw.week_name}</div>
+            </div>
+        `;
+
+        document.getElementById('stats').innerHTML = html;
+    }
+
+    renderCurrentWeekTable() {
+        const cw = this.data.current_week;
+        
+        let html = '<table><thead><tr>';
+        html += '<th>Goal</th>';
+        
+        DAY_LABELS.forEach(day => {
+            html += `<th class="day-header">${day}</th>`;
+        });
+        
+        html += '<th>Week Total</th>';
+        html += '<th>vs Avg</th>';
+        html += '</tr></thead><tbody>';
+
+        // Render by category
+        for (const category in cw.goals_by_category) {
+            const goals = cw.goals_by_category[category];
+            if (goals.length === 0) continue;
+
+            html += `<tr><td colspan="10" class="category-row">${category}</td></tr>`;
+
+            goals.forEach((goal, goalIndex) => {
+                html += '<tr>';
+                html += `<td class="goal-name">
+                    ${goal.name}
+                    <button class="remove-btn" onclick="tracker.removeGoal('${category}', ${goalIndex})">✕</button>
+                </td>`;
+
+                // Daily strikes (editable)
+                goal.strikes_by_day.forEach((dayStrikes, dayIdx) => {
+                    let className = 'editable ';
+                    if (dayStrikes === 0) className += 'strike-0';
+                    else if (dayStrikes === 1) className += 'strike-1';
+                    else if (dayStrikes === 2) className += 'strike-2';
+                    else if (dayStrikes === 3) className += 'strike-3';
+                    else if (dayStrikes === 4) className += 'strike-4';
+                    else className += 'strike-5-plus';
+
+                    html += `<td class="${className}" onclick="tracker.editCurrentWeekCell('${category}', ${goalIndex}, ${dayIdx}, this)">
+                        <span>${dayStrikes}</span>
+                    </td>`;
+                });
+
+                // Week total
+                html += `<td style="font-weight: bold; background: #e9ecef;">${goal.week_total}</td>`;
+
+                // Comparison to average
+                const diff = goal.week_total - goal.personal_avg;
+                const compClass = diff < 0 ? 'better' : (diff > 0 ? 'worse' : '');
+                const compText = diff < 0 ? `${Math.abs(diff).toFixed(1)} better` : (diff > 0 ? `+${diff.toFixed(1)} worse` : 'On track');
+                html += `<td class="comparison ${compClass}">${compText}</td>`;
+
+                html += '</tr>';
+            });
+        }
+
+        html += '</tbody></table>';
+        document.getElementById('currentWeekTable').innerHTML = html;
+    }
+
+    renderHistoricalTable() {
+        const hist = this.data.historical;
+        const weeks = hist.weeks;
+        const displayWeeksCount = this.displayMode === 'all' ? weeks.length : this.displayMode;
+        const startWeek = Math.max(0, weeks.length - displayWeeksCount);
+        const visibleWeeks = weeks.slice(startWeek);
+
+        let html = '<table><thead><tr><th>Goal</th>';
+
+        visibleWeeks.forEach(week => {
+            html += `<th class="week-header">${week}</th>`;
+        });
+
+        html += '<th>Total</th><th>Avg</th></tr></thead><tbody>';
+
+        // Render by category
+        for (const category in hist.categories) {
+            const goals = hist.categories[category];
+            if (goals.length === 0) continue;
+
+            html += `<tr><td colspan="${visibleWeeks.length + 3}" class="category-row">${category}</td></tr>`;
+
+            goals.forEach((goal, goalIndex) => {
+                html += '<tr>';
+                html += `<td class="goal-name">${goal.name}</td>`;
+
+                // Weekly strikes
+                const visibleStrikes = goal.strikes_by_week.slice(startWeek);
+                visibleStrikes.forEach((strikes, weekIdx) => {
+                    const weekIndex = startWeek + weekIdx;
+                    let className = 'editable ';
+                    let display = strikes === null ? '-' : strikes;
+
+                    if (strikes !== null) {
+                        if (strikes === 0) className += 'strike-0';
+                        else if (strikes === 1) className += 'strike-1';
+                        else if (strikes === 2) className += 'strike-2';
+                        else if (strikes === 3) className += 'strike-3';
+                        else if (strikes === 4) className += 'strike-4';
+                        else className += 'strike-5-plus';
+                    } else {
+                        className += 'strike-null';
+                    }
+
+                    html += `<td class="${className}" onclick="tracker.editHistoricalCell('${category}', ${goalIndex}, ${weekIndex}, this)">
+                        <span>${display}</span>
+                    </td>`;
+                });
+
+                html += `<td style="font-weight: bold; background: #e9ecef;">${goal.total_strikes}</td>`;
+                const avg = goal.weeks_tracked > 0 ? (goal.total_strikes / goal.weeks_tracked).toFixed(2) : '0.00';
+                html += `<td style="font-weight: bold; background: #e9ecef;">${avg}</td>`;
+                html += '</tr>';
+            });
+        }
+
+        html += '</tbody></table>';
+        document.getElementById('historicalTable').innerHTML = html;
+    }
+
+    editCurrentWeekCell(category, goalIndex, dayIndex, cell) {
+        const span = cell.querySelector('span');
+        const currentValue = parseInt(span.textContent) || 0;
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.value = currentValue;
+        input.style.width = '100%';
+        input.style.textAlign = 'center';
+
+        span.style.display = 'none';
+        cell.appendChild(input);
+        input.focus();
+        input.select();
+
+        const save = () => {
+            const newValue = parseInt(input.value) || 0;
+            this.updateCurrentWeekStrike(category, goalIndex, dayIndex, newValue);
+            input.remove();
+            span.style.display = '';
+        };
+
+        input.addEventListener('blur', save);
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') save();
+        });
+    }
+
+    editHistoricalCell(category, goalIndex, weekIndex, cell) {
+        const span = cell.querySelector('span');
+        const currentValue = span.textContent === '-' ? 0 : parseInt(span.textContent);
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.value = currentValue;
+        input.style.width = '100%';
+        input.style.textAlign = 'center';
+
+        span.style.display = 'none';
+        cell.appendChild(input);
+        input.focus();
+        input.select();
+
+        const save = () => {
+            const newValue = parseInt(input.value) || 0;
+            this.updateHistoricalStrike(category, goalIndex, weekIndex, newValue);
+            input.remove();
+            span.style.display = '';
+        };
+
+        input.addEventListener('blur', save);
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') save();
+        });
+    }
+
+    renderChart() {
+        const ctx = document.getElementById('evolutionChart');
+        const weeklyTotals = [];
+
+        this.data.historical.weeks.forEach((week, weekIdx) => {
+            let total = 0;
+            for (const category in this.data.historical.categories) {
+                this.data.historical.categories[category].forEach(goal => {
+                    const strikes = goal.strikes_by_week[weekIdx];
+                    if (strikes !== null) total += strikes;
+                });
+            }
+            weeklyTotals.push(total);
+        });
+
+        if (this.chart) this.chart.destroy();
+
+        this.chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: this.data.historical.weeks,
+                datasets: [{
+                    label: 'Total Strikes Per Week',
+                    data: weeklyTotals,
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 3,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Your Accountability Journey - Historical Weekly Performance',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Total Strikes'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Week'
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Embedded data
+const EMBEDDED_DATA = {
+  "current_week": {
+    "week_name": "12/29-1/4",
+    "start_date": "2024-12-29",
+    "goals_by_category": {
+      "Physical Health": [
+        {
+          "name": "1 night of up to 2 drinks",
+          "category": "Physical Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 1.5862068965517242
+        },
+        {
+          "name": "10 Minute Stretching/Mobility",
+          "category": "Physical Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.23809523809523808
+        },
+        {
+          "name": "2 Cardio Training ((1 swim)",
+          "category": "Physical Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 1.2777777777777777
+        },
+        {
+          "name": "2 Strength Training (Each session have 1 heavy, strength building and rest size)",
+          "category": "Physical Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.18421052631578946
+        },
+        {
+          "name": "Awake by 7:25AM or 7:45 on weekdays; depending on WFH",
+          "category": "Physical Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 1.8
+        },
+        {
+          "name": "Cardio Work Outs x2 (1 HIIT workout)",
+          "category": "Physical Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.5
+        },
+        {
+          "name": "Core Work Out x1 (Can be cardio focused core)",
+          "category": "Physical Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.2926829268292683
+        },
+        {
+          "name": "In bed by 11:15PM on weeknights",
+          "category": "Physical Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.926829268292683
+        },
+        {
+          "name": "No Zyns",
+          "category": "Physical Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.5121951219512195
+        },
+        {
+          "name": "Triathlon training x4 (One must be an open water swim)",
+          "category": "Physical Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.3333333333333333
+        }
+      ],
+      "Mental Health": [
+        {
+          "name": "Gratitude Journal x7",
+          "category": "Mental Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.3170731707317073
+        },
+        {
+          "name": "Max 15 minutes of Instagram per day",
+          "category": "Mental Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.0
+        },
+        {
+          "name": "Meditate x7",
+          "category": "Mental Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 2.268292682926829
+        },
+        {
+          "name": "Read 1 chapter of a parenting book or 1 parenting article",
+          "category": "Mental Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.3170731707317073
+        },
+        {
+          "name": "Read 10 minutes every morning or evening",
+          "category": "Mental Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.1951219512195122
+        },
+        {
+          "name": "Read 50 pages of non-fiction OR 2 chapters of an audiobook",
+          "category": "Mental Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.12195121951219512
+        },
+        {
+          "name": "Review strikes each night or in morning of following day",
+          "category": "Mental Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 1.024390243902439
+        },
+        {
+          "name": "Set weekly goals",
+          "category": "Mental Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.0
+        },
+        {
+          "name": "Ten Minutes Written Journaling x2 (Wednesday & Sunday)",
+          "category": "Mental Health",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.926829268292683
+        }
+      ],
+      "Budgeting": [
+        {
+          "name": "Buy breakfast, x1 per week",
+          "category": "Budgeting",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.04878048780487805
+        },
+        {
+          "name": "Buy dinner max, x1 per weekend",
+          "category": "Budgeting",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.024390243902439025
+        },
+        {
+          "name": "Buy dinner max, x2 per weekdays",
+          "category": "Budgeting",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.024390243902439025
+        },
+        {
+          "name": "Buy lunch max, x1 per weekend",
+          "category": "Budgeting",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.0
+        },
+        {
+          "name": "Buy lunch max, x2 per weekdays",
+          "category": "Budgeting",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.04878048780487805
+        },
+        {
+          "name": "Review expenses for 5 minutes at one point in the day",
+          "category": "Budgeting",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 1.146341463414634
+        }
+      ],
+      "Work": [
+        {
+          "name": "Begin active work by 9:30AM each day",
+          "category": "Work",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.5365853658536586
+        },
+        {
+          "name": "Do 15 minutes of AI training (read newsletter, experiment with a new tool, watch a video, etc.)",
+          "category": "Work",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 1.3333333333333333
+        },
+        {
+          "name": "Do 4 pomadoro time blocks each day",
+          "category": "Work",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.34146341463414637
+        },
+        {
+          "name": "Do 90 minutes of focused do not disturb work every workday OR",
+          "category": "Work",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.3170731707317073
+        },
+        {
+          "name": "Time block each day, intent to better plan day",
+          "category": "Work",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.2926829268292683
+        }
+      ],
+      "Monthly": [
+        {
+          "name": "2 'nice' planned date nights a month",
+          "category": "Monthly",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.0
+        },
+        {
+          "name": "Check-in with Chelsey on how she feels about us and what I can do as a partner",
+          "category": "Monthly",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.0
+        },
+        {
+          "name": "Go to 1 networking event a month - either direct coffee, happy hour or speaker",
+          "category": "Monthly",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.04878048780487805
+        },
+        {
+          "name": "Review financial health (expenses, savings)",
+          "category": "Monthly",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.0
+        }
+      ],
+      "Cooking": [
+        {
+          "name": "Cook 1 new meal a week",
+          "category": "Cooking",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.34146341463414637
+        },
+        {
+          "name": "Read 10 pages of cook book each week",
+          "category": "Cooking",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.4878048780487805
+        }
+      ],
+      "Other": [
+        {
+          "name": "Polish boots",
+          "category": "Other",
+          "strikes_by_day": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "week_total": 0,
+          "personal_avg": 0.3
+        }
+      ]
+    }
+  },
+  "historical": {
+    "weeks": [
+      "1/12-1/18",
+      "1/19-1/25",
+      "1/26-2/1",
+      "2/2-2/8",
+      "2/16-2/22",
+      "2/23-3/1",
+      "3/2-3/8",
+      "3/9-3/15",
+      "3/16-3/22",
+      "3/23-3/30",
+      "3/30 - 4/5",
+      "4/6 - 4/12",
+      "4/13 - 4/19",
+      "4/20 - 4/26",
+      "4/27 - 5/3",
+      "5/4 - 5/10",
+      "5/11 - 5/17",
+      "5/18 - 5/24",
+      "5/25 - 5/31",
+      "6/1 - 6/7",
+      "8/3 - 8/9",
+      "8/10 - 8/16",
+      "8/17 - 8/23",
+      "8/24 - 8/30",
+      "8/31 - 9/6",
+      "9/7 - 9/13",
+      "9/21- 9/27",
+      "9/29- 10/04",
+      "10/05- 10/12",
+      "10/11- 10/18",
+      "10/19- 10/25",
+      "10/26- 11/1",
+      "11/2- 11/8",
+      "11/9- 11/15",
+      "11/16- 11/22",
+      "11/23- 11/29",
+      "11/30- 12/26",
+      "12/7- 12/13",
+      "12/14- 12/20",
+      "12/21- 12/28",
+      "12/28- 1/3"
+    ],
+    "date_range": "1/12-1/18 to 12/28- 1/3",
+    "total_weeks": 41,
+    "total_goals": 37,
+    "categories": {
+      "Physical Health": [
+        {
+          "name": "1 night of up to 2 drinks",
+          "category": "Physical Health",
+          "strikes_by_week": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            2,
+            2,
+            1,
+            1,
+            1,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            5,
+            4,
+            3,
+            2,
+            3,
+            3,
+            1,
+            2,
+            1,
+            1,
+            0,
+            4,
+            3,
+            2,
+            2,
+            0,
+            1
+          ],
+          "total_strikes": 46,
+          "weeks_tracked": 29,
+          "first_seen": "4/13 - 4/19",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "10 Minute Stretching/Mobility",
+          "category": "Physical Health",
+          "strikes_by_week": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            2,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 5,
+          "weeks_tracked": 21,
+          "first_seen": "8/3 - 8/9",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "2 Cardio Training ((1 swim)",
+          "category": "Physical Health",
+          "strikes_by_week": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            2,
+            3,
+            1,
+            2,
+            2,
+            1,
+            1,
+            1,
+            2,
+            0,
+            2,
+            2,
+            1,
+            2,
+            1,
+            0,
+            0
+          ],
+          "total_strikes": 23,
+          "weeks_tracked": 18,
+          "first_seen": "8/24 - 8/30",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "2 Strength Training (Each session have 1 heavy, strength building and rest size)",
+          "category": "Physical Health",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            null,
+            null,
+            null,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 7,
+          "weeks_tracked": 38,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Awake by 7:25AM or 7:45 on weekdays; depending on WFH",
+          "category": "Physical Health",
+          "strikes_by_week": [
+            5,
+            3,
+            1,
+            3,
+            2,
+            2,
+            1,
+            2,
+            2,
+            1,
+            2,
+            2,
+            1,
+            4,
+            1,
+            2,
+            2,
+            0,
+            0,
+            0,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total_strikes": 36,
+          "weeks_tracked": 20,
+          "first_seen": "1/12-1/18",
+          "last_seen": "6/1 - 6/7"
+        },
+        {
+          "name": "Cardio Work Outs x2 (1 HIIT workout)",
+          "category": "Physical Health",
+          "strikes_by_week": [
+            1,
+            0,
+            1,
+            0,
+            2,
+            0,
+            0,
+            2,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total_strikes": 10,
+          "weeks_tracked": 20,
+          "first_seen": "1/12-1/18",
+          "last_seen": "6/1 - 6/7"
+        },
+        {
+          "name": "Core Work Out x1 (Can be cardio focused core)",
+          "category": "Physical Health",
+          "strikes_by_week": [
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            2,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0
+          ],
+          "total_strikes": 12,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "In bed by 11:15PM on weeknights",
+          "category": "Physical Health",
+          "strikes_by_week": [
+            1,
+            3,
+            2,
+            3,
+            1,
+            0,
+            0,
+            2,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            2,
+            0,
+            0,
+            0,
+            1,
+            2,
+            2,
+            3,
+            3,
+            1,
+            0,
+            3,
+            2,
+            1,
+            0,
+            0
+          ],
+          "total_strikes": 38,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "No Zyns",
+          "category": "Physical Health",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            2,
+            1,
+            0,
+            2,
+            2,
+            0,
+            1,
+            1,
+            1,
+            2,
+            1,
+            0,
+            0,
+            0,
+            0,
+            3,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0
+          ],
+          "total_strikes": 21,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Triathlon training x4 (One must be an open water swim)",
+          "category": "Physical Health",
+          "strikes_by_week": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            1,
+            0,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "total_strikes": 1,
+          "weeks_tracked": 3,
+          "first_seen": "8/3 - 8/9",
+          "last_seen": "8/17 - 8/23"
+        }
+      ],
+      "Mental Health": [
+        {
+          "name": "Gratitude Journal x7",
+          "category": "Mental Health",
+          "strikes_by_week": [
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            5,
+            1,
+            1,
+            4,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 13,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Max 15 minutes of Instagram per day",
+          "category": "Mental Health",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 0,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Meditate x7",
+          "category": "Mental Health",
+          "strikes_by_week": [
+            0,
+            2,
+            1,
+            1,
+            0,
+            1,
+            1,
+            2,
+            0,
+            2,
+            2,
+            2,
+            4,
+            4,
+            4,
+            3,
+            2,
+            1,
+            2,
+            1,
+            5,
+            6,
+            6,
+            5,
+            2,
+            7,
+            3,
+            2,
+            1,
+            1,
+            2,
+            3,
+            1,
+            2,
+            2,
+            6,
+            0,
+            1,
+            1,
+            1,
+            1
+          ],
+          "total_strikes": 93,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Read 1 chapter of a parenting book or 1 parenting article",
+          "category": "Mental Health",
+          "strikes_by_week": [
+            0,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          "total_strikes": 13,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Read 10 minutes every morning or evening",
+          "category": "Mental Health",
+          "strikes_by_week": [
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 8,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Read 50 pages of non-fiction OR 2 chapters of an audiobook",
+          "category": "Mental Health",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 5,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Review strikes each night or in morning of following day",
+          "category": "Mental Health",
+          "strikes_by_week": [
+            3,
+            3,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            2,
+            1,
+            0,
+            1,
+            0,
+            0,
+            2,
+            3,
+            3,
+            4,
+            2,
+            3,
+            3,
+            0,
+            3,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            3,
+            0,
+            1,
+            1,
+            0,
+            0
+          ],
+          "total_strikes": 42,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Set weekly goals",
+          "category": "Mental Health",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 0,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Ten Minutes Written Journaling x2 (Wednesday & Sunday)",
+          "category": "Mental Health",
+          "strikes_by_week": [
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            2,
+            2,
+            1,
+            2,
+            1,
+            2,
+            2,
+            1,
+            1,
+            2,
+            2,
+            2,
+            1,
+            0,
+            2,
+            1,
+            2,
+            0,
+            1,
+            2,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 38,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        }
+      ],
+      "Budgeting": [
+        {
+          "name": "Buy breakfast, x1 per week",
+          "category": "Budgeting",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 2,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Buy dinner max, x1 per weekend",
+          "category": "Budgeting",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 1,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Buy dinner max, x2 per weekdays",
+          "category": "Budgeting",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 1,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Buy lunch max, x1 per weekend",
+          "category": "Budgeting",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 0,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Buy lunch max, x2 per weekdays",
+          "category": "Budgeting",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 2,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Review expenses for 5 minutes at one point in the day",
+          "category": "Budgeting",
+          "strikes_by_week": [
+            2,
+            3,
+            1,
+            0,
+            2,
+            2,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            2,
+            2,
+            1,
+            2,
+            0,
+            4,
+            2,
+            2,
+            2,
+            0,
+            2,
+            1,
+            0,
+            2,
+            0,
+            4,
+            2,
+            1,
+            2,
+            0,
+            1
+          ],
+          "total_strikes": 47,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        }
+      ],
+      "Work": [
+        {
+          "name": "Begin active work by 9:30AM each day",
+          "category": "Work",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            2,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            1,
+            3,
+            1,
+            1,
+            1,
+            2,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          "total_strikes": 22,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Do 15 minutes of AI training (read newsletter, experiment with a new tool, watch a video, etc.)",
+          "category": "Work",
+          "strikes_by_week": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            1,
+            2,
+            2,
+            2,
+            5,
+            0,
+            1,
+            1,
+            1,
+            2,
+            2,
+            1,
+            1,
+            2,
+            3,
+            1,
+            0,
+            1,
+            0,
+            0
+          ],
+          "total_strikes": 28,
+          "weeks_tracked": 21,
+          "first_seen": "8/3 - 8/9",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Do 4 pomadoro time blocks each day",
+          "category": "Work",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            1,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            1,
+            1,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0
+          ],
+          "total_strikes": 14,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Do 90 minutes of focused do not disturb work every workday OR",
+          "category": "Work",
+          "strikes_by_week": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            2,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 13,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Time block each day, intent to better plan day",
+          "category": "Work",
+          "strikes_by_week": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            2,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            2,
+            1,
+            0,
+            0
+          ],
+          "total_strikes": 12,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        }
+      ],
+      "Monthly": [
+        {
+          "name": "2 'nice' planned date nights a month",
+          "category": "Monthly",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 0,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Check-in with Chelsey on how she feels about us and what I can do as a partner",
+          "category": "Monthly",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 0,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Go to 1 networking event a month - either direct coffee, happy hour or speaker",
+          "category": "Monthly",
+          "strikes_by_week": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 2,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Review financial health (expenses, savings)",
+          "category": "Monthly",
+          "strikes_by_week": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 0,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        }
+      ],
+      "Cooking": [
+        {
+          "name": "Cook 1 new meal a week",
+          "category": "Cooking",
+          "strikes_by_week": [
+            0,
+            0,
+            1,
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 14,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        },
+        {
+          "name": "Read 10 pages of cook book each week",
+          "category": "Cooking",
+          "strikes_by_week": [
+            1,
+            0,
+            1,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 20,
+          "weeks_tracked": 41,
+          "first_seen": "1/12-1/18",
+          "last_seen": "12/28- 1/3"
+        }
+      ],
+      "Other": [
+        {
+          "name": "Polish boots",
+          "category": "Other",
+          "strikes_by_week": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "total_strikes": 3,
+          "weeks_tracked": 10,
+          "first_seen": "10/26- 11/1",
+          "last_seen": "12/28- 1/3"
+        }
+      ]
+    }
+  }
+};
+
+// Initialize
+let tracker;
+document.addEventListener('DOMContentLoaded', () => {
+    tracker = new InteractiveTracker();
+});
+
+    </script>
+</body>
+</html>
