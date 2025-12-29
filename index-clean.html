@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accountability Tracker - Clean View</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #4a90e2, #7b68ee);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #4a90e2;
+        }
+
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            background: #4a90e2;
+            color: white;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #357abd;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        th, td {
+            padding: 10px 8px;
+            text-align: center;
+            border: 1px solid #e1e4e8;
+        }
+
+        th {
+            background: #4a90e2;
+            color: white;
+            position: sticky;
+            top: 0;
+            font-weight: 600;
+            z-index: 10;
+        }
+
+        th.week-header {
+            font-size: 0.75rem;
+            min-width: 60px;
+        }
+
+        td.goal-name {
+            text-align: left;
+            font-weight: 500;
+            background: #f8f9fa;
+            position: sticky;
+            left: 0;
+            max-width: 350px;
+            min-width: 250px;
+            z-index: 5;
+        }
+
+        .category-row {
+            background: #7b68ee !important;
+            color: white !important;
+            font-weight: 700;
+            text-align: left !important;
+        }
+
+        /* Color coding for strikes */
+        .strike-0 { background: #d4edda; color: #155724; }
+        .strike-1 { background: #fff3cd; color: #856404; }
+        .strike-2 { background: #ffeaa7; color: #6c5503; }
+        .strike-3 { background: #fdcb6e; color: #533400; }
+        .strike-4 { background: #fab1a0; color: #721c24; }
+        .strike-5-plus { background: #e74c3c; color: white; font-weight: bold; }
+        .strike-null { background: #f8f9fa; color: #ccc; }
+
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            height: 400px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Accountability Tracker - Evolution View</h1>
+            <p class="subtitle">Showing your habit evolution across 37 recurring goals and 41 weeks</p>
+        </header>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="chart-container">
+            <canvas id="evolutionChart"></canvas>
+        </div>
+
+        <div class="table-container">
+            <h2 style="margin-bottom: 15px;">Weekly Strikes by Goal</h2>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color strike-0"></div>
+                    <span>0 strikes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-1"></div>
+                    <span>1 strike</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-2"></div>
+                    <span>2 strikes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-3"></div>
+                    <span>3 strikes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-4"></div>
+                    <span>4 strikes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-5-plus"></div>
+                    <span>5+ strikes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color strike-null"></div>
+                    <span>Not tracked</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn" id="showAllWeeks">Show All Weeks</button>
+                <button class="btn btn-secondary" id="showRecent12">Show Recent 12 Weeks</button>
+                <button class="btn btn-secondary" id="showRecent6">Show Recent 6 Weeks</button>
+            </div>
+
+            <div id="tableContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let data = null;
+        let chart = null;
+        let displayWeeks = 'all';
+
+        // Load the clean master list
+        fetch('master_list_clean.json')
+            .then(response => response.json())
+            .then(loadedData => {
+                data = loadedData;
+                render();
+            })
+            .catch(error => {
+                console.error('Error loading data:', error);
+                document.body.innerHTML = '<div class="loading">Error loading data. Please make sure master_list_clean.json is in the same folder.</div>';
+            });
+
+        function render() {
+            renderStats();
+            renderTable();
+            renderChart();
+        }
+
+        function renderStats() {
+            const totalGoals = data.total_goals;
+            const totalWeeks = data.total_weeks;
+
+            // Calculate totals
+            let totalStrikes = 0;
+            let recentWeekStrikes = 0;
+
+            for (const category in data.categories) {
+                data.categories[category].forEach(goal => {
+                    totalStrikes += goal.total_strikes;
+                    const lastStrike = goal.strikes_by_week[goal.strikes_by_week.length - 1];
+                    if (lastStrike !== null) {
+                        recentWeekStrikes += lastStrike;
+                    }
+                });
+            }
+
+            const avgStrikesPerWeek = (totalStrikes / totalWeeks).toFixed(1);
+
+            const html = `
+                <div class="stat-card">
+                    <h3>Total Goals</h3>
+                    <div class="value">${totalGoals}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Weeks Tracked</h3>
+                    <div class="value">${totalWeeks}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Avg Strikes/Week</h3>
+                    <div class="value">${avgStrikesPerWeek}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Most Recent Week</h3>
+                    <div class="value">${recentWeekStrikes}</div>
+                </div>
+            `;
+
+            document.getElementById('stats').innerHTML = html;
+        }
+
+        function renderTable() {
+            const weeks = data.weeks;
+            const displayWeeksCount = displayWeeks === 'all' ? weeks.length :
+                                     displayWeeks === 12 ? 12 : 6;
+            const startWeek = Math.max(0, weeks.length - displayWeeksCount);
+            const visibleWeeks = weeks.slice(startWeek);
+
+            let html = '<table><thead><tr><th>Goal</th>';
+
+            visibleWeeks.forEach(week => {
+                html += `<th class="week-header">${week}</th>`;
+            });
+            html += '<th>Total</th></tr></thead><tbody>';
+
+            // Render by category
+            for (const category in data.categories) {
+                const goals = data.categories[category];
+                if (goals.length === 0) continue;
+
+                html += `<tr><td colspan="${visibleWeeks.length + 2}" class="category-row">${category}</td></tr>`;
+
+                goals.forEach(goal => {
+                    html += '<tr>';
+                    html += `<td class="goal-name">${goal.name}</td>`;
+
+                    // Show strikes for visible weeks
+                    const visibleStrikes = goal.strikes_by_week.slice(startWeek);
+                    visibleStrikes.forEach(strikes => {
+                        let className = 'strike-null';
+                        let display = '-';
+
+                        if (strikes !== null) {
+                            if (strikes === 0) className = 'strike-0';
+                            else if (strikes === 1) className = 'strike-1';
+                            else if (strikes === 2) className = 'strike-2';
+                            else if (strikes === 3) className = 'strike-3';
+                            else if (strikes === 4) className = 'strike-4';
+                            else className = 'strike-5-plus';
+
+                            display = strikes;
+                        }
+
+                        html += `<td class="${className}">${display}</td>`;
+                    });
+
+                    html += `<td style="font-weight: bold; background: #e9ecef;">${goal.total_strikes}</td>`;
+                    html += '</tr>';
+                });
+            }
+
+            html += '</tbody></table>';
+            document.getElementById('tableContainer').innerHTML = html;
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('evolutionChart');
+
+            // Calculate total strikes per week
+            const weeklyTotals = new Array(data.weeks.length).fill(0);
+
+            for (const category in data.categories) {
+                data.categories[category].forEach(goal => {
+                    goal.strikes_by_week.forEach((strikes, idx) => {
+                        if (strikes !== null) {
+                            weeklyTotals[idx] += strikes;
+                        }
+                    });
+                });
+            }
+
+            if (chart) chart.destroy();
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.weeks,
+                    datasets: [{
+                        label: 'Total Strikes Per Week',
+                        data: weeklyTotals,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Accountability Evolution - Total Strikes Over Time',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Total Strikes'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Week'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event listeners
+        document.getElementById('showAllWeeks').addEventListener('click', () => {
+            displayWeeks = 'all';
+            renderTable();
+        });
+
+        document.getElementById('showRecent12').addEventListener('click', () => {
+            displayWeeks = 12;
+            renderTable();
+        });
+
+        document.getElementById('showRecent6').addEventListener('click', () => {
+            displayWeeks = 6;
+            renderTable();
+        });
+    </script>
+</body>
+</html>
