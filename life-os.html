@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Life OS - Personal Operating System</title>
+    <link rel="stylesheet" href="life-os.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Life OS">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2 class="logo">Life OS</h2>
+            <span class="logo-sub">Personal Operating System</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#" class="nav-link active" data-section="dashboard"><span class="nav-icon">&#9673;</span> Dashboard</a></li>
+            <li><a href="#" class="nav-link" data-section="goals"><span class="nav-icon">&#9889;</span> Goals</a></li>
+            <li><a href="#" class="nav-link" data-section="finances"><span class="nav-icon">&#36;</span> Finances</a></li>
+            <li><a href="#" class="nav-link" data-section="health"><span class="nav-icon">&#9829;</span> Health</a></li>
+            <li><a href="#" class="nav-link" data-section="habits"><span class="nav-icon">&#10003;</span> Habits</a></li>
+            <li><a href="#" class="nav-link" data-section="journal"><span class="nav-icon">&#9998;</span> Reflection</a></li>
+            <li><a href="#" class="nav-link" data-section="review"><span class="nav-icon">&#9733;</span> Weekly Review</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <button class="btn-settings" id="settingsBtn">Settings</button>
+        </div>
+    </nav>
+
+    <!-- Mobile Header -->
+    <div class="mobile-header">
+        <button class="hamburger" id="menuToggle">&#9776;</button>
+        <h2>Life OS</h2>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+
+        <!-- ===== DASHBOARD SECTION ===== -->
+        <section class="section active" id="section-dashboard">
+            <div class="section-header">
+                <h1>Command Center</h1>
+                <p class="section-subtitle" id="dashboardDate"></p>
+            </div>
+
+            <!-- Life Score -->
+            <div class="life-score-container">
+                <div class="life-score-card">
+                    <div class="life-score-ring">
+                        <canvas id="lifeScoreChart" width="180" height="180"></canvas>
+                        <div class="life-score-value" id="lifeScoreValue">--</div>
+                    </div>
+                    <h3>Life Score</h3>
+                    <p class="text-muted">Overall performance this week</p>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="stats-grid">
+                <div class="stat-card stat-goals">
+                    <div class="stat-icon">&#9889;</div>
+                    <div class="stat-info">
+                        <h4>Goals On Track</h4>
+                        <div class="stat-number" id="dashGoalsOnTrack">--</div>
+                        <div class="stat-detail" id="dashGoalsDetail">of -- goals</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-finance">
+                    <div class="stat-icon">&#36;</div>
+                    <div class="stat-info">
+                        <h4>Monthly Spend</h4>
+                        <div class="stat-number" id="dashMonthlySpend">--</div>
+                        <div class="stat-detail" id="dashBudgetDetail">of budget</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-health">
+                    <div class="stat-icon">&#9829;</div>
+                    <div class="stat-info">
+                        <h4>Health Score</h4>
+                        <div class="stat-number" id="dashHealthScore">--</div>
+                        <div class="stat-detail">this week</div>
+                    </div>
+                </div>
+                <div class="stat-card stat-habits">
+                    <div class="stat-icon">&#10003;</div>
+                    <div class="stat-info">
+                        <h4>Habit Streak</h4>
+                        <div class="stat-number" id="dashHabitStreak">--</div>
+                        <div class="stat-detail">days strong</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h3>Quick Actions</h3>
+                <div class="actions-row">
+                    <button class="action-btn" data-action="log-habit">Log Today's Habits</button>
+                    <button class="action-btn" data-action="add-expense">Add Expense</button>
+                    <button class="action-btn" data-action="journal-entry">Evening Reflection</button>
+                    <button class="action-btn" data-action="weekly-review">Start Weekly Review</button>
+                </div>
+            </div>
+
+            <!-- Category Overview -->
+            <div class="category-overview">
+                <h3>This Week by Category</h3>
+                <div class="category-bars" id="dashCategoryBars">
+                    <!-- Dynamic category progress bars -->
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="recent-activity">
+                <h3>Recent Activity</h3>
+                <div class="activity-feed" id="activityFeed">
+                    <div class="activity-item">
+                        <span class="activity-dot"></span>
+                        <span class="activity-text">Welcome to Life OS. Start tracking to see activity here.</span>
+                        <span class="activity-time">just now</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== GOALS SECTION ===== -->
+        <section class="section" id="section-goals">
+            <div class="section-header">
+                <h1>Goals & Accountability</h1>
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="importAccountabilityBtn">Import from Tracker</button>
+                    <button class="btn btn-secondary" id="newWeekBtn">+ New Week</button>
+                </div>
+            </div>
+
+            <!-- Week Navigation -->
+            <div class="week-nav">
+                <button class="btn btn-nav" id="prevWeekBtn">&larr; Previous</button>
+                <span class="week-label" id="currentWeekLabel">Current Week</span>
+                <button class="btn btn-nav" id="nextWeekBtn">Next &rarr;</button>
+            </div>
+
+            <!-- Goals Tracking Grid -->
+            <div class="goals-grid-container">
+                <div id="goalsGrid" class="goals-grid">
+                    <!-- Dynamic goal tracking table -->
+                </div>
+            </div>
+
+            <!-- Goal Analytics -->
+            <div class="goal-analytics">
+                <div class="chart-card">
+                    <h4>Strikes Over Time</h4>
+                    <canvas id="goalStrikesChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4>Category Performance</h4>
+                    <canvas id="goalCategoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Manage Goals -->
+            <div class="manage-goals-section">
+                <h3>Manage Goals</h3>
+                <div id="goalsList" class="goals-list">
+                    <!-- Dynamic goals list -->
+                </div>
+                <button class="btn btn-primary" id="addGoalBtn">+ Add Goal</button>
+            </div>
+        </section>
+
+        <!-- ===== FINANCES SECTION ===== -->
+        <section class="section" id="section-finances">
+            <div class="section-header">
+                <h1>Finance Hub</h1>
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="importMonarchBtn">Import Monarch CSV</button>
+                    <button class="btn btn-secondary" id="addTransactionBtn">+ Add Transaction</button>
+                    <input type="file" id="monarchFileInput" accept=".csv" style="display:none;">
+                </div>
+            </div>
+
+            <!-- Finance Overview Cards -->
+            <div class="finance-overview">
+                <div class="finance-card">
+                    <h4>Total Income</h4>
+                    <div class="finance-amount income" id="totalIncome">$0.00</div>
+                    <div class="finance-period">This Month</div>
+                </div>
+                <div class="finance-card">
+                    <h4>Total Expenses</h4>
+                    <div class="finance-amount expense" id="totalExpenses">$0.00</div>
+                    <div class="finance-period">This Month</div>
+                </div>
+                <div class="finance-card">
+                    <h4>Net</h4>
+                    <div class="finance-amount" id="netAmount">$0.00</div>
+                    <div class="finance-period">This Month</div>
+                </div>
+                <div class="finance-card">
+                    <h4>Savings Rate</h4>
+                    <div class="finance-amount" id="savingsRate">0%</div>
+                    <div class="finance-period">This Month</div>
+                </div>
+            </div>
+
+            <!-- Budget vs Actual -->
+            <div class="budget-section">
+                <h3>Budget vs Actual</h3>
+                <div class="budget-categories" id="budgetCategories">
+                    <!-- Dynamic budget bars -->
+                </div>
+                <button class="btn btn-secondary" id="editBudgetBtn">Edit Budget</button>
+            </div>
+
+            <!-- Finance Charts -->
+            <div class="finance-charts">
+                <div class="chart-card">
+                    <h4>Spending by Category</h4>
+                    <canvas id="spendingCategoryChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4>Monthly Trend</h4>
+                    <canvas id="monthlyTrendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Transactions List -->
+            <div class="transactions-section">
+                <h3>Recent Transactions</h3>
+                <div class="transactions-filter">
+                    <select id="txnCategoryFilter">
+                        <option value="all">All Categories</option>
+                    </select>
+                    <input type="text" id="txnSearch" placeholder="Search transactions...">
+                </div>
+                <div class="transactions-list" id="transactionsList">
+                    <div class="empty-state">Import a Monarch CSV or add transactions manually to get started.</div>
+                </div>
+            </div>
+
+            <!-- Accounts -->
+            <div class="accounts-section">
+                <h3>Accounts</h3>
+                <div class="accounts-grid" id="accountsGrid">
+                    <div class="empty-state">Add accounts to track your net worth.</div>
+                </div>
+                <button class="btn btn-secondary" id="addAccountBtn">+ Add Account</button>
+            </div>
+        </section>
+
+        <!-- ===== HEALTH SECTION ===== -->
+        <section class="section" id="section-health">
+            <div class="section-header">
+                <h1>Health & Wellness</h1>
+            </div>
+
+            <!-- Health Metrics -->
+            <div class="health-metrics">
+                <div class="health-card">
+                    <h4>Workouts</h4>
+                    <div class="health-ring">
+                        <canvas id="workoutRing" width="120" height="120"></canvas>
+                        <div class="ring-label" id="workoutCount">0/4</div>
+                    </div>
+                    <p>Strength + Cardio this week</p>
+                </div>
+                <div class="health-card">
+                    <h4>Sleep</h4>
+                    <div class="health-ring">
+                        <canvas id="sleepRing" width="120" height="120"></canvas>
+                        <div class="ring-label" id="sleepScore">--</div>
+                    </div>
+                    <p>Bedtime compliance</p>
+                </div>
+                <div class="health-card">
+                    <h4>Mindfulness</h4>
+                    <div class="health-ring">
+                        <canvas id="mindfulRing" width="120" height="120"></canvas>
+                        <div class="ring-label" id="mindfulCount">0/7</div>
+                    </div>
+                    <p>Meditation sessions</p>
+                </div>
+                <div class="health-card">
+                    <h4>Substances</h4>
+                    <div class="health-ring">
+                        <canvas id="substanceRing" width="120" height="120"></canvas>
+                        <div class="ring-label" id="substanceScore">--</div>
+                    </div>
+                    <p>Zyns & Alcohol tracking</p>
+                </div>
+            </div>
+
+            <!-- Health Log -->
+            <div class="health-log">
+                <h3>Quick Health Log</h3>
+                <div class="health-log-form">
+                    <div class="log-row">
+                        <label>Weight (lbs)</label>
+                        <input type="number" id="weightInput" placeholder="---">
+                        <button class="btn btn-primary btn-sm" id="logWeightBtn">Log</button>
+                    </div>
+                    <div class="log-row">
+                        <label>Sleep (hours)</label>
+                        <input type="number" id="sleepInput" placeholder="--" step="0.5">
+                        <button class="btn btn-primary btn-sm" id="logSleepBtn">Log</button>
+                    </div>
+                    <div class="log-row">
+                        <label>Energy Level</label>
+                        <div class="energy-buttons" id="energyButtons">
+                            <button class="energy-btn" data-level="1">1</button>
+                            <button class="energy-btn" data-level="2">2</button>
+                            <button class="energy-btn" data-level="3">3</button>
+                            <button class="energy-btn" data-level="4">4</button>
+                            <button class="energy-btn" data-level="5">5</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health Charts -->
+            <div class="health-charts">
+                <div class="chart-card">
+                    <h4>Weight Trend</h4>
+                    <canvas id="weightChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4>Sleep Trend</h4>
+                    <canvas id="sleepChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== HABITS SECTION ===== -->
+        <section class="section" id="section-habits">
+            <div class="section-header">
+                <h1>Daily Protocols</h1>
+                <div class="section-actions">
+                    <button class="btn btn-primary" id="addHabitBtn">+ Add Habit</button>
+                </div>
+            </div>
+
+            <!-- Today's Habits -->
+            <div class="today-habits">
+                <h3>Today - <span id="todayDate"></span></h3>
+                <div class="habits-checklist" id="habitsChecklist">
+                    <!-- Dynamic habits grouped by protocol -->
+                </div>
+            </div>
+
+            <!-- Weekly Ad-Hoc Tasks -->
+            <div class="adhoc-tasks-section">
+                <h3>Weekly Ad-Hoc Tasks</h3>
+                <div class="adhoc-tasks-list" id="adhocTasksList">
+                    <!-- Dynamic tasks -->
+                </div>
+                <div class="adhoc-add-row">
+                    <input type="text" id="adhocTaskInput" placeholder="Add a task for this week..." class="adhoc-input">
+                    <button class="btn btn-primary btn-sm" id="addAdhocTaskBtn">Add</button>
+                </div>
+            </div>
+
+            <!-- Habit Streaks -->
+            <div class="habit-streaks">
+                <h3>Streaks</h3>
+                <div class="streaks-grid" id="streaksGrid">
+                    <!-- Dynamic streaks -->
+                </div>
+            </div>
+
+            <!-- Habit Heatmap -->
+            <div class="habit-heatmap-section">
+                <h3>30-Day Overview</h3>
+                <div class="habit-heatmap" id="habitHeatmap">
+                    <!-- Dynamic heatmap -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== JOURNAL / EVENING REFLECTION SECTION ===== -->
+        <section class="section" id="section-journal">
+            <div class="section-header">
+                <h1>Evening Reflection</h1>
+                <p class="section-subtitle" style="font-style:italic;color:var(--text-muted);margin-top:4px;">"Every night before going to sleep, we must ask ourselves: what weakness did I overcome today? What virtue did I acquire?" - Seneca</p>
+            </div>
+
+            <!-- Stoic Evening Reflection Form -->
+            <div class="journal-compose" id="eveningReflectionForm">
+                <div class="stoic-form-group">
+                    <label class="stoic-label">What went well today? What am I proud of?</label>
+                    <textarea id="stoicWentWell" rows="3" placeholder="Celebrate the wins, however small..."></textarea>
+                </div>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">Where did I fall short? What could I improve?</label>
+                    <textarea id="stoicFellShort" rows="3" placeholder="Be honest but compassionate with yourself..."></textarea>
+                </div>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">What am I grateful for today? (3 things)</label>
+                    <textarea id="stoicGratitude" rows="3" placeholder="1. &#10;2. &#10;3. "></textarea>
+                </div>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">Did I live according to my values today?</label>
+                    <div class="stoic-rating" id="stoicValuesRating">
+                        <button class="rating-btn" data-rating="1">1</button>
+                        <button class="rating-btn" data-rating="2">2</button>
+                        <button class="rating-btn" data-rating="3">3</button>
+                        <button class="rating-btn" data-rating="4">4</button>
+                        <button class="rating-btn" data-rating="5">5</button>
+                        <button class="rating-btn" data-rating="6">6</button>
+                        <button class="rating-btn" data-rating="7">7</button>
+                        <button class="rating-btn" data-rating="8">8</button>
+                        <button class="rating-btn" data-rating="9">9</button>
+                        <button class="rating-btn" data-rating="10">10</button>
+                    </div>
+                </div>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">What is my intention for tomorrow?</label>
+                    <textarea id="stoicIntention" rows="2" placeholder="What one thing will I focus on?"></textarea>
+                </div>
+                <button class="btn btn-primary" id="saveEveningReflectionBtn" style="width:100%;margin-top:8px;">Save Evening Reflection</button>
+            </div>
+
+            <!-- Past Reflections -->
+            <div class="journal-entries">
+                <h3>Past Reflections</h3>
+                <div id="journalEntriesList" class="entries-list">
+                    <div class="empty-state">Complete your first evening reflection to see your history.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== WEEKLY REVIEW SECTION ===== -->
+        <section class="section" id="section-review">
+            <div class="section-header">
+                <h1>Weekly Review</h1>
+            </div>
+
+            <!-- Review Summary -->
+            <div class="review-summary">
+                <h3>Week of <span id="reviewWeekDate"></span></h3>
+
+                <div class="review-scores" id="reviewScores">
+                    <!-- Dynamic scores -->
+                </div>
+
+                <div class="review-form">
+                    <div class="review-question">
+                        <label>What went well this week?</label>
+                        <textarea id="reviewWins" rows="4" placeholder="Celebrate your wins..."></textarea>
+                    </div>
+                    <div class="review-question">
+                        <label>What could have been better?</label>
+                        <textarea id="reviewImprovements" rows="4" placeholder="Be honest with yourself..."></textarea>
+                    </div>
+                    <div class="review-question">
+                        <label>Top 3 priorities for next week:</label>
+                        <input type="text" id="reviewPriority1" placeholder="1. ">
+                        <input type="text" id="reviewPriority2" placeholder="2. ">
+                        <input type="text" id="reviewPriority3" placeholder="3. ">
+                    </div>
+                    <div class="review-question">
+                        <label>Overall week rating:</label>
+                        <div class="rating-buttons" id="weekRating">
+                            <button class="rating-btn" data-rating="1">1</button>
+                            <button class="rating-btn" data-rating="2">2</button>
+                            <button class="rating-btn" data-rating="3">3</button>
+                            <button class="rating-btn" data-rating="4">4</button>
+                            <button class="rating-btn" data-rating="5">5</button>
+                            <button class="rating-btn" data-rating="6">6</button>
+                            <button class="rating-btn" data-rating="7">7</button>
+                            <button class="rating-btn" data-rating="8">8</button>
+                            <button class="rating-btn" data-rating="9">9</button>
+                            <button class="rating-btn" data-rating="10">10</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="saveReviewBtn">Save Review</button>
+                </div>
+            </div>
+
+            <!-- Past Reviews -->
+            <div class="past-reviews">
+                <h3>Past Reviews</h3>
+                <div id="pastReviewsList" class="reviews-list">
+                    <div class="empty-state">Complete your first weekly review to see history here.</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===== MODALS ===== -->
+
+    <!-- Add Goal Modal -->
+    <div class="modal" id="addGoalModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Goal</h2>
+                <button class="modal-close" data-modal="addGoalModal">&times;</button>
+            </div>
+            <form id="addGoalForm">
+                <label>Category</label>
+                <select id="goalCategory" required>
+                    <option value="Physical Health">Physical Health</option>
+                    <option value="Mental Health">Mental Health</option>
+                    <option value="Budgeting">Budgeting</option>
+                    <option value="Work">Work</option>
+                    <option value="Monthly">Monthly</option>
+                    <option value="Cooking">Cooking</option>
+                    <option value="Other">Other</option>
+                </select>
+                <label>Goal Name</label>
+                <input type="text" id="goalName" required placeholder="e.g., Meditate daily">
+                <label>Target</label>
+                <input type="text" id="goalTarget" placeholder="e.g., x7 per week">
+                <button type="submit" class="btn btn-primary">Add Goal</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Transaction Modal -->
+    <div class="modal" id="addTransactionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Transaction</h2>
+                <button class="modal-close" data-modal="addTransactionModal">&times;</button>
+            </div>
+            <form id="addTransactionForm">
+                <label>Date</label>
+                <input type="date" id="txnDate" required>
+                <label>Description</label>
+                <input type="text" id="txnDescription" required placeholder="e.g., Grocery shopping">
+                <label>Category</label>
+                <select id="txnCategory" required>
+                    <option value="Food & Dining">Food & Dining</option>
+                    <option value="Groceries">Groceries</option>
+                    <option value="Transportation">Transportation</option>
+                    <option value="Housing">Housing</option>
+                    <option value="Utilities">Utilities</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="Shopping">Shopping</option>
+                    <option value="Health">Health</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Income">Income</option>
+                    <option value="Transfer">Transfer</option>
+                    <option value="Other">Other</option>
+                </select>
+                <label>Amount</label>
+                <input type="number" id="txnAmount" required step="0.01" placeholder="0.00">
+                <div class="txn-type-toggle">
+                    <label><input type="radio" name="txnType" value="expense" checked> Expense</label>
+                    <label><input type="radio" name="txnType" value="income"> Income</label>
+                </div>
+                <label>Account (optional)</label>
+                <input type="text" id="txnAccount" placeholder="e.g., Chase Checking">
+                <button type="submit" class="btn btn-primary">Add Transaction</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Habit Modal -->
+    <div class="modal" id="addHabitModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Habit</h2>
+                <button class="modal-close" data-modal="addHabitModal">&times;</button>
+            </div>
+            <form id="addHabitForm">
+                <label>Habit Name</label>
+                <input type="text" id="habitName" required placeholder="e.g., Drink 8 glasses of water">
+                <label>Frequency</label>
+                <select id="habitFrequency">
+                    <option value="daily">Daily</option>
+                    <option value="weekdays">Weekdays</option>
+                    <option value="weekly">Weekly</option>
+                </select>
+                <label>Protocol</label>
+                <select id="habitCategory">
+                    <option value="morning">Morning</option>
+                    <option value="midday">Midday</option>
+                    <option value="evening">Evening</option>
+                    <option value="other">Other</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Add Habit</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Account Modal -->
+    <div class="modal" id="addAccountModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Account</h2>
+                <button class="modal-close" data-modal="addAccountModal">&times;</button>
+            </div>
+            <form id="addAccountForm">
+                <label>Account Name</label>
+                <input type="text" id="accountName" required placeholder="e.g., Chase Checking">
+                <label>Type</label>
+                <select id="accountType">
+                    <option value="checking">Checking</option>
+                    <option value="savings">Savings</option>
+                    <option value="credit">Credit Card</option>
+                    <option value="investment">Investment</option>
+                    <option value="loan">Loan</option>
+                    <option value="other">Other</option>
+                </select>
+                <label>Current Balance</label>
+                <input type="number" id="accountBalance" required step="0.01" placeholder="0.00">
+                <button type="submit" class="btn btn-primary">Add Account</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Budget Modal -->
+    <div class="modal" id="editBudgetModal">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h2>Edit Monthly Budget</h2>
+                <button class="modal-close" data-modal="editBudgetModal">&times;</button>
+            </div>
+            <form id="editBudgetForm">
+                <div id="budgetInputs" class="budget-inputs">
+                    <!-- Dynamic budget category inputs -->
+                </div>
+                <button type="submit" class="btn btn-primary">Save Budget</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="modal-close" data-modal="settingsModal">&times;</button>
+            </div>
+            <div class="settings-content">
+                <div class="setting-item">
+                    <label>Convex Backend</label>
+                    <p class="setting-desc">Connect to Convex for cloud sync across devices. Enter your Convex deployment URL.</p>
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                        <input type="text" id="convexUrlInput" placeholder="https://your-app.convex.cloud" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
+                        <button class="btn btn-primary" id="connectConvexBtn">Connect</button>
+                    </div>
+                    <div id="convexStatus" style="font-size:0.8rem;color:var(--text-muted);">Not connected - using local storage</div>
+                    <button class="btn btn-secondary" id="syncToConvexBtn" style="margin-top:8px;display:none;">Sync Local Data to Convex</button>
+                </div>
+                <div class="setting-item">
+                    <label>Import Accountability Tracker Data</label>
+                    <p class="setting-desc">Load data from your existing accountability tracker (LocalStorage key: accountabilityData)</p>
+                    <button class="btn btn-secondary" id="syncFromTrackerBtn">Sync from Tracker</button>
+                </div>
+                <div class="setting-item">
+                    <label>Export All Life OS Data</label>
+                    <p class="setting-desc">Download a JSON backup of all your data</p>
+                    <button class="btn btn-secondary" id="exportAllBtn">Export JSON</button>
+                </div>
+                <div class="setting-item">
+                    <label>Import Life OS Data</label>
+                    <p class="setting-desc">Restore from a JSON backup</p>
+                    <input type="file" id="importJsonInput" accept=".json" style="display:none;">
+                    <button class="btn btn-secondary" id="importAllBtn">Import JSON</button>
+                </div>
+                <div class="setting-item danger">
+                    <label>Reset All Data</label>
+                    <p class="setting-desc">Clear all Life OS data. This cannot be undone.</p>
+                    <button class="btn btn-danger" id="resetAllBtn">Reset Everything</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <button class="mobile-nav-btn active" data-section="dashboard">
+            <span class="mobile-nav-icon">&#9673;</span>
+            Home
+        </button>
+        <button class="mobile-nav-btn" data-section="goals">
+            <span class="mobile-nav-icon">&#9889;</span>
+            Goals
+        </button>
+        <button class="mobile-nav-btn" data-section="finances">
+            <span class="mobile-nav-icon">&#36;</span>
+            Finance
+        </button>
+        <button class="mobile-nav-btn" data-section="health">
+            <span class="mobile-nav-icon">&#9829;</span>
+            Health
+        </button>
+        <button class="mobile-nav-btn" data-section="habits">
+            <span class="mobile-nav-icon">&#10003;</span>
+            Habits
+        </button>
+        <button class="mobile-nav-btn" data-section="journal">
+            <span class="mobile-nav-icon">&#9998;</span>
+            Journal
+        </button>
+        <button class="mobile-nav-btn" data-section="review">
+            <span class="mobile-nav-icon">&#9733;</span>
+            Review
+        </button>
+    </nav>
+
+    <script src="convex-client.js"></script>
+    <script src="life-os.js"></script>
+    <script>
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
