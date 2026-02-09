@@ -1596,6 +1596,69 @@ body {
 }
 
 /* ========================================
+   Stoic Evening Reflection
+   ======================================== */
+.stoic-form-group {
+    margin-bottom: 16px;
+}
+
+.stoic-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: var(--text);
+}
+
+.stoic-form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    transition: border-color var(--transition);
+    line-height: 1.5;
+}
+
+.stoic-form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.stoic-rating {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.stoic-rating .rating-btn {
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all var(--transition);
+    color: var(--text);
+}
+
+.stoic-rating .rating-btn:hover {
+    border-color: var(--primary-light);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.stoic-rating .rating-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+/* ========================================
    Responsive
    ======================================== */
 @media (max-width: 1024px) {
@@ -1871,7 +1934,7 @@ body {
             <li><a href="#" class="nav-link" data-section="finances"><span class="nav-icon">&#36;</span> Finances</a></li>
             <li><a href="#" class="nav-link" data-section="health"><span class="nav-icon">&#9829;</span> Health</a></li>
             <li><a href="#" class="nav-link" data-section="habits"><span class="nav-icon">&#10003;</span> Habits</a></li>
-            <li><a href="#" class="nav-link" data-section="journal"><span class="nav-icon">&#9998;</span> Journal</a></li>
+            <li><a href="#" class="nav-link" data-section="journal"><span class="nav-icon">&#9998;</span> Reflection</a></li>
             <li><a href="#" class="nav-link" data-section="review"><span class="nav-icon">&#9733;</span> Weekly Review</a></li>
         </ul>
         <div class="sidebar-footer">
@@ -1949,7 +2012,7 @@ body {
                 <div class="actions-row">
                     <button class="action-btn" data-action="log-habit">Log Today's Habits</button>
                     <button class="action-btn" data-action="add-expense">Add Expense</button>
-                    <button class="action-btn" data-action="journal-entry">Write Journal Entry</button>
+                    <button class="action-btn" data-action="journal-entry">Evening Reflection</button>
                     <button class="action-btn" data-action="weekly-review">Start Weekly Review</button>
                 </div>
             </div>
@@ -2217,41 +2280,54 @@ body {
             </div>
         </section>
 
-        <!-- ===== JOURNAL SECTION ===== -->
+        <!-- ===== JOURNAL / EVENING REFLECTION SECTION ===== -->
         <section class="section" id="section-journal">
             <div class="section-header">
-                <h1>Journal</h1>
+                <h1>Evening Reflection</h1>
+                <p class="section-subtitle" style="font-style:italic;color:var(--text-muted);margin-top:4px;">"Every night before going to sleep, we must ask ourselves: what weakness did I overcome today? What virtue did I acquire?" - Seneca</p>
             </div>
 
-            <!-- New Entry -->
-            <div class="journal-compose">
-                <div class="journal-prompts">
-                    <button class="prompt-btn active" data-prompt="free">Free Write</button>
-                    <button class="prompt-btn" data-prompt="gratitude">Gratitude</button>
-                    <button class="prompt-btn" data-prompt="reflection">Reflection</button>
-                    <button class="prompt-btn" data-prompt="goals">Goal Check-in</button>
-                    <button class="prompt-btn prompt-stoic" data-prompt="stoic">Evening Reflection</button>
+            <!-- Stoic Evening Reflection Form -->
+            <div class="journal-compose" id="eveningReflectionForm">
+                <div class="stoic-form-group">
+                    <label class="stoic-label">What went well today? What am I proud of?</label>
+                    <textarea id="stoicWentWell" rows="3" placeholder="Celebrate the wins, however small..."></textarea>
                 </div>
-                <div class="journal-prompt-text" id="journalPrompt"></div>
-                <textarea id="journalTextarea" rows="8" placeholder="What's on your mind?"></textarea>
-                <div class="journal-meta">
-                    <select id="journalMood">
-                        <option value="">Mood...</option>
-                        <option value="great">Great</option>
-                        <option value="good">Good</option>
-                        <option value="okay">Okay</option>
-                        <option value="low">Low</option>
-                        <option value="rough">Rough</option>
-                    </select>
-                    <button class="btn btn-primary" id="saveJournalBtn">Save Entry</button>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">Where did I fall short? What could I improve?</label>
+                    <textarea id="stoicFellShort" rows="3" placeholder="Be honest but compassionate with yourself..."></textarea>
                 </div>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">What am I grateful for today? (3 things)</label>
+                    <textarea id="stoicGratitude" rows="3" placeholder="1. &#10;2. &#10;3. "></textarea>
+                </div>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">Did I live according to my values today?</label>
+                    <div class="stoic-rating" id="stoicValuesRating">
+                        <button class="rating-btn" data-rating="1">1</button>
+                        <button class="rating-btn" data-rating="2">2</button>
+                        <button class="rating-btn" data-rating="3">3</button>
+                        <button class="rating-btn" data-rating="4">4</button>
+                        <button class="rating-btn" data-rating="5">5</button>
+                        <button class="rating-btn" data-rating="6">6</button>
+                        <button class="rating-btn" data-rating="7">7</button>
+                        <button class="rating-btn" data-rating="8">8</button>
+                        <button class="rating-btn" data-rating="9">9</button>
+                        <button class="rating-btn" data-rating="10">10</button>
+                    </div>
+                </div>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">What is my intention for tomorrow?</label>
+                    <textarea id="stoicIntention" rows="2" placeholder="What one thing will I focus on?"></textarea>
+                </div>
+                <button class="btn btn-primary" id="saveEveningReflectionBtn" style="width:100%;margin-top:8px;">Save Evening Reflection</button>
             </div>
 
-            <!-- Past Entries -->
+            <!-- Past Reflections -->
             <div class="journal-entries">
-                <h3>Past Entries</h3>
+                <h3>Past Reflections</h3>
                 <div id="journalEntriesList" class="entries-list">
-                    <div class="empty-state">No journal entries yet. Start writing to see your history.</div>
+                    <div class="empty-state">Complete your first evening reflection to see your history.</div>
                 </div>
             </div>
         </section>
@@ -3510,19 +3586,57 @@ class LifeOS {
                 return;
             }
             const trackerData = JSON.parse(raw);
-            if (trackerData.goals) {
-                this.data.goals = trackerData.goals;
+            let importedItems = [];
+
+            // Import goals - handle various formats
+            if (trackerData.goals && Array.isArray(trackerData.goals)) {
+                this.data.goals = trackerData.goals.map(g => ({
+                    category: g.category || 'Other',
+                    name: g.name || g.title || g.goal || 'Unnamed Goal',
+                    target: g.target || g.frequency || ''
+                }));
+                importedItems.push(`${this.data.goals.length} goals`);
             }
-            if (trackerData.weeks) {
-                this.data.weeks = trackerData.weeks;
+
+            // Import weeks - normalize entries structure
+            if (trackerData.weeks && Array.isArray(trackerData.weeks)) {
+                this.data.weeks = trackerData.weeks.map(w => {
+                    const week = {
+                        startDate: w.startDate || w.start || w.date || new Date().toISOString(),
+                        entries: {}
+                    };
+                    // Handle entries as object or array
+                    const entries = w.entries || w.data || {};
+                    if (Array.isArray(entries)) {
+                        entries.forEach((entry, idx) => {
+                            week.entries[idx] = {
+                                goal: entry.goal || { category: 'Other', name: 'Goal ' + idx },
+                                tracking: Array.isArray(entry.tracking) ? entry.tracking : ['', '', '', '', '', '', '']
+                            };
+                        });
+                    } else {
+                        Object.entries(entries).forEach(([key, entry]) => {
+                            week.entries[key] = {
+                                goal: entry.goal || { category: 'Other', name: 'Goal ' + key },
+                                tracking: Array.isArray(entry.tracking) ? entry.tracking : ['', '', '', '', '', '', '']
+                            };
+                        });
+                    }
+                    return week;
+                });
+                importedItems.push(`${this.data.weeks.length} weeks`);
             }
-            if (trackerData.categories) {
+
+            if (trackerData.categories && Array.isArray(trackerData.categories)) {
                 this.data.categories = trackerData.categories;
             }
+
             this.saveData();
             this.logActivity('Imported data from Accountability Tracker');
             this.renderGoals();
-            alert('Data imported successfully from Accountability Tracker!');
+            alert(importedItems.length > 0
+                ? `Imported: ${importedItems.join(', ')} from Accountability Tracker!`
+                : 'No data found to import.');
         } catch (e) {
             alert('Error importing data: ' + e.message);
         }
@@ -3561,72 +3675,146 @@ class LifeOS {
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                const csv = e.target.result;
-                const lines = csv.split('\n');
-                if (lines.length < 2) {
+                let csv = e.target.result;
+
+                // Handle BOM (byte order mark) that some exports include
+                if (csv.charCodeAt(0) === 0xFEFF) csv = csv.slice(1);
+
+                // Split lines, handle both \r\n and \n
+                const lines = csv.split(/\r?\n/);
+
+                // Skip blank lines at the top (messy exports sometimes have them)
+                let headerLineIdx = 0;
+                while (headerLineIdx < lines.length && !lines[headerLineIdx].trim()) {
+                    headerLineIdx++;
+                }
+
+                if (headerLineIdx >= lines.length - 1) {
                     alert('CSV file appears empty.');
                     return;
                 }
 
-                // Parse header
-                const headers = this.parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
-                const dateIdx = headers.findIndex(h => h === 'date');
-                const descIdx = headers.findIndex(h => h === 'merchant' || h === 'description' || h === 'original statement');
-                const catIdx = headers.findIndex(h => h === 'category');
-                const amountIdx = headers.findIndex(h => h === 'amount');
-                const accountIdx = headers.findIndex(h => h === 'account');
-                const notesIdx = headers.findIndex(h => h === 'notes' || h === 'note');
+                // Fuzzy header matching - handles varied column names
+                const headers = this.parseCSVLine(lines[headerLineIdx]).map(h => h.toLowerCase().trim().replace(/[^a-z]/g, ''));
+                const findCol = (...names) => headers.findIndex(h => names.some(n => h.includes(n)));
 
-                if (dateIdx === -1 || amountIdx === -1) {
-                    alert('Could not find required columns (Date, Amount) in the CSV. Found headers: ' + headers.join(', '));
+                const dateIdx = findCol('date');
+                const descIdx = findCol('merchant', 'description', 'payee', 'name', 'memo', 'statement');
+                const catIdx = findCol('category', 'type');
+                const amountIdx = findCol('amount', 'total', 'sum');
+                const accountIdx = findCol('account', 'bank');
+                const notesIdx = findCol('note', 'memo');
+
+                if (dateIdx === -1 && amountIdx === -1) {
+                    alert('Could not find Date or Amount columns. Found headers: ' + this.parseCSVLine(lines[headerLineIdx]).join(', '));
                     return;
                 }
 
+                // Build set of existing transaction keys to avoid duplicates
+                const existingKeys = new Set(
+                    this.data.transactions.map(t => `${t.date}|${t.description}|${t.amount}`)
+                );
+
                 let imported = 0;
-                for (let i = 1; i < lines.length; i++) {
+                let skipped = 0;
+                let errors = 0;
+
+                for (let i = headerLineIdx + 1; i < lines.length; i++) {
                     const line = lines[i].trim();
                     if (!line) continue;
 
-                    const fields = this.parseCSVLine(line);
-                    const date = fields[dateIdx]?.trim();
-                    const amount = parseFloat(fields[amountIdx]?.replace(/[$,]/g, '') || '0');
-                    const desc = fields[descIdx >= 0 ? descIdx : 0]?.trim() || 'Unknown';
-                    const cat = fields[catIdx >= 0 ? catIdx : -1]?.trim() || 'Other';
-                    const account = fields[accountIdx >= 0 ? accountIdx : -1]?.trim() || '';
+                    try {
+                        const fields = this.parseCSVLine(line);
 
-                    if (!date || isNaN(amount)) continue;
+                        // Try to get date - handle various formats
+                        let date = (fields[dateIdx] || '').trim();
+                        if (!date) { skipped++; continue; }
+                        date = this.normalizeDate(date);
+                        if (!date) { skipped++; continue; }
 
-                    // Monarch uses negative for expenses, positive for income
-                    const txn = {
-                        id: 'txn_' + Date.now() + '_' + i,
-                        date: date,
-                        description: desc,
-                        category: cat,
-                        amount: Math.abs(amount),
-                        type: amount < 0 ? 'expense' : 'income',
-                        account: account,
-                        source: 'monarch'
-                    };
+                        // Parse amount - strip currency symbols, parens for negatives
+                        let rawAmount = (fields[amountIdx >= 0 ? amountIdx : -1] || '').trim();
+                        if (!rawAmount) { skipped++; continue; }
+                        // Handle parentheses as negative: (123.45) => -123.45
+                        let isNeg = false;
+                        if (rawAmount.startsWith('(') && rawAmount.endsWith(')')) {
+                            rawAmount = rawAmount.slice(1, -1);
+                            isNeg = true;
+                        }
+                        rawAmount = rawAmount.replace(/[$,\s]/g, '');
+                        if (rawAmount.startsWith('-')) { isNeg = true; rawAmount = rawAmount.slice(1); }
+                        const amount = parseFloat(rawAmount);
+                        if (isNaN(amount) || amount === 0) { skipped++; continue; }
 
-                    this.data.transactions.push(txn);
-                    imported++;
+                        const desc = (fields[descIdx >= 0 ? descIdx : 0] || '').trim() || 'Unknown';
+                        const cat = (fields[catIdx >= 0 ? catIdx : -1] || '').trim() || 'Other';
+                        const account = (fields[accountIdx >= 0 ? accountIdx : -1] || '').trim() || '';
+
+                        // Skip duplicates
+                        const key = `${date}|${desc}|${amount}`;
+                        if (existingKeys.has(key)) { skipped++; continue; }
+                        existingKeys.add(key);
+
+                        const txn = {
+                            id: 'txn_' + Date.now() + '_' + i,
+                            date: date,
+                            description: desc,
+                            category: cat,
+                            amount: amount,
+                            type: isNeg ? 'expense' : 'income',
+                            account: account,
+                            source: 'monarch'
+                        };
+
+                        this.data.transactions.push(txn);
+                        imported++;
+                    } catch (rowErr) {
+                        errors++;
+                    }
                 }
 
                 // Sort by date descending
                 this.data.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-                // Update category filter options
                 this.updateTxnCategoryFilter();
-
                 this.saveData();
                 this.logActivity(`Imported ${imported} transactions from Monarch`);
                 this.renderFinances();
-                alert(`Successfully imported ${imported} transactions from Monarch!`);
+
+                let msg = `Imported ${imported} transactions!`;
+                if (skipped > 0) msg += `\n${skipped} rows skipped (duplicates or missing data).`;
+                if (errors > 0) msg += `\n${errors} rows had errors and were skipped.`;
+                alert(msg);
             } catch (err) {
                 alert('Error parsing CSV: ' + err.message);
             }
         };
         reader.readAsText(file);
+    }
+
+    normalizeDate(dateStr) {
+        // Handle common date formats: MM/DD/YYYY, YYYY-MM-DD, M/D/YY, etc.
+        dateStr = dateStr.replace(/['"]/g, '').trim();
+
+        // Already ISO format
+        if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+            return dateStr.split('T')[0];
+        }
+
+        // MM/DD/YYYY or M/D/YYYY
+        const slashMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+        if (slashMatch) {
+            let [, month, day, year] = slashMatch;
+            if (year.length === 2) year = '20' + year;
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+
+        // Try native Date parsing as fallback
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+            return d.toISOString().split('T')[0];
+        }
+
+        return null;
     }
 
     parseCSVLine(line) {
@@ -4125,103 +4313,18 @@ class LifeOS {
     }
 
     // ========================================
-    // Journal Section (includes Stoic Evening Reflection)
+    // Evening Reflection (Stoic Journal)
     // ========================================
     bindJournal() {
-        const prompts = {
-            free: '',
-            gratitude: 'What are 3 things you are grateful for today?',
-            reflection: 'What did you learn today? What challenged you?',
-            goals: 'How did you progress toward your goals today? What adjustments are needed?',
-            stoic: 'Seneca\'s Evening Review: "I examine my entire day and go back over what I\'ve done and said, hiding nothing from myself and passing nothing by."'
-        };
+        document.getElementById('saveEveningReflectionBtn').addEventListener('click', () => this.saveEveningReflection());
 
-        document.querySelectorAll('.prompt-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.prompt-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const type = btn.dataset.prompt;
-                document.getElementById('journalPrompt').textContent = prompts[type] || '';
-
-                // If stoic mode, show the evening reflection form
-                if (type === 'stoic') {
-                    this.showEveningReflection();
-                } else {
-                    this.hideEveningReflection();
-                }
-            });
+        // Bind values rating buttons
+        document.getElementById('stoicValuesRating').addEventListener('click', (e) => {
+            if (e.target.classList.contains('rating-btn')) {
+                document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+            }
         });
-
-        document.getElementById('saveJournalBtn').addEventListener('click', () => this.saveJournalEntry());
-        document.getElementById('saveEveningReflectionBtn')?.addEventListener('click', () => this.saveEveningReflection());
-    }
-
-    showEveningReflection() {
-        document.getElementById('journalTextarea').style.display = 'none';
-        document.getElementById('journalMood').parentElement.style.display = 'none';
-
-        let container = document.getElementById('eveningReflectionForm');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'eveningReflectionForm';
-            container.innerHTML = `
-                <div style="background:var(--border-light);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;">
-                    <p style="font-style:italic;color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">
-                        "Every night before going to sleep, we must ask ourselves: what weakness did I overcome today? What virtue did I acquire?" - Seneca
-                    </p>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:4px;">What went well today? What am I proud of?</label>
-                        <textarea id="stoicWentWell" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:0.85rem;resize:vertical;" placeholder="Celebrate the wins, however small..."></textarea>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:4px;">Where did I fall short? What could I improve?</label>
-                        <textarea id="stoicFellShort" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:0.85rem;resize:vertical;" placeholder="Be honest but compassionate with yourself..."></textarea>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:4px;">What am I grateful for today? (3 things)</label>
-                        <textarea id="stoicGratitude" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:0.85rem;resize:vertical;" placeholder="1. \n2. \n3. "></textarea>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:4px;">Did I live according to my values today? (Rate 1-10)</label>
-                        <div id="stoicValuesRating" style="display:flex;gap:6px;">
-                            ${[1,2,3,4,5,6,7,8,9,10].map(n => `<button class="rating-btn stoic-rating-btn" data-rating="${n}" style="width:36px;height:36px;border:2px solid var(--border);border-radius:6px;background:var(--card-bg);cursor:pointer;font-weight:600;font-size:0.85rem;">${n}</button>`).join('')}
-                        </div>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:4px;">What is my intention for tomorrow?</label>
-                        <textarea id="stoicIntention" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:0.85rem;resize:vertical;" placeholder="What one thing will I focus on?"></textarea>
-                    </div>
-                    <button class="btn btn-primary" id="saveEveningReflectionBtn" style="width:100%;">Save Evening Reflection</button>
-                </div>
-            `;
-            document.getElementById('journalTextarea').parentElement.insertBefore(container, document.getElementById('journalTextarea').nextSibling);
-
-            // Bind rating buttons
-            container.querySelectorAll('.stoic-rating-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    container.querySelectorAll('.stoic-rating-btn').forEach(b => {
-                        b.style.background = 'var(--card-bg)';
-                        b.style.color = 'var(--text)';
-                        b.style.borderColor = 'var(--border)';
-                    });
-                    btn.style.background = 'var(--primary)';
-                    btn.style.color = 'white';
-                    btn.style.borderColor = 'var(--primary)';
-                });
-            });
-
-            // Bind save
-            document.getElementById('saveEveningReflectionBtn').addEventListener('click', () => this.saveEveningReflection());
-        }
-
-        container.style.display = 'block';
-    }
-
-    hideEveningReflection() {
-        document.getElementById('journalTextarea').style.display = '';
-        document.getElementById('journalMood').parentElement.style.display = '';
-        const container = document.getElementById('eveningReflectionForm');
-        if (container) container.style.display = 'none';
     }
 
     saveEveningReflection() {
@@ -4230,7 +4333,7 @@ class LifeOS {
         const gratitude = document.getElementById('stoicGratitude')?.value?.trim();
         const intention = document.getElementById('stoicIntention')?.value?.trim();
 
-        const ratingBtn = document.querySelector('.stoic-rating-btn[style*="var(--primary)"]');
+        const ratingBtn = document.querySelector('#stoicValuesRating .rating-btn.active');
         const valuesRating = ratingBtn ? parseInt(ratingBtn.dataset.rating) : null;
 
         if (!wentWell && !fellShort && !gratitude) {
@@ -4254,7 +4357,7 @@ class LifeOS {
         this.data.journalEntries.unshift({
             date: this.getTodayStr(),
             timestamp: new Date().toISOString(),
-            text: `**Evening Reflection**\n\n**What went well:** ${wentWell || '-'}\n\n**Where I fell short:** ${fellShort || '-'}\n\n**Gratitude:** ${gratitude || '-'}\n\n**Values Rating:** ${valuesRating || '-'}/10\n\n**Tomorrow's Intention:** ${intention || '-'}`,
+            text: `**What went well:** ${wentWell || '-'}\n\n**Where I fell short:** ${fellShort || '-'}\n\n**Gratitude:** ${gratitude || '-'}\n\n**Values Rating:** ${valuesRating || '-'}/10\n\n**Tomorrow's Intention:** ${intention || '-'}`,
             mood: valuesRating >= 7 ? 'good' : valuesRating >= 5 ? 'okay' : 'low',
             type: 'stoic'
         });
@@ -4267,72 +4370,39 @@ class LifeOS {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
-        document.querySelectorAll('.stoic-rating-btn').forEach(b => {
-            b.style.background = 'var(--card-bg)';
-            b.style.color = 'var(--text)';
-            b.style.borderColor = 'var(--border)';
-        });
+        document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
 
         this.renderJournal();
         alert('Evening reflection saved!');
     }
 
-    saveJournalEntry() {
-        const text = document.getElementById('journalTextarea').value.trim();
-        const mood = document.getElementById('journalMood').value;
-        const activePrompt = document.querySelector('.prompt-btn.active');
-        const type = activePrompt ? activePrompt.dataset.prompt : 'free';
-
-        if (!text) {
-            alert('Please write something before saving.');
-            return;
-        }
-
-        this.data.journalEntries.unshift({
-            date: this.getTodayStr(),
-            timestamp: new Date().toISOString(),
-            text,
-            mood,
-            type
-        });
-
-        this.saveData();
-        this.logActivity('Wrote a journal entry');
-
-        document.getElementById('journalTextarea').value = '';
-        document.getElementById('journalMood').value = '';
-        this.renderJournal();
-    }
-
     renderJournal() {
         const container = document.getElementById('journalEntriesList');
+        const entries = this.data.eveningReflections;
 
-        if (this.data.journalEntries.length === 0) {
-            container.innerHTML = '<div class="empty-state">No journal entries yet. Start writing to see your history.</div>';
+        if (!entries || entries.length === 0) {
+            container.innerHTML = '<div class="empty-state">Complete your first evening reflection to see your history.</div>';
             return;
         }
 
-        container.innerHTML = this.data.journalEntries.slice(0, 20).map(entry => {
-            const moodLabels = { great: 'Great', good: 'Good', okay: 'Okay', low: 'Low', rough: 'Rough' };
-            const typeLabels = { free: 'Free Write', gratitude: 'Gratitude', reflection: 'Reflection', goals: 'Goal Check-in', stoic: 'Evening Reflection' };
-            const borderColor = entry.type === 'stoic' ? 'var(--secondary)' : 'var(--primary)';
+        container.innerHTML = entries.slice(0, 20).map(entry => {
+            const dateStr = entry.timestamp
+                ? new Date(entry.timestamp).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                : entry.date;
 
-            return `<div class="journal-entry-card" style="border-left-color:${borderColor}">
+            return `<div class="journal-entry-card" style="border-left-color:var(--secondary)">
                 <div class="journal-entry-header">
-                    <span class="journal-entry-date">${new Date(entry.timestamp).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    <div>
-                        ${entry.mood ? `<span class="journal-entry-mood">${moodLabels[entry.mood] || entry.mood}</span>` : ''}
-                        <span class="journal-entry-type">${typeLabels[entry.type] || entry.type}</span>
-                    </div>
+                    <span class="journal-entry-date">${dateStr}</span>
+                    ${entry.valuesRating ? `<span class="journal-entry-mood">Values: ${entry.valuesRating}/10</span>` : ''}
                 </div>
-                <div class="journal-entry-text">${this.formatJournalText(entry.text)}</div>
+                <div class="journal-entry-text">
+                    ${entry.wentWell ? `<p><strong>Went well:</strong> ${this.escapeHtml(entry.wentWell)}</p>` : ''}
+                    ${entry.fellShort ? `<p><strong>Fell short:</strong> ${this.escapeHtml(entry.fellShort)}</p>` : ''}
+                    ${entry.gratitude ? `<p><strong>Grateful for:</strong> ${this.escapeHtml(entry.gratitude)}</p>` : ''}
+                    ${entry.intention ? `<p><strong>Tomorrow:</strong> ${this.escapeHtml(entry.intention)}</p>` : ''}
+                </div>
             </div>`;
         }).join('');
-    }
-
-    formatJournalText(text) {
-        // Simple markdown bold
-        return this.escapeHtml(text).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
     }
 
     // ========================================

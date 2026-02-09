@@ -25,7 +25,7 @@
             <li><a href="#" class="nav-link" data-section="finances"><span class="nav-icon">&#36;</span> Finances</a></li>
             <li><a href="#" class="nav-link" data-section="health"><span class="nav-icon">&#9829;</span> Health</a></li>
             <li><a href="#" class="nav-link" data-section="habits"><span class="nav-icon">&#10003;</span> Habits</a></li>
-            <li><a href="#" class="nav-link" data-section="journal"><span class="nav-icon">&#9998;</span> Journal</a></li>
+            <li><a href="#" class="nav-link" data-section="journal"><span class="nav-icon">&#9998;</span> Reflection</a></li>
             <li><a href="#" class="nav-link" data-section="review"><span class="nav-icon">&#9733;</span> Weekly Review</a></li>
         </ul>
         <div class="sidebar-footer">
@@ -103,7 +103,7 @@
                 <div class="actions-row">
                     <button class="action-btn" data-action="log-habit">Log Today's Habits</button>
                     <button class="action-btn" data-action="add-expense">Add Expense</button>
-                    <button class="action-btn" data-action="journal-entry">Write Journal Entry</button>
+                    <button class="action-btn" data-action="journal-entry">Evening Reflection</button>
                     <button class="action-btn" data-action="weekly-review">Start Weekly Review</button>
                 </div>
             </div>
@@ -371,41 +371,54 @@
             </div>
         </section>
 
-        <!-- ===== JOURNAL SECTION ===== -->
+        <!-- ===== JOURNAL / EVENING REFLECTION SECTION ===== -->
         <section class="section" id="section-journal">
             <div class="section-header">
-                <h1>Journal</h1>
+                <h1>Evening Reflection</h1>
+                <p class="section-subtitle" style="font-style:italic;color:var(--text-muted);margin-top:4px;">"Every night before going to sleep, we must ask ourselves: what weakness did I overcome today? What virtue did I acquire?" - Seneca</p>
             </div>
 
-            <!-- New Entry -->
-            <div class="journal-compose">
-                <div class="journal-prompts">
-                    <button class="prompt-btn active" data-prompt="free">Free Write</button>
-                    <button class="prompt-btn" data-prompt="gratitude">Gratitude</button>
-                    <button class="prompt-btn" data-prompt="reflection">Reflection</button>
-                    <button class="prompt-btn" data-prompt="goals">Goal Check-in</button>
-                    <button class="prompt-btn prompt-stoic" data-prompt="stoic">Evening Reflection</button>
+            <!-- Stoic Evening Reflection Form -->
+            <div class="journal-compose" id="eveningReflectionForm">
+                <div class="stoic-form-group">
+                    <label class="stoic-label">What went well today? What am I proud of?</label>
+                    <textarea id="stoicWentWell" rows="3" placeholder="Celebrate the wins, however small..."></textarea>
                 </div>
-                <div class="journal-prompt-text" id="journalPrompt"></div>
-                <textarea id="journalTextarea" rows="8" placeholder="What's on your mind?"></textarea>
-                <div class="journal-meta">
-                    <select id="journalMood">
-                        <option value="">Mood...</option>
-                        <option value="great">Great</option>
-                        <option value="good">Good</option>
-                        <option value="okay">Okay</option>
-                        <option value="low">Low</option>
-                        <option value="rough">Rough</option>
-                    </select>
-                    <button class="btn btn-primary" id="saveJournalBtn">Save Entry</button>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">Where did I fall short? What could I improve?</label>
+                    <textarea id="stoicFellShort" rows="3" placeholder="Be honest but compassionate with yourself..."></textarea>
                 </div>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">What am I grateful for today? (3 things)</label>
+                    <textarea id="stoicGratitude" rows="3" placeholder="1. &#10;2. &#10;3. "></textarea>
+                </div>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">Did I live according to my values today?</label>
+                    <div class="stoic-rating" id="stoicValuesRating">
+                        <button class="rating-btn" data-rating="1">1</button>
+                        <button class="rating-btn" data-rating="2">2</button>
+                        <button class="rating-btn" data-rating="3">3</button>
+                        <button class="rating-btn" data-rating="4">4</button>
+                        <button class="rating-btn" data-rating="5">5</button>
+                        <button class="rating-btn" data-rating="6">6</button>
+                        <button class="rating-btn" data-rating="7">7</button>
+                        <button class="rating-btn" data-rating="8">8</button>
+                        <button class="rating-btn" data-rating="9">9</button>
+                        <button class="rating-btn" data-rating="10">10</button>
+                    </div>
+                </div>
+                <div class="stoic-form-group">
+                    <label class="stoic-label">What is my intention for tomorrow?</label>
+                    <textarea id="stoicIntention" rows="2" placeholder="What one thing will I focus on?"></textarea>
+                </div>
+                <button class="btn btn-primary" id="saveEveningReflectionBtn" style="width:100%;margin-top:8px;">Save Evening Reflection</button>
             </div>
 
-            <!-- Past Entries -->
+            <!-- Past Reflections -->
             <div class="journal-entries">
-                <h3>Past Entries</h3>
+                <h3>Past Reflections</h3>
                 <div id="journalEntriesList" class="entries-list">
-                    <div class="empty-state">No journal entries yet. Start writing to see your history.</div>
+                    <div class="empty-state">Complete your first evening reflection to see your history.</div>
                 </div>
             </div>
         </section>
