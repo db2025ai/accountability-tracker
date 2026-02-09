@@ -1606,6 +1606,7 @@ body {
 
     .sidebar.open {
         transform: translateX(0);
+        box-shadow: 4px 0 20px rgba(0,0,0,0.3);
     }
 
     .mobile-header {
@@ -1614,7 +1615,7 @@ body {
 
     .main-content {
         margin-left: 0;
-        padding: 72px 16px 16px;
+        padding: 64px 12px 80px; /* Bottom padding for mobile nav */
     }
 
     .section-header {
@@ -1622,16 +1623,51 @@ body {
         align-items: flex-start;
     }
 
+    .section-header h1 {
+        font-size: 1.4rem;
+    }
+
     .stats-grid {
         grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .stat-card {
+        padding: 14px;
+        gap: 10px;
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+    }
+
+    .stat-number {
+        font-size: 1.2rem;
     }
 
     .finance-overview {
         grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .finance-card {
+        padding: 14px;
+    }
+
+    .finance-amount {
+        font-size: 1.2rem;
     }
 
     .health-metrics {
         grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .health-ring {
+        width: 90px;
+        height: 90px;
     }
 
     .week-nav {
@@ -1644,6 +1680,8 @@ body {
 
     .action-btn {
         width: 100%;
+        padding: 14px 18px;
+        font-size: 0.9rem;
     }
 
     .log-row {
@@ -1653,6 +1691,145 @@ body {
     .transactions-filter {
         flex-direction: column;
     }
+
+    .life-score-card {
+        padding: 20px;
+    }
+
+    .life-score-ring {
+        width: 140px;
+        height: 140px;
+    }
+
+    .life-score-value {
+        font-size: 2rem;
+    }
+
+    /* Larger touch targets on mobile */
+    .habit-check-item {
+        padding: 14px 0;
+    }
+
+    .habit-checkbox {
+        width: 28px;
+        height: 28px;
+    }
+
+    .habit-name {
+        font-size: 0.95rem;
+    }
+
+    .goals-grid .day-cell {
+        min-width: 40px;
+        height: 40px;
+    }
+
+    .rating-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .btn {
+        padding: 10px 18px;
+    }
+
+    /* Modal takes full screen on mobile */
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+        margin: auto;
+    }
+
+    .journal-prompts {
+        gap: 6px;
+    }
+
+    .prompt-btn {
+        padding: 8px 12px;
+        font-size: 0.75rem;
+    }
+
+    /* Streaks grid more compact */
+    .streaks-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+    }
+
+    .heatmap-label {
+        width: 80px;
+        font-size: 0.65rem;
+    }
+
+    .heatmap-cell {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+/* Mobile bottom navigation bar */
+.mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--sidebar-bg);
+    height: 64px;
+    z-index: 99;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 4px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+}
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav {
+        display: flex;
+    }
+}
+
+.mobile-nav-btn {
+    background: none;
+    border: none;
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    padding: 8px 6px;
+    border-radius: 8px;
+    transition: all var(--transition);
+    font-size: 0.65rem;
+    min-width: 48px;
+}
+
+.mobile-nav-btn .mobile-nav-icon {
+    font-size: 1.3rem;
+}
+
+.mobile-nav-btn.active {
+    color: var(--primary-light);
+}
+
+.mobile-nav-btn:active {
+    background: var(--sidebar-hover);
+}
+
+/* PWA safe areas */
+@supports (padding: env(safe-area-inset-bottom)) {
+    .mobile-bottom-nav {
+        padding-bottom: env(safe-area-inset-bottom);
+        height: calc(64px + env(safe-area-inset-bottom));
+    }
+
+    .main-content {
+        padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    }
+
+    .mobile-header {
+        padding-top: env(safe-area-inset-top);
+    }
 }
 
 @media (max-width: 480px) {
@@ -1660,5 +1837,9 @@ body {
     .finance-overview,
     .health-metrics {
         grid-template-columns: 1fr;
+    }
+
+    .mobile-nav-btn {
+        font-size: 0.6rem;
     }
 }

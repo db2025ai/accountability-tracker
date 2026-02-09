@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Life OS - Personal Operating System</title>
     <link rel="stylesheet" href="life-os.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Life OS">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -612,6 +617,16 @@
             </div>
             <div class="settings-content">
                 <div class="setting-item">
+                    <label>Convex Backend</label>
+                    <p class="setting-desc">Connect to Convex for cloud sync across devices. Enter your Convex deployment URL.</p>
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                        <input type="text" id="convexUrlInput" placeholder="https://your-app.convex.cloud" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
+                        <button class="btn btn-primary" id="connectConvexBtn">Connect</button>
+                    </div>
+                    <div id="convexStatus" style="font-size:0.8rem;color:var(--text-muted);">Not connected - using local storage</div>
+                    <button class="btn btn-secondary" id="syncToConvexBtn" style="margin-top:8px;display:none;">Sync Local Data to Convex</button>
+                </div>
+                <div class="setting-item">
                     <label>Import Accountability Tracker Data</label>
                     <p class="setting-desc">Load data from your existing accountability tracker (LocalStorage key: accountabilityData)</p>
                     <button class="btn btn-secondary" id="syncFromTrackerBtn">Sync from Tracker</button>
@@ -636,6 +651,45 @@
         </div>
     </div>
 
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <button class="mobile-nav-btn active" data-section="dashboard">
+            <span class="mobile-nav-icon">&#9673;</span>
+            Home
+        </button>
+        <button class="mobile-nav-btn" data-section="goals">
+            <span class="mobile-nav-icon">&#9889;</span>
+            Goals
+        </button>
+        <button class="mobile-nav-btn" data-section="finances">
+            <span class="mobile-nav-icon">&#36;</span>
+            Finance
+        </button>
+        <button class="mobile-nav-btn" data-section="health">
+            <span class="mobile-nav-icon">&#9829;</span>
+            Health
+        </button>
+        <button class="mobile-nav-btn" data-section="habits">
+            <span class="mobile-nav-icon">&#10003;</span>
+            Habits
+        </button>
+        <button class="mobile-nav-btn" data-section="journal">
+            <span class="mobile-nav-icon">&#9998;</span>
+            Journal
+        </button>
+        <button class="mobile-nav-btn" data-section="review">
+            <span class="mobile-nav-icon">&#9733;</span>
+            Review
+        </button>
+    </nav>
+
+    <script src="convex-client.js"></script>
     <script src="life-os.js"></script>
+    <script>
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+    </script>
 </body>
 </html>

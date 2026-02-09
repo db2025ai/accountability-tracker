@@ -10,6 +10,13 @@ class LifeOS {
         this.currentWeekIndex = -1; // -1 = latest
         this.charts = {};
 
+        // Initialize Convex if URL is saved
+        this.convex = null;
+        const savedConvexUrl = localStorage.getItem('lifeOS_convexUrl');
+        if (savedConvexUrl && window.ConvexDataLayer) {
+            this.convex = new ConvexDataLayer(savedConvexUrl);
+        }
+
         this.init();
     }
 
@@ -180,6 +187,7 @@ class LifeOS {
     // Navigation
     // ========================================
     bindNavigation() {
+        // Sidebar nav links
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -187,12 +195,25 @@ class LifeOS {
                 this.navigateTo(section);
             });
         });
+
+        // Mobile bottom nav buttons
+        document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const section = btn.dataset.section;
+                this.navigateTo(section);
+            });
+        });
     }
 
     navigateTo(section) {
-        // Update nav
+        // Update sidebar nav
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-        document.querySelector(`[data-section="${section}"]`).classList.add('active');
+        document.querySelector(`.nav-link[data-section="${section}"]`).classList.add('active');
+
+        // Update mobile bottom nav
+        document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+        const mobileBtn = document.querySelector(`.mobile-nav-btn[data-section="${section}"]`);
+        if (mobileBtn) mobileBtn.classList.add('active');
 
         // Update sections
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -200,6 +221,9 @@ class LifeOS {
 
         // Close mobile menu
         document.getElementById('sidebar').classList.remove('open');
+
+        // Scroll to top on mobile
+        window.scrollTo(0, 0);
 
         // Refresh the section
         switch (section) {
@@ -1813,7 +1837,41 @@ class LifeOS {
     // Settings
     // ========================================
     bindSettings() {
-        document.getElementById('settingsBtn').addEventListener('click', () => this.openModal('settingsModal'));
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            this.openModal('settingsModal');
+            this.updateConvexStatusUI();
+        });
+
+        // Convex connection
+        document.getElementById('connectConvexBtn').addEventListener('click', () => {
+            const url = document.getElementById('convexUrlInput').value.trim();
+            if (!url) {
+                alert('Please enter a Convex deployment URL');
+                return;
+            }
+            localStorage.setItem('lifeOS_convexUrl', url);
+            this.convex = new ConvexDataLayer(url);
+            this.convex.on('connected', () => {
+                this.updateConvexStatusUI();
+            });
+            setTimeout(() => this.updateConvexStatusUI(), 2000);
+        });
+
+        document.getElementById('syncToConvexBtn').addEventListener('click', async () => {
+            if (!this.convex || !this.convex.isConnected()) {
+                alert('Not connected to Convex');
+                return;
+            }
+            const btn = document.getElementById('syncToConvexBtn');
+            btn.textContent = 'Syncing...';
+            btn.disabled = true;
+            const success = await this.convex.syncFromLocalStorage(this.data);
+            btn.textContent = success ? 'Sync Complete!' : 'Sync Failed';
+            btn.disabled = false;
+            if (success) {
+                this.logActivity('Synced all data to Convex backend');
+            }
+        });
 
         document.getElementById('syncFromTrackerBtn').addEventListener('click', () => this.importFromAccountabilityTracker());
 
@@ -1857,6 +1915,29 @@ class LifeOS {
                 }
             }
         });
+    }
+
+    updateConvexStatusUI() {
+        const statusEl = document.getElementById('convexStatus');
+        const syncBtn = document.getElementById('syncToConvexBtn');
+        const urlInput = document.getElementById('convexUrlInput');
+        const savedUrl = localStorage.getItem('lifeOS_convexUrl');
+
+        if (savedUrl) urlInput.value = savedUrl;
+
+        if (this.convex && this.convex.isConnected()) {
+            statusEl.textContent = 'Connected to Convex';
+            statusEl.style.color = 'var(--success)';
+            syncBtn.style.display = 'inline-block';
+        } else if (savedUrl) {
+            statusEl.textContent = 'Connecting...';
+            statusEl.style.color = 'var(--warning)';
+            syncBtn.style.display = 'none';
+        } else {
+            statusEl.textContent = 'Not connected - using local storage';
+            statusEl.style.color = 'var(--text-muted)';
+            syncBtn.style.display = 'none';
+        }
     }
 
     // ========================================

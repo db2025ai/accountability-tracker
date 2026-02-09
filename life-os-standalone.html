@@ -1613,6 +1613,7 @@ body {
 
     .sidebar.open {
         transform: translateX(0);
+        box-shadow: 4px 0 20px rgba(0,0,0,0.3);
     }
 
     .mobile-header {
@@ -1621,7 +1622,7 @@ body {
 
     .main-content {
         margin-left: 0;
-        padding: 72px 16px 16px;
+        padding: 64px 12px 80px; /* Bottom padding for mobile nav */
     }
 
     .section-header {
@@ -1629,16 +1630,51 @@ body {
         align-items: flex-start;
     }
 
+    .section-header h1 {
+        font-size: 1.4rem;
+    }
+
     .stats-grid {
         grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .stat-card {
+        padding: 14px;
+        gap: 10px;
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+    }
+
+    .stat-number {
+        font-size: 1.2rem;
     }
 
     .finance-overview {
         grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .finance-card {
+        padding: 14px;
+    }
+
+    .finance-amount {
+        font-size: 1.2rem;
     }
 
     .health-metrics {
         grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .health-ring {
+        width: 90px;
+        height: 90px;
     }
 
     .week-nav {
@@ -1651,6 +1687,8 @@ body {
 
     .action-btn {
         width: 100%;
+        padding: 14px 18px;
+        font-size: 0.9rem;
     }
 
     .log-row {
@@ -1660,6 +1698,145 @@ body {
     .transactions-filter {
         flex-direction: column;
     }
+
+    .life-score-card {
+        padding: 20px;
+    }
+
+    .life-score-ring {
+        width: 140px;
+        height: 140px;
+    }
+
+    .life-score-value {
+        font-size: 2rem;
+    }
+
+    /* Larger touch targets on mobile */
+    .habit-check-item {
+        padding: 14px 0;
+    }
+
+    .habit-checkbox {
+        width: 28px;
+        height: 28px;
+    }
+
+    .habit-name {
+        font-size: 0.95rem;
+    }
+
+    .goals-grid .day-cell {
+        min-width: 40px;
+        height: 40px;
+    }
+
+    .rating-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .btn {
+        padding: 10px 18px;
+    }
+
+    /* Modal takes full screen on mobile */
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+        margin: auto;
+    }
+
+    .journal-prompts {
+        gap: 6px;
+    }
+
+    .prompt-btn {
+        padding: 8px 12px;
+        font-size: 0.75rem;
+    }
+
+    /* Streaks grid more compact */
+    .streaks-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+    }
+
+    .heatmap-label {
+        width: 80px;
+        font-size: 0.65rem;
+    }
+
+    .heatmap-cell {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+/* Mobile bottom navigation bar */
+.mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--sidebar-bg);
+    height: 64px;
+    z-index: 99;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 4px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+}
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav {
+        display: flex;
+    }
+}
+
+.mobile-nav-btn {
+    background: none;
+    border: none;
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    padding: 8px 6px;
+    border-radius: 8px;
+    transition: all var(--transition);
+    font-size: 0.65rem;
+    min-width: 48px;
+}
+
+.mobile-nav-btn .mobile-nav-icon {
+    font-size: 1.3rem;
+}
+
+.mobile-nav-btn.active {
+    color: var(--primary-light);
+}
+
+.mobile-nav-btn:active {
+    background: var(--sidebar-hover);
+}
+
+/* PWA safe areas */
+@supports (padding: env(safe-area-inset-bottom)) {
+    .mobile-bottom-nav {
+        padding-bottom: env(safe-area-inset-bottom);
+        height: calc(64px + env(safe-area-inset-bottom));
+    }
+
+    .main-content {
+        padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    }
+
+    .mobile-header {
+        padding-top: env(safe-area-inset-top);
+    }
 }
 
 @media (max-width: 480px) {
@@ -1668,9 +1845,17 @@ body {
     .health-metrics {
         grid-template-columns: 1fr;
     }
+
+    .mobile-nav-btn {
+        font-size: 0.6rem;
+    }
 }
 
 </style>
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Life OS">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -2278,6 +2463,16 @@ body {
             </div>
             <div class="settings-content">
                 <div class="setting-item">
+                    <label>Convex Backend</label>
+                    <p class="setting-desc">Connect to Convex for cloud sync across devices. Enter your Convex deployment URL.</p>
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                        <input type="text" id="convexUrlInput" placeholder="https://your-app.convex.cloud" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
+                        <button class="btn btn-primary" id="connectConvexBtn">Connect</button>
+                    </div>
+                    <div id="convexStatus" style="font-size:0.8rem;color:var(--text-muted);">Not connected - using local storage</div>
+                    <button class="btn btn-secondary" id="syncToConvexBtn" style="margin-top:8px;display:none;">Sync Local Data to Convex</button>
+                </div>
+                <div class="setting-item">
                     <label>Import Accountability Tracker Data</label>
                     <p class="setting-desc">Load data from your existing accountability tracker (LocalStorage key: accountabilityData)</p>
                     <button class="btn btn-secondary" id="syncFromTrackerBtn">Sync from Tracker</button>
@@ -2302,6 +2497,259 @@ body {
         </div>
     </div>
 
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <button class="mobile-nav-btn active" data-section="dashboard">
+            <span class="mobile-nav-icon">&#9673;</span>
+            Home
+        </button>
+        <button class="mobile-nav-btn" data-section="goals">
+            <span class="mobile-nav-icon">&#9889;</span>
+            Goals
+        </button>
+        <button class="mobile-nav-btn" data-section="finances">
+            <span class="mobile-nav-icon">&#36;</span>
+            Finance
+        </button>
+        <button class="mobile-nav-btn" data-section="health">
+            <span class="mobile-nav-icon">&#9829;</span>
+            Health
+        </button>
+        <button class="mobile-nav-btn" data-section="habits">
+            <span class="mobile-nav-icon">&#10003;</span>
+            Habits
+        </button>
+        <button class="mobile-nav-btn" data-section="journal">
+            <span class="mobile-nav-icon">&#9998;</span>
+            Journal
+        </button>
+        <button class="mobile-nav-btn" data-section="review">
+            <span class="mobile-nav-icon">&#9733;</span>
+            Review
+        </button>
+    </nav>
+
+    <script>
+/* ========================================
+   Life OS - Convex Data Layer
+   Handles Convex backend with LocalStorage fallback
+   ======================================== */
+
+class ConvexDataLayer {
+    constructor(convexUrl) {
+        this.convexUrl = convexUrl;
+        this.client = null;
+        this.connected = false;
+        this.listeners = new Map();
+
+        if (convexUrl) {
+            this.initConvex(convexUrl);
+        }
+    }
+
+    async initConvex(url) {
+        try {
+            // Dynamic import of Convex browser client
+            const { ConvexClient } = await import('https://cdn.jsdelivr.net/npm/convex@latest/browser/+esm');
+            this.client = new ConvexClient(url);
+            this.connected = true;
+            console.log('Connected to Convex backend');
+
+            // Notify listeners
+            this.emit('connected');
+        } catch (e) {
+            console.warn('Convex connection failed, using LocalStorage fallback:', e.message);
+            this.connected = false;
+        }
+    }
+
+    isConnected() {
+        return this.connected && this.client;
+    }
+
+    on(event, callback) {
+        if (!this.listeners.has(event)) this.listeners.set(event, []);
+        this.listeners.get(event).push(callback);
+    }
+
+    emit(event, data) {
+        const callbacks = this.listeners.get(event) || [];
+        callbacks.forEach(cb => cb(data));
+    }
+
+    // ========================================
+    // Query/Mutation helpers
+    // ========================================
+    async query(functionName, args = {}) {
+        if (!this.isConnected()) return null;
+        try {
+            return await this.client.query(functionName, args);
+        } catch (e) {
+            console.error(`Convex query ${functionName} failed:`, e);
+            return null;
+        }
+    }
+
+    async mutation(functionName, args = {}) {
+        if (!this.isConnected()) return null;
+        try {
+            return await this.client.mutation(functionName, args);
+        } catch (e) {
+            console.error(`Convex mutation ${functionName} failed:`, e);
+            return null;
+        }
+    }
+
+    // Subscribe to real-time updates
+    subscribe(functionName, args, callback) {
+        if (!this.isConnected()) return () => {};
+        return this.client.onUpdate(functionName, args, callback);
+    }
+
+    // ========================================
+    // Sync LocalStorage data to Convex
+    // ========================================
+    async syncFromLocalStorage(localData) {
+        if (!this.isConnected()) {
+            console.warn('Cannot sync: not connected to Convex');
+            return false;
+        }
+
+        try {
+            const result = await this.mutation('functions:syncFromLocalStorage', {
+                data: localData
+            });
+            console.log('Synced to Convex:', result);
+            return true;
+        } catch (e) {
+            console.error('Sync to Convex failed:', e);
+            return false;
+        }
+    }
+
+    // ========================================
+    // Data operations (with fallback)
+    // ========================================
+
+    // Weeks
+    async getWeeks() {
+        return await this.query('functions:getWeeks');
+    }
+
+    async saveWeek(startDate, entries) {
+        return await this.mutation('functions:upsertWeek', { startDate, entries });
+    }
+
+    async updateWeekEntries(id, entries) {
+        return await this.mutation('functions:updateWeekEntries', { id, entries });
+    }
+
+    // Goals
+    async getGoals() {
+        return await this.query('functions:getGoals');
+    }
+
+    async addGoal(category, name, target, order) {
+        return await this.mutation('functions:addGoal', { category, name, target, order });
+    }
+
+    async removeGoal(id) {
+        return await this.mutation('functions:removeGoal', { id });
+    }
+
+    // Transactions
+    async getTransactions(limit) {
+        return await this.query('functions:getTransactions', { limit });
+    }
+
+    async addTransaction(txn) {
+        return await this.mutation('functions:addTransaction', txn);
+    }
+
+    async bulkAddTransactions(transactions) {
+        return await this.mutation('functions:bulkAddTransactions', { transactions });
+    }
+
+    // Accounts
+    async getAccounts() {
+        return await this.query('functions:getAccounts');
+    }
+
+    async addAccount(name, type, balance) {
+        return await this.mutation('functions:addAccount', { name, type, balance });
+    }
+
+    // Budgets
+    async getBudgets() {
+        return await this.query('functions:getBudgets');
+    }
+
+    async saveBudget(category, amount) {
+        return await this.mutation('functions:upsertBudget', { category, amount });
+    }
+
+    // Habits
+    async getHabits() {
+        return await this.query('functions:getHabits');
+    }
+
+    async addHabit(name, frequency, category, order) {
+        return await this.mutation('functions:addHabit', { name, frequency, category, order });
+    }
+
+    async getHabitLogs(date) {
+        return await this.query('functions:getHabitLogs', { date });
+    }
+
+    async toggleHabit(date, habitId, completed) {
+        return await this.mutation('functions:toggleHabit', { date, habitId, completed });
+    }
+
+    // Health
+    async getHealthLogs(limit) {
+        return await this.query('functions:getHealthLogs', { limit });
+    }
+
+    async saveHealthLog(date, data) {
+        return await this.mutation('functions:upsertHealthLog', { date, ...data });
+    }
+
+    // Journal
+    async getJournalEntries(limit) {
+        return await this.query('functions:getJournalEntries', { limit });
+    }
+
+    async addJournalEntry(entry) {
+        return await this.mutation('functions:addJournalEntry', entry);
+    }
+
+    // Evening Reflections
+    async addEveningReflection(reflection) {
+        return await this.mutation('functions:addEveningReflection', reflection);
+    }
+
+    // Weekly Reviews
+    async getWeeklyReviews(limit) {
+        return await this.query('functions:getWeeklyReviews', { limit });
+    }
+
+    async addWeeklyReview(review) {
+        return await this.mutation('functions:addWeeklyReview', review);
+    }
+
+    // Activity Log
+    async logActivity(text) {
+        return await this.mutation('functions:addActivity', {
+            text,
+            timestamp: new Date().toISOString()
+        });
+    }
+}
+
+// Export for use
+window.ConvexDataLayer = ConvexDataLayer;
+
+</script>
     <script>
 /* ========================================
    Life OS - Personal Operating System
@@ -2314,6 +2762,13 @@ class LifeOS {
         this.data = this.loadData();
         this.currentWeekIndex = -1; // -1 = latest
         this.charts = {};
+
+        // Initialize Convex if URL is saved
+        this.convex = null;
+        const savedConvexUrl = localStorage.getItem('lifeOS_convexUrl');
+        if (savedConvexUrl && window.ConvexDataLayer) {
+            this.convex = new ConvexDataLayer(savedConvexUrl);
+        }
 
         this.init();
     }
@@ -2485,6 +2940,7 @@ class LifeOS {
     // Navigation
     // ========================================
     bindNavigation() {
+        // Sidebar nav links
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -2492,12 +2948,25 @@ class LifeOS {
                 this.navigateTo(section);
             });
         });
+
+        // Mobile bottom nav buttons
+        document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const section = btn.dataset.section;
+                this.navigateTo(section);
+            });
+        });
     }
 
     navigateTo(section) {
-        // Update nav
+        // Update sidebar nav
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-        document.querySelector(`[data-section="${section}"]`).classList.add('active');
+        document.querySelector(`.nav-link[data-section="${section}"]`).classList.add('active');
+
+        // Update mobile bottom nav
+        document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+        const mobileBtn = document.querySelector(`.mobile-nav-btn[data-section="${section}"]`);
+        if (mobileBtn) mobileBtn.classList.add('active');
 
         // Update sections
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -2505,6 +2974,9 @@ class LifeOS {
 
         // Close mobile menu
         document.getElementById('sidebar').classList.remove('open');
+
+        // Scroll to top on mobile
+        window.scrollTo(0, 0);
 
         // Refresh the section
         switch (section) {
@@ -4118,7 +4590,41 @@ class LifeOS {
     // Settings
     // ========================================
     bindSettings() {
-        document.getElementById('settingsBtn').addEventListener('click', () => this.openModal('settingsModal'));
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            this.openModal('settingsModal');
+            this.updateConvexStatusUI();
+        });
+
+        // Convex connection
+        document.getElementById('connectConvexBtn').addEventListener('click', () => {
+            const url = document.getElementById('convexUrlInput').value.trim();
+            if (!url) {
+                alert('Please enter a Convex deployment URL');
+                return;
+            }
+            localStorage.setItem('lifeOS_convexUrl', url);
+            this.convex = new ConvexDataLayer(url);
+            this.convex.on('connected', () => {
+                this.updateConvexStatusUI();
+            });
+            setTimeout(() => this.updateConvexStatusUI(), 2000);
+        });
+
+        document.getElementById('syncToConvexBtn').addEventListener('click', async () => {
+            if (!this.convex || !this.convex.isConnected()) {
+                alert('Not connected to Convex');
+                return;
+            }
+            const btn = document.getElementById('syncToConvexBtn');
+            btn.textContent = 'Syncing...';
+            btn.disabled = true;
+            const success = await this.convex.syncFromLocalStorage(this.data);
+            btn.textContent = success ? 'Sync Complete!' : 'Sync Failed';
+            btn.disabled = false;
+            if (success) {
+                this.logActivity('Synced all data to Convex backend');
+            }
+        });
 
         document.getElementById('syncFromTrackerBtn').addEventListener('click', () => this.importFromAccountabilityTracker());
 
@@ -4164,6 +4670,29 @@ class LifeOS {
         });
     }
 
+    updateConvexStatusUI() {
+        const statusEl = document.getElementById('convexStatus');
+        const syncBtn = document.getElementById('syncToConvexBtn');
+        const urlInput = document.getElementById('convexUrlInput');
+        const savedUrl = localStorage.getItem('lifeOS_convexUrl');
+
+        if (savedUrl) urlInput.value = savedUrl;
+
+        if (this.convex && this.convex.isConnected()) {
+            statusEl.textContent = 'Connected to Convex';
+            statusEl.style.color = 'var(--success)';
+            syncBtn.style.display = 'inline-block';
+        } else if (savedUrl) {
+            statusEl.textContent = 'Connecting...';
+            statusEl.style.color = 'var(--warning)';
+            syncBtn.style.display = 'none';
+        } else {
+            statusEl.textContent = 'Not connected - using local storage';
+            statusEl.style.color = 'var(--text-muted)';
+            syncBtn.style.display = 'none';
+        }
+    }
+
     // ========================================
     // Utilities
     // ========================================
@@ -4199,5 +4728,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 </script>
+    
 </body>
 </html>
