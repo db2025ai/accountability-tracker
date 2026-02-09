@@ -340,7 +340,7 @@
         <!-- ===== HABITS SECTION ===== -->
         <section class="section" id="section-habits">
             <div class="section-header">
-                <h1>Daily Habits</h1>
+                <h1>Daily Protocols</h1>
                 <div class="section-actions">
                     <button class="btn btn-primary" id="addHabitBtn">+ Add Habit</button>
                 </div>
@@ -350,7 +350,19 @@
             <div class="today-habits">
                 <h3>Today - <span id="todayDate"></span></h3>
                 <div class="habits-checklist" id="habitsChecklist">
-                    <!-- Dynamic habits -->
+                    <!-- Dynamic habits grouped by protocol -->
+                </div>
+            </div>
+
+            <!-- Weekly Ad-Hoc Tasks -->
+            <div class="adhoc-tasks-section">
+                <h3>Weekly Ad-Hoc Tasks</h3>
+                <div class="adhoc-tasks-list" id="adhocTasksList">
+                    <!-- Dynamic tasks -->
+                </div>
+                <div class="adhoc-add-row">
+                    <input type="text" id="adhocTaskInput" placeholder="Add a task for this week..." class="adhoc-input">
+                    <button class="btn btn-primary btn-sm" id="addAdhocTaskBtn">Add</button>
                 </div>
             </div>
 
@@ -566,12 +578,11 @@
                     <option value="weekdays">Weekdays</option>
                     <option value="weekly">Weekly</option>
                 </select>
-                <label>Category</label>
+                <label>Protocol</label>
                 <select id="habitCategory">
-                    <option value="health">Health</option>
-                    <option value="productivity">Productivity</option>
-                    <option value="mindfulness">Mindfulness</option>
-                    <option value="learning">Learning</option>
+                    <option value="morning">Morning</option>
+                    <option value="midday">Midday</option>
+                    <option value="evening">Evening</option>
                     <option value="other">Other</option>
                 </select>
                 <button type="submit" class="btn btn-primary">Add Habit</button>

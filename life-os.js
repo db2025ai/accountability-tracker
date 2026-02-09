@@ -33,6 +33,7 @@ class LifeOS {
             budgets: {},
             habits: this.getDefaultHabits(),
             habitLog: {},       // { 'YYYY-MM-DD': { habitId: true/false } }
+            adhocTasks: [],     // { id, text, completed, weekStart, created }
             healthLog: [],      // { date, weight, sleep, energy }
             journalEntries: [], // { date, text, mood, type }
             weeklyReviews: [],  // { weekDate, wins, improvements, priorities, rating }
@@ -57,53 +58,67 @@ class LifeOS {
 
     getDefaultGoals() {
         return [
+            // Mental Health
+            { category: 'Mental Health', name: 'Written Journaling 10 min x2 (Wed & Sat)', target: 'x2' },
+            { category: 'Mental Health', name: 'Open Writing Session (life stories, personal voice)', target: 'weekly' },
+            { category: 'Mental Health', name: 'Read 50 pages non-fiction OR 2 audiobook chapters', target: 'weekly' },
+            { category: 'Mental Health', name: 'Read 1 parenting book chapter/article', target: 'weekly' },
+            { category: 'Mental Health', name: 'Max 15 min Instagram/day', target: 'daily' },
+            { category: 'Mental Health', name: 'Set week specific goals on Monday', target: 'weekly' },
+            // Physical Health
+            { category: 'Physical Health', name: '1 Night of Drinking, 2 drinks max', target: 'x1 max' },
             { category: 'Physical Health', name: '2 Strength Training', target: 'x2' },
             { category: 'Physical Health', name: '2 Cardio Training (1 swim)', target: 'x2' },
             { category: 'Physical Health', name: '10 Min Stretching/Mobility', target: 'daily' },
-            { category: 'Physical Health', name: 'Core Work Out', target: 'x1' },
-            { category: 'Physical Health', name: 'No Zyns', target: 'daily' },
-            { category: 'Physical Health', name: 'In bed by 11:15PM weeknights', target: 'weeknights' },
-            { category: 'Physical Health', name: '1 night of up to 2 drinks', target: 'x1 max' },
-            { category: 'Mental Health', name: 'Meditate', target: 'x7' },
-            { category: 'Mental Health', name: 'Gratitude Journal', target: 'x7' },
-            { category: 'Mental Health', name: 'Written Journaling 10 min', target: 'x2' },
-            { category: 'Mental Health', name: 'Read 50 pages non-fiction or 2 audiobook chapters', target: 'weekly' },
-            { category: 'Mental Health', name: 'Read 1 parenting book chapter/article', target: 'weekly' },
-            { category: 'Mental Health', name: 'Read 10 min morning/evening', target: 'daily' },
-            { category: 'Mental Health', name: 'Max 15 min Instagram/day', target: 'daily' },
-            { category: 'Mental Health', name: 'Set week goals on Monday', target: 'weekly' },
-            { category: 'Mental Health', name: 'Review strikes daily', target: 'daily' },
-            { category: 'Budgeting', name: 'Buy breakfast max x1/week', target: 'x1' },
+            { category: 'Physical Health', name: 'Core Work Out x1 (can be cardio focused core)', target: 'x1' },
+            // Budgeting
+            { category: 'Budgeting', name: 'Buy breakfast x1/week', target: 'x1' },
             { category: 'Budgeting', name: 'Buy lunch max x2/weekdays', target: 'x2' },
             { category: 'Budgeting', name: 'Buy dinner max x2/weekdays', target: 'x2' },
             { category: 'Budgeting', name: 'Buy lunch max x1/weekend', target: 'x1' },
             { category: 'Budgeting', name: 'Buy dinner max x1/weekend', target: 'x1' },
-            { category: 'Budgeting', name: 'Review expenses 5 min daily', target: 'daily' },
-            { category: 'Work', name: 'Begin active work by 9:30AM', target: 'daily' },
+            { category: 'Budgeting', name: 'Sunday Money Date with Chelsey', target: 'weekly' },
+            // Work
+            { category: 'Work', name: 'Begin active work by 9:30AM each day', target: 'daily' },
             { category: 'Work', name: 'Time block each day', target: 'daily' },
-            { category: 'Work', name: '90 min focused work or 4 pomodoro blocks', target: 'daily' },
+            { category: 'Work', name: '90 min focused DND work OR 4 pomodoro blocks', target: 'daily' },
             { category: 'Work', name: '15 min AI training', target: 'daily' },
-            { category: 'Monthly', name: 'Review financial health', target: 'monthly' },
-            { category: 'Monthly', name: 'Check-in with Chelsey', target: 'monthly' },
+            { category: 'Work', name: 'Information System: Daily synthesis review', target: 'daily' },
+            { category: 'Work', name: 'Information System: Weekly quiz', target: 'weekly' },
+            // Monthly
+            { category: 'Monthly', name: 'Review financial health (expenses, savings)', target: 'monthly' },
+            { category: 'Monthly', name: 'Check-in with Chelsey on relationship', target: 'monthly' },
             { category: 'Monthly', name: '1 networking event', target: 'monthly' },
-            { category: 'Monthly', name: '2 planned date nights', target: 'monthly' },
+            { category: 'Monthly', name: '2 nice planned date nights', target: 'monthly' },
+            // Cooking
             { category: 'Cooking', name: 'Cook 1 new meal/week', target: 'weekly' },
-            { category: 'Cooking', name: 'Read 10 pages cookbook/week', target: 'weekly' },
+            { category: 'Cooking', name: 'Read 10 pages of cookbook/week', target: 'weekly' },
         ];
     }
 
     getDefaultHabits() {
         return [
-            { id: 'h1', name: 'Meditate', frequency: 'daily', category: 'mindfulness' },
-            { id: 'h2', name: 'Gratitude Journal', frequency: 'daily', category: 'mindfulness' },
-            { id: 'h3', name: 'Read 10 minutes', frequency: 'daily', category: 'learning' },
-            { id: 'h4', name: 'Stretching/Mobility', frequency: 'daily', category: 'health' },
-            { id: 'h5', name: 'Review expenses', frequency: 'daily', category: 'productivity' },
-            { id: 'h6', name: 'Review strikes', frequency: 'daily', category: 'productivity' },
-            { id: 'h7', name: 'In bed by 11:15PM', frequency: 'weekdays', category: 'health' },
-            { id: 'h8', name: 'No Zyns', frequency: 'daily', category: 'health' },
-            { id: 'h9', name: 'Max 15 min Instagram', frequency: 'daily', category: 'mindfulness' },
-            { id: 'h10', name: 'Evening Reflection', frequency: 'daily', category: 'mindfulness' },
+            // Morning Protocol
+            { id: 'am1', name: 'Phone away/airplane on wake', frequency: 'daily', category: 'morning' },
+            { id: 'am2', name: 'Up by 7:15AM', frequency: 'weekdays', category: 'morning' },
+            { id: 'am3', name: 'Hydrate 20oz immediately', frequency: 'daily', category: 'morning' },
+            { id: 'am4', name: 'High protein/fat breakfast', frequency: 'daily', category: 'morning' },
+            { id: 'am5', name: 'Skincare AM', frequency: 'daily', category: 'morning' },
+            { id: 'am6', name: 'Caffeine delay 60 min', frequency: 'daily', category: 'morning' },
+            { id: 'am7', name: 'Outdoor exposure 10-20 min', frequency: 'daily', category: 'morning' },
+            // Midday Protocol
+            { id: 'mid1', name: 'Cold shower finish 60s', frequency: 'weekly', category: 'midday' },
+            { id: 'mid2', name: 'NSDR 10-20 min', frequency: 'daily', category: 'midday' },
+            // Evening Protocol
+            { id: 'pm1', name: 'Review expenses 5 min', frequency: 'daily', category: 'evening' },
+            { id: 'pm2', name: 'Skincare PM', frequency: 'daily', category: 'evening' },
+            { id: 'pm3', name: 'Phone parked before wind-down', frequency: 'daily', category: 'evening' },
+            { id: 'pm4', name: 'Gratitude Journal', frequency: 'daily', category: 'evening' },
+            { id: 'pm5', name: 'Read before bed', frequency: 'daily', category: 'evening' },
+            { id: 'pm6', name: 'Meditate (3-5 min, long exhales)', frequency: 'daily', category: 'evening' },
+            { id: 'pm7', name: 'Review strikes', frequency: 'daily', category: 'evening' },
+            { id: 'pm8', name: 'In bed by 11:15PM', frequency: 'weekdays', category: 'evening' },
+            { id: 'pm9', name: 'Stoic Review + Tomorrow\'s To-Do', frequency: 'daily', category: 'evening' },
         ];
     }
 
@@ -1391,10 +1406,82 @@ class LifeOS {
     }
 
     // ========================================
-    // Habits Section
+    // Habits Section (Daily Protocols + Ad-Hoc Tasks)
     // ========================================
     bindHabits() {
         document.getElementById('addHabitBtn').addEventListener('click', () => this.openModal('addHabitModal'));
+
+        // Ad-hoc tasks
+        document.getElementById('addAdhocTaskBtn').addEventListener('click', () => this.addAdhocTask());
+        document.getElementById('adhocTaskInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.addAdhocTask();
+        });
+    }
+
+    addAdhocTask() {
+        const input = document.getElementById('adhocTaskInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        if (!this.data.adhocTasks) this.data.adhocTasks = [];
+
+        const weekStart = this.getWeekStartDate();
+        this.data.adhocTasks.push({
+            id: 'task_' + Date.now(),
+            text: text,
+            completed: false,
+            weekStart: weekStart.toISOString(),
+            created: new Date().toISOString()
+        });
+
+        input.value = '';
+        this.saveData();
+        this.logActivity(`Added task: ${text}`);
+        this.renderAdhocTasks();
+    }
+
+    renderAdhocTasks() {
+        const container = document.getElementById('adhocTasksList');
+        if (!this.data.adhocTasks) this.data.adhocTasks = [];
+
+        // Show tasks for current week
+        const weekStart = this.getWeekStartDate();
+        const weekTasks = this.data.adhocTasks.filter(t => {
+            const taskWeek = new Date(t.weekStart);
+            return taskWeek.toDateString() === weekStart.toDateString();
+        });
+
+        if (weekTasks.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:12px;font-size:0.85rem;">No ad-hoc tasks this week. Add tasks above.</div>';
+            return;
+        }
+
+        container.innerHTML = weekTasks.map(t => `
+            <div class="adhoc-task-item ${t.completed ? 'completed' : ''}">
+                <div class="habit-checkbox ${t.completed ? 'checked' : ''}" data-adhoc="${t.id}">${t.completed ? '\u2713' : ''}</div>
+                <span class="adhoc-task-text ${t.completed ? 'completed' : ''}">${this.escapeHtml(t.text)}</span>
+                <button class="adhoc-delete" data-delete-adhoc="${t.id}">&times;</button>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('[data-adhoc]').forEach(cb => {
+            cb.addEventListener('click', () => {
+                const task = this.data.adhocTasks.find(t => t.id === cb.dataset.adhoc);
+                if (task) {
+                    task.completed = !task.completed;
+                    this.saveData();
+                    this.renderAdhocTasks();
+                }
+            });
+        });
+
+        container.querySelectorAll('[data-delete-adhoc]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.data.adhocTasks = this.data.adhocTasks.filter(t => t.id !== btn.dataset.deleteAdhoc);
+                this.saveData();
+                this.renderAdhocTasks();
+            });
+        });
     }
 
     renderHabits() {
@@ -1406,14 +1493,43 @@ class LifeOS {
         const todayLog = this.data.habitLog[today] || {};
         const checklist = document.getElementById('habitsChecklist');
 
-        checklist.innerHTML = this.data.habits.map(h => {
-            const done = todayLog[h.id] || false;
-            return `<div class="habit-check-item">
-                <div class="habit-checkbox ${done ? 'checked' : ''}" data-habit="${h.id}">${done ? '\u2713' : ''}</div>
-                <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(h.name)}</span>
-                <span class="habit-category-tag">${h.category}</span>
-            </div>`;
-        }).join('');
+        // Group habits by protocol
+        const protocolLabels = {
+            morning: 'Morning Protocol',
+            midday: 'Midday Protocol',
+            evening: 'Evening Protocol',
+            other: 'Other'
+        };
+        const protocolOrder = ['morning', 'midday', 'evening', 'other'];
+
+        const grouped = {};
+        this.data.habits.forEach(h => {
+            const cat = h.category || 'other';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(h);
+        });
+
+        let html = '';
+        protocolOrder.forEach(cat => {
+            const habits = grouped[cat];
+            if (!habits || habits.length === 0) return;
+            const doneCount = habits.filter(h => todayLog[h.id]).length;
+            html += `<div class="protocol-group">
+                <div class="protocol-header">
+                    <span class="protocol-label">${protocolLabels[cat] || cat}</span>
+                    <span class="protocol-progress">${doneCount}/${habits.length}</span>
+                </div>`;
+            habits.forEach(h => {
+                const done = todayLog[h.id] || false;
+                html += `<div class="habit-check-item">
+                    <div class="habit-checkbox ${done ? 'checked' : ''}" data-habit="${h.id}">${done ? '\u2713' : ''}</div>
+                    <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(h.name)}</span>
+                </div>`;
+            });
+            html += '</div>';
+        });
+
+        checklist.innerHTML = html;
 
         checklist.querySelectorAll('.habit-checkbox').forEach(cb => {
             cb.addEventListener('click', () => {
@@ -1425,6 +1541,7 @@ class LifeOS {
             });
         });
 
+        this.renderAdhocTasks();
         this.renderStreaks();
         this.renderHeatmap();
     }
