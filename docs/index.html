@@ -1246,19 +1246,30 @@ body {
 }
 
 .heatmap-cell {
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
     background: var(--border-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-muted);
 }
 
 .heatmap-cell.done {
     background: var(--success);
+    color: white;
 }
 
 .heatmap-cell.missed {
     background: var(--danger-light);
     opacity: 0.5;
+}
+
+.heatmap-cell.today {
+    border: 2px solid var(--primary);
 }
 
 /* ========================================
@@ -2514,8 +2525,11 @@ body {
             <form id="addGoalForm">
                 <label>Category</label>
                 <select id="goalCategory" required>
-                    <option value="Physical Health">Physical Health</option>
+                    <option value="Morning Protocol">Morning Protocol</option>
+                    <option value="Midday Protocol">Midday Protocol</option>
+                    <option value="Evening Protocol">Evening Protocol</option>
                     <option value="Mental Health">Mental Health</option>
+                    <option value="Physical Health">Physical Health</option>
                     <option value="Budgeting">Budgeting</option>
                     <option value="Work">Work</option>
                     <option value="Monthly">Monthly</option>
@@ -2966,7 +2980,7 @@ class LifeOS {
     getDefaultData() {
         return {
             goals: this.getDefaultGoals(),
-            categories: ['Physical Health', 'Mental Health', 'Budgeting', 'Work', 'Monthly', 'Cooking', 'Other'],
+            categories: ['Morning Protocol', 'Midday Protocol', 'Evening Protocol', 'Mental Health', 'Physical Health', 'Budgeting', 'Work', 'Monthly', 'Cooking', 'Other'],
             weeks: [],
             transactions: [],
             accounts: [],
@@ -2998,6 +3012,27 @@ class LifeOS {
 
     getDefaultGoals() {
         return [
+            // Morning Protocol
+            { category: 'Morning Protocol', name: 'Phone away/airplane on wake', target: 'daily' },
+            { category: 'Morning Protocol', name: 'Up by 7:15AM', target: 'weekdays' },
+            { category: 'Morning Protocol', name: 'Hydrate 20oz immediately', target: 'daily' },
+            { category: 'Morning Protocol', name: 'High protein/fat breakfast', target: 'daily' },
+            { category: 'Morning Protocol', name: 'Skincare AM', target: 'daily' },
+            { category: 'Morning Protocol', name: 'Caffeine delay 60 min', target: 'daily' },
+            { category: 'Morning Protocol', name: 'Outdoor exposure 10-20 min', target: 'daily' },
+            // Midday Protocol
+            { category: 'Midday Protocol', name: 'Cold shower finish 60s', target: 'x1' },
+            { category: 'Midday Protocol', name: 'NSDR 10-20 min', target: 'daily' },
+            // Evening Protocol
+            { category: 'Evening Protocol', name: 'Review expenses 5 min', target: 'daily' },
+            { category: 'Evening Protocol', name: 'Skincare PM', target: 'daily' },
+            { category: 'Evening Protocol', name: 'Phone parked before wind-down', target: 'daily' },
+            { category: 'Evening Protocol', name: 'Gratitude Journal', target: 'x7' },
+            { category: 'Evening Protocol', name: 'Read before bed', target: 'daily' },
+            { category: 'Evening Protocol', name: 'Meditate (3-5 min, long exhales)', target: 'daily' },
+            { category: 'Evening Protocol', name: 'Review strikes', target: 'daily' },
+            { category: 'Evening Protocol', name: 'In bed by 11:15PM', target: 'weeknights' },
+            { category: 'Evening Protocol', name: 'Stoic Review + Tomorrow\'s To-Do', target: 'daily' },
             // Mental Health
             { category: 'Mental Health', name: 'Written Journaling 10 min x2 (Wed & Sat)', target: 'x2' },
             { category: 'Mental Health', name: 'Open Writing Session (life stories, personal voice)', target: 'weekly' },
@@ -4425,45 +4460,56 @@ class LifeOS {
     }
 
     renderHabits() {
-        const today = this.getTodayStr();
         document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US', {
             weekday: 'long', month: 'long', day: 'numeric'
         });
 
-        const todayLog = this.data.habitLog[today] || {};
         const checklist = document.getElementById('habitsChecklist');
+        const week = this.getCurrentWeek();
 
-        // Group habits by protocol
-        const protocolLabels = {
-            morning: 'Morning Protocol',
-            midday: 'Midday Protocol',
-            evening: 'Evening Protocol',
-            other: 'Other'
-        };
-        const protocolOrder = ['morning', 'midday', 'evening', 'other'];
+        if (!week) {
+            checklist.innerHTML = '<div class="empty-state">No active week. Go to Goals and click "+ New Week" first.</div>';
+            this.renderAdhocTasks();
+            return;
+        }
 
+        // Get today's day index (0=Sun, 1=Mon, ..., 6=Sat)
+        const todayDayIdx = new Date().getDay();
+
+        // Group entries by category, show protocol categories first
+        const protocolCats = ['Morning Protocol', 'Midday Protocol', 'Evening Protocol'];
         const grouped = {};
-        this.data.habits.forEach(h => {
-            const cat = h.category || 'other';
+        Object.entries(week.entries).forEach(([idx, entry]) => {
+            const cat = entry.goal.category;
             if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(h);
+            grouped[cat].push({ idx: parseInt(idx), ...entry });
         });
 
+        // Show protocol categories as today's checklist
+        const catsToShow = [...protocolCats, ...Object.keys(grouped).filter(c => !protocolCats.includes(c))];
+
         let html = '';
-        protocolOrder.forEach(cat => {
-            const habits = grouped[cat];
-            if (!habits || habits.length === 0) return;
-            const doneCount = habits.filter(h => todayLog[h.id]).length;
+        catsToShow.forEach(cat => {
+            const entries = grouped[cat];
+            if (!entries || entries.length === 0) return;
+
+            const doneCount = entries.filter(e => {
+                const val = e.tracking[todayDayIdx];
+                return val === 'X' || val === 'x' || val === '1';
+            }).length;
+
             html += `<div class="protocol-group">
                 <div class="protocol-header">
-                    <span class="protocol-label">${protocolLabels[cat] || cat}</span>
-                    <span class="protocol-progress">${doneCount}/${habits.length}</span>
+                    <span class="protocol-label">${cat}</span>
+                    <span class="protocol-progress">${doneCount}/${entries.length}</span>
                 </div>`;
-            habits.forEach(h => {
-                const done = todayLog[h.id] || false;
+
+            entries.forEach(entry => {
+                const val = entry.tracking[todayDayIdx];
+                const done = val === 'X' || val === 'x' || val === '1';
                 html += `<div class="habit-check-item">
-                    <div class="habit-checkbox ${done ? 'checked' : ''}" data-habit="${h.id}">${done ? '\u2713' : ''}</div>
-                    <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(h.name)}</span>
+                    <div class="habit-checkbox ${done ? 'checked' : ''}" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}">${done ? '\u2713' : ''}</div>
+                    <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(entry.goal.name)}</span>
                 </div>`;
             });
             html += '</div>';
@@ -4471,11 +4517,16 @@ class LifeOS {
 
         checklist.innerHTML = html;
 
+        // Click to toggle today's cell in the weekly grid
         checklist.querySelectorAll('.habit-checkbox').forEach(cb => {
             cb.addEventListener('click', () => {
-                const id = cb.dataset.habit;
-                if (!this.data.habitLog[today]) this.data.habitLog[today] = {};
-                this.data.habitLog[today][id] = !this.data.habitLog[today][id];
+                const entryIdx = cb.dataset.entryIdx;
+                const dayIdx = parseInt(cb.dataset.day);
+                const entry = week.entries[entryIdx];
+                if (!entry) return;
+
+                const current = entry.tracking[dayIdx];
+                entry.tracking[dayIdx] = (current === 'X' || current === 'x') ? '' : 'X';
                 this.saveData();
                 this.renderHabits();
             });
@@ -4488,56 +4539,68 @@ class LifeOS {
 
     renderStreaks() {
         const container = document.getElementById('streaksGrid');
-        const today = new Date();
+        const week = this.getCurrentWeek();
+        if (!week) { container.innerHTML = ''; return; }
 
-        const streaks = this.data.habits.map(h => {
+        // Calculate streaks from the current week's data
+        const todayDayIdx = new Date().getDay();
+        const streaks = [];
+
+        Object.entries(week.entries).forEach(([idx, entry]) => {
             let streak = 0;
-            for (let i = 0; i < 365; i++) {
-                const d = new Date(today);
-                d.setDate(d.getDate() - i);
-                const key = this.dateToStr(d);
-                const log = this.data.habitLog[key];
-                if (log && log[h.id]) {
+            // Count consecutive days back from today
+            for (let i = todayDayIdx; i >= 0; i--) {
+                const val = entry.tracking[i];
+                if (val === 'X' || val === 'x' || val === '1') {
                     streak++;
                 } else {
                     break;
                 }
             }
-            return { ...h, streak };
-        }).sort((a, b) => b.streak - a.streak);
+            if (streak > 0) {
+                streaks.push({ name: entry.goal.name, streak });
+            }
+        });
 
-        container.innerHTML = streaks.map(s => `
+        streaks.sort((a, b) => b.streak - a.streak);
+
+        container.innerHTML = streaks.slice(0, 10).map(s => `
             <div class="streak-card">
                 <div class="streak-count">${s.streak}</div>
-                <div class="streak-label">day streak</div>
+                <div class="streak-label">days this week</div>
                 <div class="streak-name">${this.escapeHtml(s.name)}</div>
             </div>
-        `).join('');
+        `).join('') || '<div class="empty-state" style="padding:12px;font-size:0.85rem;">Start checking off items to build streaks.</div>';
     }
 
     renderHeatmap() {
         const container = document.getElementById('habitHeatmap');
-        const today = new Date();
+        const week = this.getCurrentWeek();
+        if (!week) { container.innerHTML = ''; return; }
 
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const todayDayIdx = new Date().getDay();
+
+        // Show heatmap for protocol items only (keep it compact)
+        const protocolCats = ['Morning Protocol', 'Midday Protocol', 'Evening Protocol'];
         let html = '';
-        this.data.habits.forEach(h => {
+
+        Object.entries(week.entries).forEach(([idx, entry]) => {
+            if (!protocolCats.includes(entry.goal.category)) return;
             html += `<div class="heatmap-row">
-                <span class="heatmap-label">${this.escapeHtml(h.name)}</span>
+                <span class="heatmap-label">${this.escapeHtml(entry.goal.name)}</span>
                 <div class="heatmap-cells">`;
-            for (let i = 29; i >= 0; i--) {
-                const d = new Date(today);
-                d.setDate(d.getDate() - i);
-                const key = this.dateToStr(d);
-                const log = this.data.habitLog[key];
-                const done = log && log[h.id];
-                const cls = done ? 'done' : (log ? 'missed' : '');
-                const title = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                html += `<div class="heatmap-cell ${cls}" title="${title}"></div>`;
+            for (let i = 0; i < 7; i++) {
+                const val = entry.tracking[i];
+                const done = val === 'X' || val === 'x' || val === '1';
+                const isToday = i === todayDayIdx;
+                const cls = done ? 'done' : (i <= todayDayIdx ? 'missed' : '');
+                html += `<div class="heatmap-cell ${cls} ${isToday ? 'today' : ''}" title="${days[i]}">${days[i][0]}</div>`;
             }
             html += '</div></div>';
         });
 
-        container.innerHTML = html;
+        container.innerHTML = html || '<div class="empty-state" style="padding:12px;font-size:0.85rem;">No protocol items found.</div>';
     }
 
     // ========================================
