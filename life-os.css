@@ -1234,19 +1234,30 @@ body {
 }
 
 .heatmap-cell {
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
     background: var(--border-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-muted);
 }
 
 .heatmap-cell.done {
     background: var(--success);
+    color: white;
 }
 
 .heatmap-cell.missed {
     background: var(--danger-light);
     opacity: 0.5;
+}
+
+.heatmap-cell.today {
+    border: 2px solid var(--primary);
 }
 
 /* ========================================
