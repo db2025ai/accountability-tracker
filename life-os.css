@@ -1001,60 +1001,149 @@ body {
    Habits Section
    ======================================== */
 .today-habits {
-    background: var(--card-bg);
-    border-radius: var(--radius);
-    padding: 20px;
     margin-bottom: 28px;
-    box-shadow: var(--shadow);
 }
 
 .today-habits h3 {
-    margin-bottom: 16px;
+    margin-bottom: 4px;
+    font-size: 1.1rem;
 }
 
-/* Protocol Groups */
-.protocol-group {
-    margin-bottom: 20px;
+/* Frequency Groups */
+.freq-group {
+    margin-bottom: 24px;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
 }
 
-.protocol-group:last-child {
+.freq-group:last-child {
     margin-bottom: 0;
 }
 
-.protocol-header {
+.freq-group-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
-    background: var(--border-light);
-    border-radius: var(--radius-sm);
-    margin-bottom: 4px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark, #4f46e5));
+    color: #fff;
 }
 
-.protocol-label {
+.freq-group-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.freq-icon {
+    font-size: 1.1rem;
+}
+
+.freq-label {
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: var(--text);
+    letter-spacing: 0.04em;
 }
 
-.protocol-progress {
-    font-size: 0.8rem;
+.freq-group-count {
+    font-size: 0.85rem;
     font-weight: 600;
-    color: var(--primary);
+    background: rgba(255,255,255,0.2);
+    padding: 2px 10px;
+    border-radius: 12px;
+}
+
+.freq-cat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    padding: 10px 16px 4px;
+    border-top: 1px solid var(--border-light);
+}
+
+.freq-cat-label:first-child {
+    border-top: none;
 }
 
 .habit-check-item {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 0;
+    padding: 10px 16px;
     border-bottom: 1px solid var(--border-light);
+    transition: background 0.15s;
 }
 
 .habit-check-item:last-child {
     border-bottom: none;
+}
+
+.habit-check-item:hover {
+    background: rgba(99, 102, 241, 0.04);
+}
+
+.habit-check-item.item-done {
+    background: rgba(34, 197, 94, 0.05);
+}
+
+.habit-item-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* Weekly progress indicators */
+.freq-progress {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--border-light);
+}
+
+.freq-progress.on-track {
+    color: #16a34a;
+    background: rgba(34, 197, 94, 0.12);
+}
+
+.freq-progress.over-limit {
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.12);
+}
+
+.freq-progress.under-limit {
+    color: #16a34a;
+    background: rgba(34, 197, 94, 0.12);
+}
+
+.freq-progress-bar {
+    width: 48px;
+    height: 4px;
+    background: var(--border-light);
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.freq-progress-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+.freq-progress-fill.met {
+    background: #22c55e;
 }
 
 /* Ad-Hoc Tasks */
@@ -1876,7 +1965,17 @@ body {
 
     /* Larger touch targets on mobile */
     .habit-check-item {
-        padding: 14px 0;
+        padding: 14px 16px;
+    }
+
+    .habit-item-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .freq-progress-bar {
+        width: 60px;
     }
 
     .habit-checkbox {

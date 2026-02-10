@@ -1505,6 +1505,26 @@ class LifeOS {
         });
     }
 
+    // Classify a goal's target into a frequency bucket
+    classifyFrequency(target) {
+        if (!target) return { group: 'daily', label: 'Daily', perWeek: 7 };
+        const t = target.toLowerCase().trim();
+        if (t === 'daily') return { group: 'daily', label: 'Every day', perWeek: 7 };
+        if (t === 'weekdays' || t === 'weeknights') return { group: 'daily', label: 'Weekdays', perWeek: 5 };
+        if (t === 'weekly') return { group: 'weekly', label: '1x/week', perWeek: 1 };
+        if (t === 'monthly') return { group: 'monthly', label: 'Monthly', perWeek: 0.25 };
+        // Parse "x1", "x2", "x1 max", "x2 max" etc.
+        const xMatch = t.match(/x(\d+)/);
+        if (xMatch) {
+            const n = parseInt(xMatch[1]);
+            const isMax = t.includes('max');
+            if (isMax) return { group: 'limit', label: `${n}x max/week`, perWeek: n, isLimit: true };
+            if (n <= 1) return { group: 'weekly', label: '1x/week', perWeek: 1 };
+            return { group: 'fewPerWeek', label: `${n}x/week`, perWeek: n };
+        }
+        return { group: 'daily', label: target, perWeek: 7 };
+    }
+
     renderHabits() {
         document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US', {
             weekday: 'long', month: 'long', day: 'numeric'
@@ -1519,45 +1539,105 @@ class LifeOS {
             return;
         }
 
-        // Get today's day index (0=Sun, 1=Mon, ..., 6=Sat)
         const todayDayIdx = new Date().getDay();
 
-        // Group entries by category, show protocol categories first
-        const protocolCats = ['Morning Protocol', 'Midday Protocol', 'Evening Protocol'];
-        const grouped = {};
+        // Build entries with frequency info
+        const allEntries = [];
         Object.entries(week.entries).forEach(([idx, entry]) => {
-            const cat = entry.goal.category;
-            if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push({ idx: parseInt(idx), ...entry });
+            const freq = this.classifyFrequency(entry.goal.target);
+            const weekDone = entry.tracking.filter(v => v === 'X' || v === 'x').length;
+            const weekStrikes = entry.tracking.filter(v => v === '1').length;
+            const todayVal = entry.tracking[todayDayIdx];
+            const todayDone = todayVal === 'X' || todayVal === 'x';
+            const todayStrike = todayVal === '1';
+            allEntries.push({
+                idx: parseInt(idx),
+                ...entry,
+                freq,
+                weekDone,
+                weekStrikes,
+                todayDone,
+                todayStrike
+            });
         });
 
-        // Show protocol categories as today's checklist
-        const catsToShow = [...protocolCats, ...Object.keys(grouped).filter(c => !protocolCats.includes(c))];
+        // Define frequency groups in display order
+        const groups = [
+            { key: 'daily', title: 'Daily Essentials', icon: '&#9788;', desc: 'Do these every day' },
+            { key: 'fewPerWeek', title: 'A Few Times This Week', icon: '&#8635;', desc: 'Hit your target this week' },
+            { key: 'weekly', title: 'Weekly Goals', icon: '&#9733;', desc: 'Complete once this week' },
+            { key: 'limit', title: 'Limits & Boundaries', icon: '&#9888;', desc: 'Stay within these limits' },
+            { key: 'monthly', title: 'Monthly Goals', icon: '&#128197;', desc: 'Once this month' }
+        ];
 
         let html = '';
-        catsToShow.forEach(cat => {
-            const entries = grouped[cat];
-            if (!entries || entries.length === 0) return;
+        groups.forEach(group => {
+            const entries = allEntries.filter(e => e.freq.group === group.key);
+            if (entries.length === 0) return;
 
-            const doneCount = entries.filter(e => {
-                const val = e.tracking[todayDayIdx];
-                return val === 'X' || val === 'x' || val === '1';
-            }).length;
+            // Calculate group-level progress
+            const todayChecked = entries.filter(e => e.todayDone || e.todayStrike).length;
+            const groupTotal = entries.length;
 
-            html += `<div class="protocol-group">
-                <div class="protocol-header">
-                    <span class="protocol-label">${cat}</span>
-                    <span class="protocol-progress">${doneCount}/${entries.length}</span>
+            html += `<div class="freq-group">
+                <div class="freq-group-header">
+                    <div class="freq-group-title">
+                        <span class="freq-icon">${group.icon}</span>
+                        <span class="freq-label">${group.title}</span>
+                    </div>
+                    <span class="freq-group-count">${todayChecked}/${groupTotal}</span>
                 </div>`;
 
-            entries.forEach(entry => {
-                const val = entry.tracking[todayDayIdx];
-                const done = val === 'X' || val === 'x' || val === '1';
-                html += `<div class="habit-check-item">
-                    <div class="habit-checkbox ${done ? 'checked' : ''}" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}">${done ? '\u2713' : ''}</div>
-                    <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(entry.goal.name)}</span>
-                </div>`;
+            // Sub-group by category within each frequency group
+            const byCat = {};
+            entries.forEach(e => {
+                const cat = e.goal.category;
+                if (!byCat[cat]) byCat[cat] = [];
+                byCat[cat].push(e);
             });
+
+            // Protocol categories first, then alphabetical
+            const protocolOrder = ['Morning Protocol', 'Midday Protocol', 'Evening Protocol'];
+            const catKeys = [...protocolOrder.filter(c => byCat[c]), ...Object.keys(byCat).filter(c => !protocolOrder.includes(c)).sort()];
+
+            catKeys.forEach(cat => {
+                const catEntries = byCat[cat];
+                if (catEntries.length > 1 || Object.keys(byCat).length > 1) {
+                    html += `<div class="freq-cat-label">${cat}</div>`;
+                }
+                catEntries.forEach(entry => {
+                    const done = entry.todayDone;
+                    const isLimit = entry.freq.isLimit;
+
+                    // Weekly progress bar
+                    let progressHtml = '';
+                    if (group.key !== 'daily') {
+                        const target = entry.freq.perWeek;
+                        if (isLimit) {
+                            // For limits: show usage vs max (red when over)
+                            const used = entry.weekDone + entry.weekStrikes;
+                            const over = used > target;
+                            progressHtml = `<span class="freq-progress ${over ? 'over-limit' : 'under-limit'}">${used}/${target} used</span>`;
+                        } else if (group.key === 'monthly') {
+                            progressHtml = `<span class="freq-progress ${entry.weekDone > 0 ? 'on-track' : ''}">${entry.weekDone > 0 ? 'Done' : 'Not yet'}</span>`;
+                        } else {
+                            const pct = Math.min(100, Math.round((entry.weekDone / target) * 100));
+                            const met = entry.weekDone >= target;
+                            progressHtml = `<span class="freq-progress ${met ? 'on-track' : ''}">${entry.weekDone}/${target}</span>
+                                <div class="freq-progress-bar"><div class="freq-progress-fill ${met ? 'met' : ''}" style="width:${pct}%"></div></div>`;
+                        }
+                    }
+
+                    html += `<div class="habit-check-item ${done ? 'item-done' : ''}">
+                        <div class="habit-checkbox ${done ? 'checked' : ''}" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}">${done ? '\u2713' : ''}</div>
+                        <div class="habit-item-content">
+                            <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(entry.goal.name)}</span>
+                            ${progressHtml}
+                        </div>
+                    </div>`;
+                });
+            });
+
             html += '</div>';
         });
 
@@ -1627,26 +1707,26 @@ class LifeOS {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const todayDayIdx = new Date().getDay();
 
-        // Show heatmap for protocol items only (keep it compact)
-        const protocolCats = ['Morning Protocol', 'Midday Protocol', 'Evening Protocol'];
+        // Show heatmap for daily items only (keeps it readable)
         let html = '';
-
         Object.entries(week.entries).forEach(([idx, entry]) => {
-            if (!protocolCats.includes(entry.goal.category)) return;
+            const freq = this.classifyFrequency(entry.goal.target);
+            if (freq.group !== 'daily') return;
             html += `<div class="heatmap-row">
                 <span class="heatmap-label">${this.escapeHtml(entry.goal.name)}</span>
                 <div class="heatmap-cells">`;
             for (let i = 0; i < 7; i++) {
                 const val = entry.tracking[i];
-                const done = val === 'X' || val === 'x' || val === '1';
+                const done = val === 'X' || val === 'x';
+                const strike = val === '1';
                 const isToday = i === todayDayIdx;
-                const cls = done ? 'done' : (i <= todayDayIdx ? 'missed' : '');
+                const cls = done ? 'done' : (strike ? 'strike' : (i <= todayDayIdx ? 'missed' : ''));
                 html += `<div class="heatmap-cell ${cls} ${isToday ? 'today' : ''}" title="${days[i]}">${days[i][0]}</div>`;
             }
             html += '</div></div>';
         });
 
-        container.innerHTML = html || '<div class="empty-state" style="padding:12px;font-size:0.85rem;">No protocol items found.</div>';
+        container.innerHTML = html || '<div class="empty-state" style="padding:12px;font-size:0.85rem;">No daily items found.</div>';
     }
 
     // ========================================

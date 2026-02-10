@@ -24,7 +24,7 @@
             <li><a href="#" class="nav-link" data-section="goals"><span class="nav-icon">&#9889;</span> Goals</a></li>
             <li><a href="#" class="nav-link" data-section="finances"><span class="nav-icon">&#36;</span> Finances</a></li>
             <li><a href="#" class="nav-link" data-section="health"><span class="nav-icon">&#9829;</span> Health</a></li>
-            <li><a href="#" class="nav-link" data-section="habits"><span class="nav-icon">&#10003;</span> Habits</a></li>
+            <li><a href="#" class="nav-link" data-section="habits"><span class="nav-icon">&#10003;</span> Today</a></li>
             <li><a href="#" class="nav-link" data-section="journal"><span class="nav-icon">&#9998;</span> Reflection</a></li>
             <li><a href="#" class="nav-link" data-section="review"><span class="nav-icon">&#9733;</span> Weekly Review</a></li>
         </ul>
@@ -337,31 +337,32 @@
             </div>
         </section>
 
-        <!-- ===== HABITS SECTION ===== -->
+        <!-- ===== HABITS / TODAY SECTION ===== -->
         <section class="section" id="section-habits">
             <div class="section-header">
-                <h1>Daily Protocols</h1>
+                <h1>Today's Actions</h1>
                 <div class="section-actions">
-                    <button class="btn btn-primary" id="addHabitBtn">+ Add Habit</button>
+                    <button class="btn btn-primary" id="addHabitBtn">+ Add Goal</button>
                 </div>
             </div>
 
-            <!-- Today's Habits -->
+            <!-- Today's Checklist -->
             <div class="today-habits">
-                <h3>Today - <span id="todayDate"></span></h3>
+                <h3><span id="todayDate"></span></h3>
+                <p class="section-subtitle" style="margin:-8px 0 12px;font-size:0.85rem;color:var(--text-muted);">Check off items here &mdash; they sync to your Goals grid automatically.</p>
                 <div class="habits-checklist" id="habitsChecklist">
-                    <!-- Dynamic habits grouped by protocol -->
+                    <!-- Dynamic: all goals grouped by frequency -->
                 </div>
             </div>
 
             <!-- Weekly Ad-Hoc Tasks -->
             <div class="adhoc-tasks-section">
-                <h3>Weekly Ad-Hoc Tasks</h3>
+                <h3>Ad-Hoc Tasks This Week</h3>
                 <div class="adhoc-tasks-list" id="adhocTasksList">
                     <!-- Dynamic tasks -->
                 </div>
                 <div class="adhoc-add-row">
-                    <input type="text" id="adhocTaskInput" placeholder="Add a task for this week..." class="adhoc-input">
+                    <input type="text" id="adhocTaskInput" placeholder="Add a one-off task..." class="adhoc-input">
                     <button class="btn btn-primary btn-sm" id="addAdhocTaskBtn">Add</button>
                 </div>
             </div>
@@ -374,9 +375,9 @@
                 </div>
             </div>
 
-            <!-- Habit Heatmap -->
+            <!-- Weekly Heatmap -->
             <div class="habit-heatmap-section">
-                <h3>30-Day Overview</h3>
+                <h3>This Week at a Glance</h3>
                 <div class="habit-heatmap" id="habitHeatmap">
                     <!-- Dynamic heatmap -->
                 </div>
