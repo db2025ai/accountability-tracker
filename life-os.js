@@ -719,9 +719,14 @@ class LifeOS {
         document.getElementById('vacationWeekBtn').addEventListener('click', () => {
             const week = this.getCurrentWeek();
             if (!week) return;
-            week.vacation = !week.vacation;
+            // Toggle: full week vacation flips all 7 days
+            if (!week.vacationDays) week.vacationDays = [];
+            const allVacation = week.vacationDays.length === 7;
+            week.vacationDays = allVacation ? [] : [0,1,2,3,4,5,6];
+            // Keep legacy vacation flag in sync
+            week.vacation = !allVacation;
             this.saveData();
-            this.logActivity(week.vacation ? 'Marked week as vacation' : 'Removed vacation from week');
+            this.logActivity(week.vacation ? 'Marked full week as vacation' : 'Removed vacation from week');
             this.renderGoals();
         });
     }
@@ -734,13 +739,16 @@ class LifeOS {
         }
 
         // Week label + vacation indicator
-        document.getElementById('currentWeekLabel').textContent = (week.vacation ? '🏖️ ' : '') + this.formatWeekDate(week.startDate);
+        const vacDays = week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []);
+        const isFullVacation = vacDays.length === 7;
+        document.getElementById('currentWeekLabel').textContent = (isFullVacation ? '🏖️ ' : '') + this.formatWeekDate(week.startDate);
         const vacBtn = document.getElementById('vacationWeekBtn');
-        vacBtn.textContent = week.vacation ? '✓ Vacation' : '🏖️ Vacation';
-        vacBtn.className = `btn btn-sm ${week.vacation ? 'btn-primary' : 'btn-secondary'}`;
+        vacBtn.textContent = isFullVacation ? '✓ Full Vacation' : '🏖️ Vacation';
+        vacBtn.className = `btn btn-sm ${isFullVacation ? 'btn-primary' : 'btn-secondary'}`;
 
         // Build table
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const weekVacDays = week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []);
         let html = '<table><thead><tr><th>Goal</th>';
         days.forEach(d => html += `<th>${d}</th>`);
         html += '<th>Strikes</th></tr></thead><tbody>';
@@ -760,7 +768,10 @@ class LifeOS {
                 entry.tracking.forEach((val, dayIdx) => {
                     let cls = 'day-cell';
                     let display = '';
-                    if (val === 'X' || val === 'x') {
+                    if (weekVacDays.includes(dayIdx)) {
+                        cls += ' vacation-day';
+                        display = '🏖️';
+                    } else if (val === 'X' || val === 'x') {
                         cls += ' completed';
                         display = '\u2713';
                     } else if (val === '1') {
@@ -1163,6 +1174,24 @@ class LifeOS {
     bindHabits() {
         document.getElementById('addHabitBtn').addEventListener('click', () => this.openModal('addGoalModal'));
 
+        document.getElementById('vacationDayBtn').addEventListener('click', () => {
+            const week = this.getCurrentWeek();
+            if (!week) return;
+            if (!week.vacationDays) week.vacationDays = [];
+            const todayIdx = new Date().getDay();
+            const isVacation = week.vacationDays.includes(todayIdx);
+            if (isVacation) {
+                week.vacationDays = week.vacationDays.filter(d => d !== todayIdx);
+            } else {
+                week.vacationDays.push(todayIdx);
+            }
+            // Keep legacy week.vacation in sync (true only if all 7 days are vacation)
+            week.vacation = week.vacationDays.length === 7;
+            this.saveData();
+            this.logActivity(isVacation ? 'Removed travel day' : 'Marked today as travel day');
+            this.renderHabits();
+        });
+
         // Ad-hoc tasks
         document.getElementById('addAdhocTaskBtn').addEventListener('click', () => this.addAdhocTask());
         document.getElementById('adhocTaskInput').addEventListener('keypress', (e) => {
@@ -1271,6 +1300,23 @@ class LifeOS {
         }
 
         const todayDayIdx = new Date().getDay();
+
+        // Travel day state
+        const vacationDays = week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []);
+        const isTravelDay = vacationDays.includes(todayDayIdx);
+        const vacBtn = document.getElementById('vacationDayBtn');
+        if (vacBtn) {
+            vacBtn.textContent = isTravelDay ? '✓ Travel Day' : '🏖️ Travel Day';
+            vacBtn.className = `vacation-day-btn${isTravelDay ? ' active' : ''}`;
+        }
+
+        if (isTravelDay) {
+            checklist.innerHTML = `<div class="travel-day-notice">🏖️ <strong>Travel day!</strong> Streaks are preserved — enjoy your time off.</div>`;
+            this.renderAdhocTasks();
+            this.renderStreaks();
+            this.renderHeatmap();
+            return;
+        }
 
         // Precompute streaks for badge display
         const streakMap = {};
@@ -1422,18 +1468,14 @@ class LifeOS {
 
         while (weekIdx >= 0) {
             const week = sortedWeeks[weekIdx];
-
-            // Skip vacation weeks — don't break or extend streak
-            if (week.vacation) {
-                weekIdx--;
-                dayIdx = 6;
-                continue;
-            }
+            const vacDays = week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []);
 
             const entry = Object.values(week.entries).find(e => e.goal.name === goalName);
             if (!entry) break;
 
             for (let d = dayIdx; d >= 0; d--) {
+                // Skip vacation days — don't break or count
+                if (vacDays.includes(d)) continue;
                 const val = entry.tracking[d];
                 if (val === 'X' || val === 'x') {
                     streak++;
