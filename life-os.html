@@ -57,6 +57,7 @@
                     </div>
                     <h3>Life Score</h3>
                     <p class="text-muted">Overall performance this week</p>
+                    <div id="weeklyTrend" class="weekly-trend"></div>
                 </div>
             </div>
 
@@ -109,10 +110,14 @@
             <!-- Category Overview -->
             <div class="category-overview">
                 <h3>This Week by Category</h3>
-                <div class="category-bars" id="dashCategoryBars">
-                    <!-- Dynamic category progress bars -->
-                </div>
+                <div class="category-bars" id="dashCategoryBars"></div>
             </div>
+
+            <!-- Problem Areas -->
+            <div id="problemAreas"></div>
+
+            <!-- All-Time Stats -->
+            <div id="allTimeStats" style="display:none;"></div>
 
             <!-- Recent Activity -->
             <div class="recent-activity">
@@ -142,6 +147,7 @@
                 <button class="btn btn-nav" id="prevWeekBtn">&larr; Previous</button>
                 <span class="week-label" id="currentWeekLabel">Current Week</span>
                 <button class="btn btn-nav" id="nextWeekBtn">Next &rarr;</button>
+                <button class="btn btn-secondary btn-sm" id="vacationWeekBtn">🏖️ Vacation</button>
             </div>
 
             <!-- Goals Tracking Grid -->
@@ -489,6 +495,12 @@
                     </div>
                     <div id="convexStatus" style="font-size:0.8rem;color:var(--text-muted);">Not connected - using local storage</div>
                     <button class="btn btn-secondary" id="syncToConvexBtn" style="margin-top:8px;display:none;">Sync Local Data to Convex</button>
+                </div>
+                <div class="setting-item">
+                    <label>Import from Google Sheets</label>
+                    <p class="setting-desc">Import your historical accountability tracker data from a Google Sheets CSV export. Historical weeks are preserved for all-time stats.</p>
+                    <input type="file" id="sheetsFileInput" accept=".csv" style="display:none;">
+                    <button class="btn btn-secondary" id="importSheetsBtn">Import Google Sheets CSV</button>
                 </div>
                 <div class="setting-item">
                     <label>Import Accountability Tracker Data</label>

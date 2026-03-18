@@ -2119,6 +2119,124 @@ body {
     }
 }
 
+/* ========================================
+   Streak Badges
+   ======================================== */
+.habit-name-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.streak-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.streak-badge.fire   { background: rgba(249,115,22,0.12); color: #ea580c; }
+.streak-badge.star   { background: rgba(234,179,8,0.15);  color: #b45309; }
+.streak-badge.diamond{ background: rgba(139,92,246,0.15); color: #7c3aed; }
+.streak-badge.crown  { background: rgba(234,179,8,0.2);   color: #92400e; }
+
+/* ========================================
+   Weekly Trend
+   ======================================== */
+.weekly-trend {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    display: inline-block;
+}
+.weekly-trend.up      { color: var(--success); background: rgba(34,197,94,0.1); }
+.weekly-trend.down    { color: var(--danger);  background: rgba(239,68,68,0.1); }
+.weekly-trend.neutral { color: var(--text-muted); background: var(--border-light); }
+
+/* ========================================
+   Problem Areas
+   ======================================== */
+.problem-areas {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+}
+.problem-areas h3 { font-size: 1rem; margin-bottom: 12px; }
+.problem-areas-list { display: flex; flex-direction: column; gap: 10px; }
+.problem-area-item { }
+.problem-area-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.problem-area-name { font-size: 0.85rem; font-weight: 500; }
+.problem-area-pct  { font-size: 0.8rem; font-weight: 700; }
+.problem-bar-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.problem-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+/* ========================================
+   All-Time Stats
+   ======================================== */
+.alltime-stats {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+}
+.alltime-stats h3 { font-size: 1rem; margin-bottom: 12px; }
+.alltime-weeks-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-left: 6px;
+}
+.alltime-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+}
+.alltime-cat-card {
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    border-left: 3px solid var(--border);
+}
+.alltime-cat-card.good       { border-color: var(--success); background: rgba(34,197,94,0.06); }
+.alltime-cat-card.okay       { border-color: var(--warning); background: rgba(245,158,11,0.06); }
+.alltime-cat-card.needs-work { border-color: var(--danger);  background: rgba(239,68,68,0.06); }
+.alltime-cat-name { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
+.alltime-cat-pct  { font-size: 1.3rem; font-weight: 700; line-height: 1; margin-bottom: 2px; }
+.alltime-cat-detail { font-size: 0.7rem; color: var(--text-muted); }
+
+/* ========================================
+   Vacation Week
+   ======================================== */
+.week-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 </style>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#6366f1">
@@ -2172,6 +2290,7 @@ body {
                     </div>
                     <h3>Life Score</h3>
                     <p class="text-muted">Overall performance this week</p>
+                    <div id="weeklyTrend" class="weekly-trend"></div>
                 </div>
             </div>
 
@@ -2224,10 +2343,14 @@ body {
             <!-- Category Overview -->
             <div class="category-overview">
                 <h3>This Week by Category</h3>
-                <div class="category-bars" id="dashCategoryBars">
-                    <!-- Dynamic category progress bars -->
-                </div>
+                <div class="category-bars" id="dashCategoryBars"></div>
             </div>
+
+            <!-- Problem Areas -->
+            <div id="problemAreas"></div>
+
+            <!-- All-Time Stats -->
+            <div id="allTimeStats" style="display:none;"></div>
 
             <!-- Recent Activity -->
             <div class="recent-activity">
@@ -2257,6 +2380,7 @@ body {
                 <button class="btn btn-nav" id="prevWeekBtn">&larr; Previous</button>
                 <span class="week-label" id="currentWeekLabel">Current Week</span>
                 <button class="btn btn-nav" id="nextWeekBtn">Next &rarr;</button>
+                <button class="btn btn-secondary btn-sm" id="vacationWeekBtn">🏖️ Vacation</button>
             </div>
 
             <!-- Goals Tracking Grid -->
@@ -2604,6 +2728,12 @@ body {
                     </div>
                     <div id="convexStatus" style="font-size:0.8rem;color:var(--text-muted);">Not connected - using local storage</div>
                     <button class="btn btn-secondary" id="syncToConvexBtn" style="margin-top:8px;display:none;">Sync Local Data to Convex</button>
+                </div>
+                <div class="setting-item">
+                    <label>Import from Google Sheets</label>
+                    <p class="setting-desc">Import your historical accountability tracker data from a Google Sheets CSV export. Historical weeks are preserved for all-time stats.</p>
+                    <input type="file" id="sheetsFileInput" accept=".csv" style="display:none;">
+                    <button class="btn btn-secondary" id="importSheetsBtn">Import Google Sheets CSV</button>
                 </div>
                 <div class="setting-item">
                     <label>Import Accountability Tracker Data</label>
@@ -3253,7 +3383,10 @@ class LifeOS {
     renderDashboard() {
         this.renderLifeScore();
         this.renderDashStats();
+        this.renderWeeklyTrend();
         this.renderCategoryBars();
+        this.renderProblemAreas();
+        this.renderAllTimeStats();
         this.renderActivityFeed();
     }
 
@@ -3435,6 +3568,113 @@ class LifeOS {
         container.innerHTML = html;
     }
 
+    renderWeeklyTrend() {
+        const el = document.getElementById('weeklyTrend');
+        if (!el) return;
+        const sorted = [...this.data.weeks].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+        if (sorted.length < 2) { el.textContent = ''; return; }
+
+        const getScore = (week) => {
+            let done = 0, total = 0;
+            Object.values(week.entries).forEach(e => {
+                e.tracking.forEach(v => { if (v !== '') total++; if (v === 'X' || v === 'x') done++; });
+            });
+            return total > 0 ? Math.round((done / total) * 100) : 0;
+        };
+
+        const curr = getScore(sorted[sorted.length - 1]);
+        const prev = getScore(sorted[sorted.length - 2]);
+        const diff = curr - prev;
+
+        if (diff > 0) { el.textContent = `↑ ${diff}% vs last week`; el.className = 'weekly-trend up'; }
+        else if (diff < 0) { el.textContent = `↓ ${Math.abs(diff)}% vs last week`; el.className = 'weekly-trend down'; }
+        else { el.textContent = '→ Same as last week'; el.className = 'weekly-trend neutral'; }
+    }
+
+    renderProblemAreas() {
+        const container = document.getElementById('problemAreas');
+        if (!container) return;
+        const week = this.getCurrentWeek();
+        if (!week) { container.innerHTML = ''; return; }
+
+        const catStats = {};
+        Object.values(week.entries).forEach(entry => {
+            const cat = entry.goal.category;
+            if (!catStats[cat]) catStats[cat] = { done: 0, total: 0, strikes: 0 };
+            entry.tracking.forEach(v => {
+                if (v !== '') catStats[cat].total++;
+                if (v === 'X' || v === 'x') catStats[cat].done++;
+                if (v === '1') catStats[cat].strikes++;
+            });
+        });
+
+        const worst = Object.entries(catStats)
+            .filter(([, s]) => s.total > 0)
+            .map(([cat, s]) => ({ cat, pct: Math.round((s.done / s.total) * 100), strikes: s.strikes }))
+            .sort((a, b) => a.pct - b.pct)
+            .slice(0, 3)
+            .filter(s => s.pct < 80);
+
+        if (worst.length === 0) { container.innerHTML = ''; return; }
+
+        container.innerHTML = `
+            <div class="problem-areas">
+                <h3>Needs Attention This Week</h3>
+                <div class="problem-areas-list">
+                    ${worst.map(s => `
+                        <div class="problem-area-item">
+                            <div class="problem-area-header">
+                                <span class="problem-area-name">${s.cat}</span>
+                                <span class="problem-area-pct" style="color:${s.pct < 50 ? 'var(--danger)' : 'var(--warning)'}">${s.pct}%${s.strikes > 0 ? ` · ${s.strikes} strike${s.strikes > 1 ? 's' : ''}` : ''}</span>
+                            </div>
+                            <div class="problem-bar-track">
+                                <div class="problem-bar-fill" style="width:${s.pct}%;background:${s.pct < 50 ? 'var(--danger)' : 'var(--warning)'}"></div>
+                            </div>
+                        </div>`).join('')}
+                </div>
+            </div>`;
+    }
+
+    renderAllTimeStats() {
+        const container = document.getElementById('allTimeStats');
+        if (!container) return;
+        if (this.data.weeks.length <= 1) { container.style.display = 'none'; return; }
+        container.style.display = 'block';
+
+        const catStats = {};
+        this.data.weeks.forEach(week => {
+            Object.values(week.entries).forEach(entry => {
+                const cat = entry.goal.category || 'Other';
+                if (!catStats[cat]) catStats[cat] = { done: 0, strikes: 0, total: 0 };
+                entry.tracking.forEach(v => {
+                    if (v !== '') catStats[cat].total++;
+                    if (v === 'X' || v === 'x') catStats[cat].done++;
+                    if (v === '1') catStats[cat].strikes++;
+                });
+            });
+        });
+
+        const sorted = Object.entries(catStats)
+            .filter(([, s]) => s.total > 0)
+            .sort((a, b) => (b[1].done / b[1].total) - (a[1].done / a[1].total));
+
+        container.innerHTML = `
+            <div class="alltime-stats">
+                <h3>All-Time by Category <span class="alltime-weeks-label">${this.data.weeks.length} weeks tracked</span></h3>
+                <div class="alltime-grid">
+                    ${sorted.map(([cat, s]) => {
+                        const pct = Math.round((s.done / s.total) * 100);
+                        const cls = pct >= 80 ? 'good' : pct >= 60 ? 'okay' : 'needs-work';
+                        return `<div class="alltime-cat-card ${cls}">
+                            <div class="alltime-cat-name">${cat}</div>
+                            <div class="alltime-cat-pct">${pct}%</div>
+                            <div class="alltime-cat-detail">${s.done}✓ · ${s.strikes}✗</div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+    }
+
     renderActivityFeed() {
         const feed = document.getElementById('activityFeed');
         if (this.data.activityLog.length === 0) {
@@ -3486,8 +3726,16 @@ class LifeOS {
         });
 
         document.getElementById('addGoalBtn').addEventListener('click', () => this.openModal('addGoalModal'));
-
         document.getElementById('importAccountabilityBtn').addEventListener('click', () => this.importFromAccountabilityTracker());
+
+        document.getElementById('vacationWeekBtn').addEventListener('click', () => {
+            const week = this.getCurrentWeek();
+            if (!week) return;
+            week.vacation = !week.vacation;
+            this.saveData();
+            this.logActivity(week.vacation ? 'Marked week as vacation' : 'Removed vacation from week');
+            this.renderGoals();
+        });
     }
 
     renderGoals() {
@@ -3497,8 +3745,11 @@ class LifeOS {
             return;
         }
 
-        // Week label
-        document.getElementById('currentWeekLabel').textContent = this.formatWeekDate(week.startDate);
+        // Week label + vacation indicator
+        document.getElementById('currentWeekLabel').textContent = (week.vacation ? '🏖️ ' : '') + this.formatWeekDate(week.startDate);
+        const vacBtn = document.getElementById('vacationWeekBtn');
+        vacBtn.textContent = week.vacation ? '✓ Vacation' : '🏖️ Vacation';
+        vacBtn.className = `btn btn-sm ${week.vacation ? 'btn-primary' : 'btn-secondary'}`;
 
         // Build table
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -4033,6 +4284,12 @@ class LifeOS {
 
         const todayDayIdx = new Date().getDay();
 
+        // Precompute streaks for badge display
+        const streakMap = {};
+        Object.values(week.entries).forEach(entry => {
+            streakMap[entry.goal.name] = this.calculateGoalStreak(entry.goal.name);
+        });
+
         // Build entries with frequency info
         const allEntries = [];
         Object.entries(week.entries).forEach(([idx, entry]) => {
@@ -4101,6 +4358,14 @@ class LifeOS {
                     const done = entry.todayDone;
                     const isLimit = entry.freq.isLimit;
 
+                    // Streak badge
+                    const streak = streakMap[entry.goal.name] || 0;
+                    let badgeHtml = '';
+                    if (streak >= 30) badgeHtml = `<span class="streak-badge crown" title="${streak}-day streak">👑 ${streak}</span>`;
+                    else if (streak >= 14) badgeHtml = `<span class="streak-badge diamond" title="${streak}-day streak">💎 ${streak}</span>`;
+                    else if (streak >= 7) badgeHtml = `<span class="streak-badge star" title="${streak}-day streak">⭐ ${streak}</span>`;
+                    else if (streak >= 3) badgeHtml = `<span class="streak-badge fire" title="${streak}-day streak">🔥 ${streak}</span>`;
+
                     // Weekly progress bar
                     let progressHtml = '';
                     if (group.key !== 'daily') {
@@ -4123,7 +4388,10 @@ class LifeOS {
                     html += `<div class="habit-check-item ${done ? 'item-done' : ''}">
                         <div class="habit-checkbox ${done ? 'checked' : ''}" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}">${done ? '\u2713' : ''}</div>
                         <div class="habit-item-content">
-                            <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(entry.goal.name)}</span>
+                            <div class="habit-name-row">
+                                <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(entry.goal.name)}</span>
+                                ${badgeHtml}
+                            </div>
                             ${progressHtml}
                         </div>
                     </div>`;
@@ -4166,6 +4434,14 @@ class LifeOS {
 
         while (weekIdx >= 0) {
             const week = sortedWeeks[weekIdx];
+
+            // Skip vacation weeks — don't break or extend streak
+            if (week.vacation) {
+                weekIdx--;
+                dayIdx = 6;
+                continue;
+            }
+
             const entry = Object.values(week.entries).find(e => e.goal.name === goalName);
             if (!entry) break;
 
@@ -4543,6 +4819,14 @@ class LifeOS {
             }
         });
 
+        document.getElementById('importSheetsBtn').addEventListener('click', () => {
+            document.getElementById('sheetsFileInput').click();
+        });
+        document.getElementById('sheetsFileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) this.importGoogleSheetsCSV(file);
+        });
+
         document.getElementById('syncFromTrackerBtn').addEventListener('click', () => this.importFromAccountabilityTracker());
 
         document.getElementById('exportAllBtn').addEventListener('click', () => {
@@ -4613,6 +4897,148 @@ class LifeOS {
     // ========================================
     // Utilities
     // ========================================
+    // ========================================
+    // Google Sheets CSV Import
+    // ========================================
+    parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (inQuotes) {
+                if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+                else if (ch === '"') inQuotes = false;
+                else current += ch;
+            } else {
+                if (ch === '"') inQuotes = true;
+                else if (ch === ',') { result.push(current); current = ''; }
+                else current += ch;
+            }
+        }
+        result.push(current);
+        return result;
+    }
+
+    importGoogleSheetsCSV(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                let csv = e.target.result;
+                if (csv.charCodeAt(0) === 0xFEFF) csv = csv.slice(1);
+                const lines = csv.split(/\r?\n/);
+
+                const importedWeeks = [];
+                let currentWeek = null;
+                let currentCategory = null;
+                let currentYear = null;
+                let lastMonth = null;
+
+                const knownCats = ['physical health', 'mental health', 'budgeting', 'work',
+                    'cooking', 'monthly', 'other', 'morning protocol', 'midday protocol',
+                    'evening protocol'];
+                const skipRows = ['grand total', 'total strikes', 'week specific', 'misses',
+                    'keep strike'];
+
+                for (const rawLine of lines) {
+                    const cells = this.parseCSVLine(rawLine);
+                    if (cells.length < 3) continue;
+
+                    const c0 = (cells[0] || '').trim();
+                    const c1 = (cells[1] || '').trim();
+                    const c2 = (cells[2] || '').trim();
+
+                    // Skip header and day-label rows
+                    if (c0.toLowerCase().includes('this week')) continue;
+                    if (['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].includes(c2.toLowerCase())) continue;
+
+                    // Detect week start: first two cells empty, third is MM/DD
+                    if (c0 === '' && c1 === '' && /^\d{1,2}\/\d{1,2}$/.test(c2)) {
+                        const month = parseInt(c2.split('/')[0]);
+                        if (!currentYear) {
+                            currentYear = month >= 9 ? 2024 : 2025; // Sep+ = 2024, else 2025
+                        } else if (lastMonth && lastMonth > month + 2) {
+                            currentYear++; // Year wrapped
+                        }
+                        lastMonth = month;
+
+                        if (currentWeek && Object.keys(currentWeek.entries).length > 0) {
+                            importedWeeks.push(currentWeek);
+                        }
+
+                        const [m, d] = c2.split('/').map(Number);
+                        const startStr = `${currentYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                        currentWeek = {
+                            startDate: new Date(startStr + 'T12:00:00').toISOString(),
+                            entries: {},
+                            source: 'imported'
+                        };
+                        currentCategory = null;
+                        continue;
+                    }
+
+                    if (!currentWeek || !c1) continue;
+
+                    const lc1 = c1.toLowerCase();
+                    if (skipRows.some(s => lc1.startsWith(s))) continue;
+
+                    // Category row: known category name or all-empty tracking
+                    const tracking7 = cells.slice(2, 9);
+                    const hasTracking = tracking7.some(v => v === 'X' || v === 'x' || v === '1');
+                    if (knownCats.includes(lc1) || (!hasTracking && c1.length < 40 && c1 === c1.replace(/[^a-zA-Z\s&]/g, ''))) {
+                        currentCategory = c1;
+                        continue;
+                    }
+
+                    // Goal row
+                    const tracking = tracking7.map(v => {
+                        const t = (v || '').trim();
+                        if (t === 'X' || t === 'x') return 'X';
+                        if (t === '1') return '1';
+                        return '';
+                    });
+                    // Pad to 7 if needed
+                    while (tracking.length < 7) tracking.push('');
+
+                    const idx = Object.keys(currentWeek.entries).length;
+                    currentWeek.entries[idx] = {
+                        goal: { name: c1, category: currentCategory || 'Other', target: '' },
+                        tracking
+                    };
+                }
+
+                if (currentWeek && Object.keys(currentWeek.entries).length > 0) {
+                    importedWeeks.push(currentWeek);
+                }
+
+                if (importedWeeks.length === 0) {
+                    alert('No weeks found. Make sure this is a Google Sheets CSV export from your accountability tracker.');
+                    return;
+                }
+
+                let added = 0;
+                for (const week of importedWeeks) {
+                    const exists = this.data.weeks.some(w =>
+                        new Date(w.startDate).toDateString() === new Date(week.startDate).toDateString()
+                    );
+                    if (!exists) { this.data.weeks.push(week); added++; }
+                }
+
+                this.data.weeks.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+                this.saveData();
+                this.logActivity(`Imported ${added} historical weeks from Google Sheets`);
+                this.renderDashboard();
+                this.closeModal('settingsModal');
+                alert(`Imported ${added} historical weeks from Google Sheets!\n\n` +
+                    `Your all-time stats now appear on the Dashboard.\n` +
+                    `Use Previous/Next in the Goals tab to browse past weeks.`);
+            } catch (err) {
+                alert('Error parsing CSV: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+
     getTodayStr() {
         return this.dateToStr(new Date());
     }

@@ -371,7 +371,10 @@ class LifeOS {
     renderDashboard() {
         this.renderLifeScore();
         this.renderDashStats();
+        this.renderWeeklyTrend();
         this.renderCategoryBars();
+        this.renderProblemAreas();
+        this.renderAllTimeStats();
         this.renderActivityFeed();
     }
 
@@ -553,6 +556,113 @@ class LifeOS {
         container.innerHTML = html;
     }
 
+    renderWeeklyTrend() {
+        const el = document.getElementById('weeklyTrend');
+        if (!el) return;
+        const sorted = [...this.data.weeks].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+        if (sorted.length < 2) { el.textContent = ''; return; }
+
+        const getScore = (week) => {
+            let done = 0, total = 0;
+            Object.values(week.entries).forEach(e => {
+                e.tracking.forEach(v => { if (v !== '') total++; if (v === 'X' || v === 'x') done++; });
+            });
+            return total > 0 ? Math.round((done / total) * 100) : 0;
+        };
+
+        const curr = getScore(sorted[sorted.length - 1]);
+        const prev = getScore(sorted[sorted.length - 2]);
+        const diff = curr - prev;
+
+        if (diff > 0) { el.textContent = `↑ ${diff}% vs last week`; el.className = 'weekly-trend up'; }
+        else if (diff < 0) { el.textContent = `↓ ${Math.abs(diff)}% vs last week`; el.className = 'weekly-trend down'; }
+        else { el.textContent = '→ Same as last week'; el.className = 'weekly-trend neutral'; }
+    }
+
+    renderProblemAreas() {
+        const container = document.getElementById('problemAreas');
+        if (!container) return;
+        const week = this.getCurrentWeek();
+        if (!week) { container.innerHTML = ''; return; }
+
+        const catStats = {};
+        Object.values(week.entries).forEach(entry => {
+            const cat = entry.goal.category;
+            if (!catStats[cat]) catStats[cat] = { done: 0, total: 0, strikes: 0 };
+            entry.tracking.forEach(v => {
+                if (v !== '') catStats[cat].total++;
+                if (v === 'X' || v === 'x') catStats[cat].done++;
+                if (v === '1') catStats[cat].strikes++;
+            });
+        });
+
+        const worst = Object.entries(catStats)
+            .filter(([, s]) => s.total > 0)
+            .map(([cat, s]) => ({ cat, pct: Math.round((s.done / s.total) * 100), strikes: s.strikes }))
+            .sort((a, b) => a.pct - b.pct)
+            .slice(0, 3)
+            .filter(s => s.pct < 80);
+
+        if (worst.length === 0) { container.innerHTML = ''; return; }
+
+        container.innerHTML = `
+            <div class="problem-areas">
+                <h3>Needs Attention This Week</h3>
+                <div class="problem-areas-list">
+                    ${worst.map(s => `
+                        <div class="problem-area-item">
+                            <div class="problem-area-header">
+                                <span class="problem-area-name">${s.cat}</span>
+                                <span class="problem-area-pct" style="color:${s.pct < 50 ? 'var(--danger)' : 'var(--warning)'}">${s.pct}%${s.strikes > 0 ? ` · ${s.strikes} strike${s.strikes > 1 ? 's' : ''}` : ''}</span>
+                            </div>
+                            <div class="problem-bar-track">
+                                <div class="problem-bar-fill" style="width:${s.pct}%;background:${s.pct < 50 ? 'var(--danger)' : 'var(--warning)'}"></div>
+                            </div>
+                        </div>`).join('')}
+                </div>
+            </div>`;
+    }
+
+    renderAllTimeStats() {
+        const container = document.getElementById('allTimeStats');
+        if (!container) return;
+        if (this.data.weeks.length <= 1) { container.style.display = 'none'; return; }
+        container.style.display = 'block';
+
+        const catStats = {};
+        this.data.weeks.forEach(week => {
+            Object.values(week.entries).forEach(entry => {
+                const cat = entry.goal.category || 'Other';
+                if (!catStats[cat]) catStats[cat] = { done: 0, strikes: 0, total: 0 };
+                entry.tracking.forEach(v => {
+                    if (v !== '') catStats[cat].total++;
+                    if (v === 'X' || v === 'x') catStats[cat].done++;
+                    if (v === '1') catStats[cat].strikes++;
+                });
+            });
+        });
+
+        const sorted = Object.entries(catStats)
+            .filter(([, s]) => s.total > 0)
+            .sort((a, b) => (b[1].done / b[1].total) - (a[1].done / a[1].total));
+
+        container.innerHTML = `
+            <div class="alltime-stats">
+                <h3>All-Time by Category <span class="alltime-weeks-label">${this.data.weeks.length} weeks tracked</span></h3>
+                <div class="alltime-grid">
+                    ${sorted.map(([cat, s]) => {
+                        const pct = Math.round((s.done / s.total) * 100);
+                        const cls = pct >= 80 ? 'good' : pct >= 60 ? 'okay' : 'needs-work';
+                        return `<div class="alltime-cat-card ${cls}">
+                            <div class="alltime-cat-name">${cat}</div>
+                            <div class="alltime-cat-pct">${pct}%</div>
+                            <div class="alltime-cat-detail">${s.done}✓ · ${s.strikes}✗</div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+    }
+
     renderActivityFeed() {
         const feed = document.getElementById('activityFeed');
         if (this.data.activityLog.length === 0) {
@@ -604,8 +714,16 @@ class LifeOS {
         });
 
         document.getElementById('addGoalBtn').addEventListener('click', () => this.openModal('addGoalModal'));
-
         document.getElementById('importAccountabilityBtn').addEventListener('click', () => this.importFromAccountabilityTracker());
+
+        document.getElementById('vacationWeekBtn').addEventListener('click', () => {
+            const week = this.getCurrentWeek();
+            if (!week) return;
+            week.vacation = !week.vacation;
+            this.saveData();
+            this.logActivity(week.vacation ? 'Marked week as vacation' : 'Removed vacation from week');
+            this.renderGoals();
+        });
     }
 
     renderGoals() {
@@ -615,8 +733,11 @@ class LifeOS {
             return;
         }
 
-        // Week label
-        document.getElementById('currentWeekLabel').textContent = this.formatWeekDate(week.startDate);
+        // Week label + vacation indicator
+        document.getElementById('currentWeekLabel').textContent = (week.vacation ? '🏖️ ' : '') + this.formatWeekDate(week.startDate);
+        const vacBtn = document.getElementById('vacationWeekBtn');
+        vacBtn.textContent = week.vacation ? '✓ Vacation' : '🏖️ Vacation';
+        vacBtn.className = `btn btn-sm ${week.vacation ? 'btn-primary' : 'btn-secondary'}`;
 
         // Build table
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1151,6 +1272,12 @@ class LifeOS {
 
         const todayDayIdx = new Date().getDay();
 
+        // Precompute streaks for badge display
+        const streakMap = {};
+        Object.values(week.entries).forEach(entry => {
+            streakMap[entry.goal.name] = this.calculateGoalStreak(entry.goal.name);
+        });
+
         // Build entries with frequency info
         const allEntries = [];
         Object.entries(week.entries).forEach(([idx, entry]) => {
@@ -1219,6 +1346,14 @@ class LifeOS {
                     const done = entry.todayDone;
                     const isLimit = entry.freq.isLimit;
 
+                    // Streak badge
+                    const streak = streakMap[entry.goal.name] || 0;
+                    let badgeHtml = '';
+                    if (streak >= 30) badgeHtml = `<span class="streak-badge crown" title="${streak}-day streak">👑 ${streak}</span>`;
+                    else if (streak >= 14) badgeHtml = `<span class="streak-badge diamond" title="${streak}-day streak">💎 ${streak}</span>`;
+                    else if (streak >= 7) badgeHtml = `<span class="streak-badge star" title="${streak}-day streak">⭐ ${streak}</span>`;
+                    else if (streak >= 3) badgeHtml = `<span class="streak-badge fire" title="${streak}-day streak">🔥 ${streak}</span>`;
+
                     // Weekly progress bar
                     let progressHtml = '';
                     if (group.key !== 'daily') {
@@ -1241,7 +1376,10 @@ class LifeOS {
                     html += `<div class="habit-check-item ${done ? 'item-done' : ''}">
                         <div class="habit-checkbox ${done ? 'checked' : ''}" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}">${done ? '\u2713' : ''}</div>
                         <div class="habit-item-content">
-                            <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(entry.goal.name)}</span>
+                            <div class="habit-name-row">
+                                <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(entry.goal.name)}</span>
+                                ${badgeHtml}
+                            </div>
                             ${progressHtml}
                         </div>
                     </div>`;
@@ -1284,6 +1422,14 @@ class LifeOS {
 
         while (weekIdx >= 0) {
             const week = sortedWeeks[weekIdx];
+
+            // Skip vacation weeks — don't break or extend streak
+            if (week.vacation) {
+                weekIdx--;
+                dayIdx = 6;
+                continue;
+            }
+
             const entry = Object.values(week.entries).find(e => e.goal.name === goalName);
             if (!entry) break;
 
@@ -1661,6 +1807,14 @@ class LifeOS {
             }
         });
 
+        document.getElementById('importSheetsBtn').addEventListener('click', () => {
+            document.getElementById('sheetsFileInput').click();
+        });
+        document.getElementById('sheetsFileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) this.importGoogleSheetsCSV(file);
+        });
+
         document.getElementById('syncFromTrackerBtn').addEventListener('click', () => this.importFromAccountabilityTracker());
 
         document.getElementById('exportAllBtn').addEventListener('click', () => {
@@ -1731,6 +1885,148 @@ class LifeOS {
     // ========================================
     // Utilities
     // ========================================
+    // ========================================
+    // Google Sheets CSV Import
+    // ========================================
+    parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (inQuotes) {
+                if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+                else if (ch === '"') inQuotes = false;
+                else current += ch;
+            } else {
+                if (ch === '"') inQuotes = true;
+                else if (ch === ',') { result.push(current); current = ''; }
+                else current += ch;
+            }
+        }
+        result.push(current);
+        return result;
+    }
+
+    importGoogleSheetsCSV(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                let csv = e.target.result;
+                if (csv.charCodeAt(0) === 0xFEFF) csv = csv.slice(1);
+                const lines = csv.split(/\r?\n/);
+
+                const importedWeeks = [];
+                let currentWeek = null;
+                let currentCategory = null;
+                let currentYear = null;
+                let lastMonth = null;
+
+                const knownCats = ['physical health', 'mental health', 'budgeting', 'work',
+                    'cooking', 'monthly', 'other', 'morning protocol', 'midday protocol',
+                    'evening protocol'];
+                const skipRows = ['grand total', 'total strikes', 'week specific', 'misses',
+                    'keep strike'];
+
+                for (const rawLine of lines) {
+                    const cells = this.parseCSVLine(rawLine);
+                    if (cells.length < 3) continue;
+
+                    const c0 = (cells[0] || '').trim();
+                    const c1 = (cells[1] || '').trim();
+                    const c2 = (cells[2] || '').trim();
+
+                    // Skip header and day-label rows
+                    if (c0.toLowerCase().includes('this week')) continue;
+                    if (['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].includes(c2.toLowerCase())) continue;
+
+                    // Detect week start: first two cells empty, third is MM/DD
+                    if (c0 === '' && c1 === '' && /^\d{1,2}\/\d{1,2}$/.test(c2)) {
+                        const month = parseInt(c2.split('/')[0]);
+                        if (!currentYear) {
+                            currentYear = month >= 9 ? 2024 : 2025; // Sep+ = 2024, else 2025
+                        } else if (lastMonth && lastMonth > month + 2) {
+                            currentYear++; // Year wrapped
+                        }
+                        lastMonth = month;
+
+                        if (currentWeek && Object.keys(currentWeek.entries).length > 0) {
+                            importedWeeks.push(currentWeek);
+                        }
+
+                        const [m, d] = c2.split('/').map(Number);
+                        const startStr = `${currentYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                        currentWeek = {
+                            startDate: new Date(startStr + 'T12:00:00').toISOString(),
+                            entries: {},
+                            source: 'imported'
+                        };
+                        currentCategory = null;
+                        continue;
+                    }
+
+                    if (!currentWeek || !c1) continue;
+
+                    const lc1 = c1.toLowerCase();
+                    if (skipRows.some(s => lc1.startsWith(s))) continue;
+
+                    // Category row: known category name or all-empty tracking
+                    const tracking7 = cells.slice(2, 9);
+                    const hasTracking = tracking7.some(v => v === 'X' || v === 'x' || v === '1');
+                    if (knownCats.includes(lc1) || (!hasTracking && c1.length < 40 && c1 === c1.replace(/[^a-zA-Z\s&]/g, ''))) {
+                        currentCategory = c1;
+                        continue;
+                    }
+
+                    // Goal row
+                    const tracking = tracking7.map(v => {
+                        const t = (v || '').trim();
+                        if (t === 'X' || t === 'x') return 'X';
+                        if (t === '1') return '1';
+                        return '';
+                    });
+                    // Pad to 7 if needed
+                    while (tracking.length < 7) tracking.push('');
+
+                    const idx = Object.keys(currentWeek.entries).length;
+                    currentWeek.entries[idx] = {
+                        goal: { name: c1, category: currentCategory || 'Other', target: '' },
+                        tracking
+                    };
+                }
+
+                if (currentWeek && Object.keys(currentWeek.entries).length > 0) {
+                    importedWeeks.push(currentWeek);
+                }
+
+                if (importedWeeks.length === 0) {
+                    alert('No weeks found. Make sure this is a Google Sheets CSV export from your accountability tracker.');
+                    return;
+                }
+
+                let added = 0;
+                for (const week of importedWeeks) {
+                    const exists = this.data.weeks.some(w =>
+                        new Date(w.startDate).toDateString() === new Date(week.startDate).toDateString()
+                    );
+                    if (!exists) { this.data.weeks.push(week); added++; }
+                }
+
+                this.data.weeks.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+                this.saveData();
+                this.logActivity(`Imported ${added} historical weeks from Google Sheets`);
+                this.renderDashboard();
+                this.closeModal('settingsModal');
+                alert(`Imported ${added} historical weeks from Google Sheets!\n\n` +
+                    `Your all-time stats now appear on the Dashboard.\n` +
+                    `Use Previous/Next in the Goals tab to browse past weeks.`);
+            } catch (err) {
+                alert('Error parsing CSV: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+
     getTodayStr() {
         return this.dateToStr(new Date());
     }
