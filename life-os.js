@@ -195,7 +195,6 @@ class LifeOS {
         this.bindHabits();
         this.bindJournal();
         this.bindReview();
-        this.bindFinance();
         this.bindGoals();
         this.bindSettings();
         this.bindMobileMenu();
@@ -207,7 +206,6 @@ class LifeOS {
 
         this.renderDashboard();
         this.renderGoals();
-        this.renderFinances();
         this.renderHealth();
         this.renderHabits();
         this.renderJournal();
@@ -265,7 +263,6 @@ class LifeOS {
         switch (section) {
             case 'dashboard': this.renderDashboard(); break;
             case 'goals': this.renderGoals(); break;
-            case 'finances': this.renderFinances(); break;
             case 'health': this.renderHealth(); break;
             case 'habits': this.renderHabits(); break;
             case 'journal': this.renderJournal(); break;
@@ -440,18 +437,24 @@ class LifeOS {
         document.getElementById('dashGoalsOnTrack').textContent = onTrack;
         document.getElementById('dashGoalsDetail').textContent = `of ${totalGoals} goals`;
 
-        // Monthly spend
-        const now = new Date();
-        const monthTxns = this.data.transactions.filter(t => {
-            const td = new Date(t.date);
-            return td.getMonth() === now.getMonth() && td.getFullYear() === now.getFullYear() && t.type === 'expense';
-        });
-        const monthSpend = monthTxns.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-        document.getElementById('dashMonthlySpend').textContent = '$' + monthSpend.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-
-        const totalBudget = Object.values(this.data.settings.defaultBudgets).reduce((s, v) => s + v, 0);
-        const pct = totalBudget > 0 ? Math.round((monthSpend / totalBudget) * 100) : 0;
-        document.getElementById('dashBudgetDetail').textContent = `${pct}% of budget`;
+        // Today's progress
+        const todayDayIdx = new Date().getDay();
+        let todayDone = 0, todayTotal = 0;
+        if (week) {
+            Object.values(week.entries).forEach(entry => {
+                const freq = this.classifyFrequency(entry.goal.target);
+                // Only count items applicable today
+                const applicable = freq.group === 'daily' ||
+                    (freq.group !== 'monthly' && freq.group !== 'weekly' && freq.group !== 'limit');
+                if (applicable) {
+                    todayTotal++;
+                    const val = entry.tracking[todayDayIdx];
+                    if (val === 'X' || val === 'x') todayDone++;
+                }
+            });
+        }
+        document.getElementById('dashTodayProgress').textContent = `${todayDone}/${todayTotal}`;
+        document.getElementById('dashTodayDetail').textContent = 'items done today';
 
         // Health score (based on physical health goal completion this week)
         let healthCompleted = 0;
@@ -473,21 +476,34 @@ class LifeOS {
     }
 
     calculateMaxStreak() {
+        // Count consecutive days (including today) where ≥70% of daily goals were completed
+        const sortedWeeks = [...this.data.weeks].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+        if (sortedWeeks.length === 0) return 0;
+
         const today = new Date();
+        const todayDayIdx = today.getDay();
         let streak = 0;
-        for (let i = 0; i < 365; i++) {
-            const d = new Date(today);
-            d.setDate(d.getDate() - i);
-            const key = this.dateToStr(d);
-            const log = this.data.habitLog[key];
-            if (!log) break;
-            const done = Object.values(log).filter(v => v).length;
-            const total = this.data.habits.length;
-            if (total > 0 && done / total >= 0.7) {
-                streak++;
-            } else {
-                break;
+        let weekIdx = sortedWeeks.length - 1;
+        let dayIdx = todayDayIdx;
+
+        while (weekIdx >= 0) {
+            const week = sortedWeeks[weekIdx];
+            const entries = Object.values(week.entries).filter(e => {
+                const freq = this.classifyFrequency(e.goal.target);
+                return freq.group === 'daily';
+            });
+            if (entries.length === 0) break;
+
+            for (let d = dayIdx; d >= 0; d--) {
+                const done = entries.filter(e => e.tracking[d] === 'X' || e.tracking[d] === 'x').length;
+                if (done / entries.length >= 0.7) {
+                    streak++;
+                } else {
+                    return streak;
+                }
             }
+            weekIdx--;
+            dayIdx = 6;
         }
         return streak;
     }
@@ -850,412 +866,6 @@ class LifeOS {
     }
 
     // ========================================
-    // Finance Section
-    // ========================================
-    bindFinance() {
-        document.getElementById('importMonarchBtn').addEventListener('click', () => {
-            document.getElementById('monarchFileInput').click();
-        });
-
-        document.getElementById('monarchFileInput').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) this.importMonarchCSV(file);
-        });
-
-        document.getElementById('addTransactionBtn').addEventListener('click', () => {
-            document.getElementById('txnDate').value = this.getTodayStr();
-            this.openModal('addTransactionModal');
-        });
-
-        document.getElementById('editBudgetBtn').addEventListener('click', () => {
-            this.renderBudgetModal();
-            this.openModal('editBudgetModal');
-        });
-
-        document.getElementById('addAccountBtn').addEventListener('click', () => this.openModal('addAccountModal'));
-
-        document.getElementById('txnCategoryFilter').addEventListener('change', () => this.renderTransactions());
-        document.getElementById('txnSearch').addEventListener('input', () => this.renderTransactions());
-    }
-
-    importMonarchCSV(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                let csv = e.target.result;
-
-                // Handle BOM (byte order mark) that some exports include
-                if (csv.charCodeAt(0) === 0xFEFF) csv = csv.slice(1);
-
-                // Split lines, handle both \r\n and \n
-                const lines = csv.split(/\r?\n/);
-
-                // Skip blank lines at the top (messy exports sometimes have them)
-                let headerLineIdx = 0;
-                while (headerLineIdx < lines.length && !lines[headerLineIdx].trim()) {
-                    headerLineIdx++;
-                }
-
-                if (headerLineIdx >= lines.length - 1) {
-                    alert('CSV file appears empty.');
-                    return;
-                }
-
-                // Fuzzy header matching - handles varied column names
-                const headers = this.parseCSVLine(lines[headerLineIdx]).map(h => h.toLowerCase().trim().replace(/[^a-z]/g, ''));
-                const findCol = (...names) => headers.findIndex(h => names.some(n => h.includes(n)));
-
-                const dateIdx = findCol('date');
-                const descIdx = findCol('merchant', 'description', 'payee', 'name', 'memo', 'statement');
-                const catIdx = findCol('category', 'type');
-                const amountIdx = findCol('amount', 'total', 'sum');
-                const accountIdx = findCol('account', 'bank');
-                const notesIdx = findCol('note', 'memo');
-
-                if (dateIdx === -1 && amountIdx === -1) {
-                    alert('Could not find Date or Amount columns. Found headers: ' + this.parseCSVLine(lines[headerLineIdx]).join(', '));
-                    return;
-                }
-
-                // Build set of existing transaction keys to avoid duplicates
-                const existingKeys = new Set(
-                    this.data.transactions.map(t => `${t.date}|${t.description}|${t.amount}`)
-                );
-
-                let imported = 0;
-                let skipped = 0;
-                let errors = 0;
-
-                for (let i = headerLineIdx + 1; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
-
-                    try {
-                        const fields = this.parseCSVLine(line);
-
-                        // Try to get date - handle various formats
-                        let date = (fields[dateIdx] || '').trim();
-                        if (!date) { skipped++; continue; }
-                        date = this.normalizeDate(date);
-                        if (!date) { skipped++; continue; }
-
-                        // Parse amount - strip currency symbols, parens for negatives
-                        let rawAmount = (fields[amountIdx >= 0 ? amountIdx : -1] || '').trim();
-                        if (!rawAmount) { skipped++; continue; }
-                        // Handle parentheses as negative: (123.45) => -123.45
-                        let isNeg = false;
-                        if (rawAmount.startsWith('(') && rawAmount.endsWith(')')) {
-                            rawAmount = rawAmount.slice(1, -1);
-                            isNeg = true;
-                        }
-                        rawAmount = rawAmount.replace(/[$,\s]/g, '');
-                        if (rawAmount.startsWith('-')) { isNeg = true; rawAmount = rawAmount.slice(1); }
-                        const amount = parseFloat(rawAmount);
-                        if (isNaN(amount) || amount === 0) { skipped++; continue; }
-
-                        const desc = (fields[descIdx >= 0 ? descIdx : 0] || '').trim() || 'Unknown';
-                        const cat = (fields[catIdx >= 0 ? catIdx : -1] || '').trim() || 'Other';
-                        const account = (fields[accountIdx >= 0 ? accountIdx : -1] || '').trim() || '';
-
-                        // Skip duplicates
-                        const key = `${date}|${desc}|${amount}`;
-                        if (existingKeys.has(key)) { skipped++; continue; }
-                        existingKeys.add(key);
-
-                        const txn = {
-                            id: 'txn_' + Date.now() + '_' + i,
-                            date: date,
-                            description: desc,
-                            category: cat,
-                            amount: amount,
-                            type: isNeg ? 'expense' : 'income',
-                            account: account,
-                            source: 'monarch'
-                        };
-
-                        this.data.transactions.push(txn);
-                        imported++;
-                    } catch (rowErr) {
-                        errors++;
-                    }
-                }
-
-                // Sort by date descending
-                this.data.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-                this.updateTxnCategoryFilter();
-                this.saveData();
-                this.logActivity(`Imported ${imported} transactions from Monarch`);
-                this.renderFinances();
-
-                let msg = `Imported ${imported} transactions!`;
-                if (skipped > 0) msg += `\n${skipped} rows skipped (duplicates or missing data).`;
-                if (errors > 0) msg += `\n${errors} rows had errors and were skipped.`;
-                alert(msg);
-            } catch (err) {
-                alert('Error parsing CSV: ' + err.message);
-            }
-        };
-        reader.readAsText(file);
-    }
-
-    normalizeDate(dateStr) {
-        // Handle common date formats: MM/DD/YYYY, YYYY-MM-DD, M/D/YY, etc.
-        dateStr = dateStr.replace(/['"]/g, '').trim();
-
-        // Already ISO format
-        if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
-            return dateStr.split('T')[0];
-        }
-
-        // MM/DD/YYYY or M/D/YYYY
-        const slashMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-        if (slashMatch) {
-            let [, month, day, year] = slashMatch;
-            if (year.length === 2) year = '20' + year;
-            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        }
-
-        // Try native Date parsing as fallback
-        const d = new Date(dateStr);
-        if (!isNaN(d.getTime())) {
-            return d.toISOString().split('T')[0];
-        }
-
-        return null;
-    }
-
-    parseCSVLine(line) {
-        const result = [];
-        let current = '';
-        let inQuotes = false;
-
-        for (let i = 0; i < line.length; i++) {
-            const ch = line[i];
-            if (inQuotes) {
-                if (ch === '"' && line[i + 1] === '"') {
-                    current += '"';
-                    i++;
-                } else if (ch === '"') {
-                    inQuotes = false;
-                } else {
-                    current += ch;
-                }
-            } else {
-                if (ch === '"') {
-                    inQuotes = true;
-                } else if (ch === ',') {
-                    result.push(current);
-                    current = '';
-                } else {
-                    current += ch;
-                }
-            }
-        }
-        result.push(current);
-        return result;
-    }
-
-    renderFinances() {
-        this.renderFinanceOverview();
-        this.renderBudgetBars();
-        this.renderFinanceCharts();
-        this.renderTransactions();
-        this.renderAccounts();
-        this.updateTxnCategoryFilter();
-    }
-
-    renderFinanceOverview() {
-        const now = new Date();
-        const monthTxns = this.data.transactions.filter(t => {
-            const td = new Date(t.date);
-            return td.getMonth() === now.getMonth() && td.getFullYear() === now.getFullYear();
-        });
-
-        const income = monthTxns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const expenses = monthTxns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-        const net = income - expenses;
-        const savingsRate = income > 0 ? Math.round((net / income) * 100) : 0;
-
-        document.getElementById('totalIncome').textContent = '$' + income.toLocaleString('en-US', { minimumFractionDigits: 2 });
-        document.getElementById('totalExpenses').textContent = '$' + expenses.toLocaleString('en-US', { minimumFractionDigits: 2 });
-
-        const netEl = document.getElementById('netAmount');
-        netEl.textContent = (net >= 0 ? '+' : '') + '$' + Math.abs(net).toLocaleString('en-US', { minimumFractionDigits: 2 });
-        netEl.className = 'finance-amount ' + (net >= 0 ? 'income' : 'expense');
-
-        document.getElementById('savingsRate').textContent = savingsRate + '%';
-    }
-
-    renderBudgetBars() {
-        const container = document.getElementById('budgetCategories');
-        const budgets = this.data.settings.defaultBudgets;
-        const now = new Date();
-
-        const monthExpenses = {};
-        this.data.transactions
-            .filter(t => {
-                const td = new Date(t.date);
-                return t.type === 'expense' && td.getMonth() === now.getMonth() && td.getFullYear() === now.getFullYear();
-            })
-            .forEach(t => {
-                const cat = t.category;
-                monthExpenses[cat] = (monthExpenses[cat] || 0) + t.amount;
-            });
-
-        let html = '';
-        for (const [cat, budget] of Object.entries(budgets)) {
-            const spent = monthExpenses[cat] || 0;
-            const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
-            let cls = 'under';
-            if (pct > 90) cls = 'over';
-            else if (pct > 70) cls = 'near';
-
-            html += `
-                <div class="budget-bar-item">
-                    <div class="budget-bar-header">
-                        <span class="budget-name">${cat}</span>
-                        <span class="budget-amounts">$${spent.toFixed(0)} / $${budget.toFixed(0)}</span>
-                    </div>
-                    <div class="budget-bar-track">
-                        <div class="budget-bar-fill ${cls}" style="width:${Math.min(pct, 100)}%"></div>
-                    </div>
-                </div>`;
-        }
-
-        container.innerHTML = html || '<div class="empty-state">Set up your budget to track spending.</div>';
-    }
-
-    renderFinanceCharts() {
-        const now = new Date();
-        const monthExpenses = {};
-        this.data.transactions
-            .filter(t => {
-                const td = new Date(t.date);
-                return t.type === 'expense' && td.getMonth() === now.getMonth() && td.getFullYear() === now.getFullYear();
-            })
-            .forEach(t => {
-                monthExpenses[t.category] = (monthExpenses[t.category] || 0) + t.amount;
-            });
-
-        // Spending by category (doughnut)
-        const catLabels = Object.keys(monthExpenses);
-        const catAmounts = Object.values(monthExpenses);
-        const chartColors = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#f97316', '#06b6d4', '#ec4899', '#84cc16', '#6b7280'];
-
-        const spendingCanvas = document.getElementById('spendingCategoryChart');
-        if (this.charts.spendingCategory) this.charts.spendingCategory.destroy();
-        if (catLabels.length > 0) {
-            this.charts.spendingCategory = new Chart(spendingCanvas, {
-                type: 'doughnut',
-                data: {
-                    labels: catLabels,
-                    datasets: [{ data: catAmounts, backgroundColor: chartColors.slice(0, catLabels.length) }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
-                }
-            });
-        }
-
-        // Monthly trend (last 6 months)
-        const monthLabels = [];
-        const incomeData = [];
-        const expenseData = [];
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            monthLabels.push(d.toLocaleDateString('en-US', { month: 'short' }));
-            const mTxns = this.data.transactions.filter(t => {
-                const td = new Date(t.date);
-                return td.getMonth() === d.getMonth() && td.getFullYear() === d.getFullYear();
-            });
-            incomeData.push(mTxns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0));
-            expenseData.push(mTxns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0));
-        }
-
-        const trendCanvas = document.getElementById('monthlyTrendChart');
-        if (this.charts.monthlyTrend) this.charts.monthlyTrend.destroy();
-        this.charts.monthlyTrend = new Chart(trendCanvas, {
-            type: 'bar',
-            data: {
-                labels: monthLabels,
-                datasets: [
-                    { label: 'Income', data: incomeData, backgroundColor: '#22c55e' },
-                    { label: 'Expenses', data: expenseData, backgroundColor: '#ef4444' }
-                ]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
-
-    renderTransactions() {
-        const container = document.getElementById('transactionsList');
-        const filter = document.getElementById('txnCategoryFilter').value;
-        const search = document.getElementById('txnSearch').value.toLowerCase();
-
-        let txns = this.data.transactions;
-        if (filter !== 'all') txns = txns.filter(t => t.category === filter);
-        if (search) txns = txns.filter(t => t.description.toLowerCase().includes(search) || t.category.toLowerCase().includes(search));
-
-        if (txns.length === 0) {
-            container.innerHTML = '<div class="empty-state">No transactions found. Import from Monarch or add manually.</div>';
-            return;
-        }
-
-        container.innerHTML = txns.slice(0, 50).map(t => `
-            <div class="transaction-item">
-                <div class="txn-info">
-                    <span class="txn-desc">${this.escapeHtml(t.description)}</span>
-                    <span class="txn-meta">${t.date} &middot; ${t.category}${t.account ? ' &middot; ' + t.account : ''}</span>
-                </div>
-                <span class="txn-amount ${t.type}">${t.type === 'expense' ? '-' : '+'}$${t.amount.toFixed(2)}</span>
-            </div>
-        `).join('');
-    }
-
-    updateTxnCategoryFilter() {
-        const select = document.getElementById('txnCategoryFilter');
-        const cats = [...new Set(this.data.transactions.map(t => t.category))].sort();
-        const current = select.value;
-        select.innerHTML = '<option value="all">All Categories</option>' +
-            cats.map(c => `<option value="${c}">${c}</option>`).join('');
-        select.value = current || 'all';
-    }
-
-    renderAccounts() {
-        const container = document.getElementById('accountsGrid');
-        if (this.data.accounts.length === 0) {
-            container.innerHTML = '<div class="empty-state">Add accounts to track your net worth.</div>';
-            return;
-        }
-
-        container.innerHTML = this.data.accounts.map(a => `
-            <div class="account-card">
-                <span class="account-type">${a.type}</span>
-                <h4>${this.escapeHtml(a.name)}</h4>
-                <div class="account-balance" style="color:${a.balance >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                    ${a.balance >= 0 ? '' : '-'}$${Math.abs(a.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </div>
-            </div>
-        `).join('');
-    }
-
-    renderBudgetModal() {
-        const container = document.getElementById('budgetInputs');
-        const budgets = this.data.settings.defaultBudgets;
-        container.innerHTML = Object.entries(budgets).map(([cat, amount]) => `
-            <div class="budget-input-row">
-                <label>${cat}</label>
-                <input type="number" data-budget-cat="${cat}" value="${amount}" step="50">
-            </div>
-        `).join('');
-    }
-
-    // ========================================
     // Health Section
     // ========================================
     bindHealthLog() {
@@ -1430,7 +1040,7 @@ class LifeOS {
     // Habits Section (Daily Protocols + Ad-Hoc Tasks)
     // ========================================
     bindHabits() {
-        document.getElementById('addHabitBtn').addEventListener('click', () => this.openModal('addHabitModal'));
+        document.getElementById('addHabitBtn').addEventListener('click', () => this.openModal('addGoalModal'));
 
         // Ad-hoc tasks
         document.getElementById('addAdhocTaskBtn').addEventListener('click', () => this.addAdhocTask());
@@ -1505,6 +1115,26 @@ class LifeOS {
         });
     }
 
+    // Classify a goal's target into a frequency bucket
+    classifyFrequency(target) {
+        if (!target) return { group: 'daily', label: 'Daily', perWeek: 7 };
+        const t = target.toLowerCase().trim();
+        if (t === 'daily') return { group: 'daily', label: 'Every day', perWeek: 7 };
+        if (t === 'weekdays' || t === 'weeknights') return { group: 'daily', label: 'Weekdays', perWeek: 5 };
+        if (t === 'weekly') return { group: 'weekly', label: '1x/week', perWeek: 1 };
+        if (t === 'monthly') return { group: 'monthly', label: 'Monthly', perWeek: 0.25 };
+        // Parse "x1", "x2", "x1 max", "x2 max" etc.
+        const xMatch = t.match(/x(\d+)/);
+        if (xMatch) {
+            const n = parseInt(xMatch[1]);
+            const isMax = t.includes('max');
+            if (isMax) return { group: 'limit', label: `${n}x max/week`, perWeek: n, isLimit: true };
+            if (n <= 1) return { group: 'weekly', label: '1x/week', perWeek: 1 };
+            return { group: 'fewPerWeek', label: `${n}x/week`, perWeek: n };
+        }
+        return { group: 'daily', label: target, perWeek: 7 };
+    }
+
     renderHabits() {
         document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US', {
             weekday: 'long', month: 'long', day: 'numeric'
@@ -1519,45 +1149,105 @@ class LifeOS {
             return;
         }
 
-        // Get today's day index (0=Sun, 1=Mon, ..., 6=Sat)
         const todayDayIdx = new Date().getDay();
 
-        // Group entries by category, show protocol categories first
-        const protocolCats = ['Morning Protocol', 'Midday Protocol', 'Evening Protocol'];
-        const grouped = {};
+        // Build entries with frequency info
+        const allEntries = [];
         Object.entries(week.entries).forEach(([idx, entry]) => {
-            const cat = entry.goal.category;
-            if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push({ idx: parseInt(idx), ...entry });
+            const freq = this.classifyFrequency(entry.goal.target);
+            const weekDone = entry.tracking.filter(v => v === 'X' || v === 'x').length;
+            const weekStrikes = entry.tracking.filter(v => v === '1').length;
+            const todayVal = entry.tracking[todayDayIdx];
+            const todayDone = todayVal === 'X' || todayVal === 'x';
+            const todayStrike = todayVal === '1';
+            allEntries.push({
+                idx: parseInt(idx),
+                ...entry,
+                freq,
+                weekDone,
+                weekStrikes,
+                todayDone,
+                todayStrike
+            });
         });
 
-        // Show protocol categories as today's checklist
-        const catsToShow = [...protocolCats, ...Object.keys(grouped).filter(c => !protocolCats.includes(c))];
+        // Define frequency groups in display order
+        const groups = [
+            { key: 'daily', title: 'Daily Essentials', icon: '&#9788;', desc: 'Do these every day' },
+            { key: 'fewPerWeek', title: 'A Few Times This Week', icon: '&#8635;', desc: 'Hit your target this week' },
+            { key: 'weekly', title: 'Weekly Goals', icon: '&#9733;', desc: 'Complete once this week' },
+            { key: 'limit', title: 'Limits & Boundaries', icon: '&#9888;', desc: 'Stay within these limits' },
+            { key: 'monthly', title: 'Monthly Goals', icon: '&#128197;', desc: 'Once this month' }
+        ];
 
         let html = '';
-        catsToShow.forEach(cat => {
-            const entries = grouped[cat];
-            if (!entries || entries.length === 0) return;
+        groups.forEach(group => {
+            const entries = allEntries.filter(e => e.freq.group === group.key);
+            if (entries.length === 0) return;
 
-            const doneCount = entries.filter(e => {
-                const val = e.tracking[todayDayIdx];
-                return val === 'X' || val === 'x' || val === '1';
-            }).length;
+            // Calculate group-level progress
+            const todayChecked = entries.filter(e => e.todayDone || e.todayStrike).length;
+            const groupTotal = entries.length;
 
-            html += `<div class="protocol-group">
-                <div class="protocol-header">
-                    <span class="protocol-label">${cat}</span>
-                    <span class="protocol-progress">${doneCount}/${entries.length}</span>
+            html += `<div class="freq-group">
+                <div class="freq-group-header">
+                    <div class="freq-group-title">
+                        <span class="freq-icon">${group.icon}</span>
+                        <span class="freq-label">${group.title}</span>
+                    </div>
+                    <span class="freq-group-count">${todayChecked}/${groupTotal}</span>
                 </div>`;
 
-            entries.forEach(entry => {
-                const val = entry.tracking[todayDayIdx];
-                const done = val === 'X' || val === 'x' || val === '1';
-                html += `<div class="habit-check-item">
-                    <div class="habit-checkbox ${done ? 'checked' : ''}" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}">${done ? '\u2713' : ''}</div>
-                    <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(entry.goal.name)}</span>
-                </div>`;
+            // Sub-group by category within each frequency group
+            const byCat = {};
+            entries.forEach(e => {
+                const cat = e.goal.category;
+                if (!byCat[cat]) byCat[cat] = [];
+                byCat[cat].push(e);
             });
+
+            // Protocol categories first, then alphabetical
+            const protocolOrder = ['Morning Protocol', 'Midday Protocol', 'Evening Protocol'];
+            const catKeys = [...protocolOrder.filter(c => byCat[c]), ...Object.keys(byCat).filter(c => !protocolOrder.includes(c)).sort()];
+
+            catKeys.forEach(cat => {
+                const catEntries = byCat[cat];
+                if (catEntries.length > 1 || Object.keys(byCat).length > 1) {
+                    html += `<div class="freq-cat-label">${cat}</div>`;
+                }
+                catEntries.forEach(entry => {
+                    const done = entry.todayDone;
+                    const isLimit = entry.freq.isLimit;
+
+                    // Weekly progress bar
+                    let progressHtml = '';
+                    if (group.key !== 'daily') {
+                        const target = entry.freq.perWeek;
+                        if (isLimit) {
+                            // For limits: show usage vs max (red when over)
+                            const used = entry.weekDone + entry.weekStrikes;
+                            const over = used > target;
+                            progressHtml = `<span class="freq-progress ${over ? 'over-limit' : 'under-limit'}">${used}/${target} used</span>`;
+                        } else if (group.key === 'monthly') {
+                            progressHtml = `<span class="freq-progress ${entry.weekDone > 0 ? 'on-track' : ''}">${entry.weekDone > 0 ? 'Done' : 'Not yet'}</span>`;
+                        } else {
+                            const pct = Math.min(100, Math.round((entry.weekDone / target) * 100));
+                            const met = entry.weekDone >= target;
+                            progressHtml = `<span class="freq-progress ${met ? 'on-track' : ''}">${entry.weekDone}/${target}</span>
+                                <div class="freq-progress-bar"><div class="freq-progress-fill ${met ? 'met' : ''}" style="width:${pct}%"></div></div>`;
+                        }
+                    }
+
+                    html += `<div class="habit-check-item ${done ? 'item-done' : ''}">
+                        <div class="habit-checkbox ${done ? 'checked' : ''}" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}">${done ? '\u2713' : ''}</div>
+                        <div class="habit-item-content">
+                            <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(entry.goal.name)}</span>
+                            ${progressHtml}
+                        </div>
+                    </div>`;
+                });
+            });
+
             html += '</div>';
         });
 
@@ -1583,29 +1273,45 @@ class LifeOS {
         this.renderHeatmap();
     }
 
+    calculateGoalStreak(goalName) {
+        // Count consecutive days completed going backward from today, across all weeks
+        const sortedWeeks = [...this.data.weeks].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+        if (sortedWeeks.length === 0) return 0;
+
+        let streak = 0;
+        let weekIdx = sortedWeeks.length - 1;
+        let dayIdx = new Date().getDay();
+
+        while (weekIdx >= 0) {
+            const week = sortedWeeks[weekIdx];
+            const entry = Object.values(week.entries).find(e => e.goal.name === goalName);
+            if (!entry) break;
+
+            for (let d = dayIdx; d >= 0; d--) {
+                const val = entry.tracking[d];
+                if (val === 'X' || val === 'x') {
+                    streak++;
+                } else {
+                    return streak;
+                }
+            }
+            weekIdx--;
+            dayIdx = 6;
+        }
+        return streak;
+    }
+
     renderStreaks() {
         const container = document.getElementById('streaksGrid');
+        if (this.data.weeks.length === 0) { container.innerHTML = ''; return; }
+
         const week = this.getCurrentWeek();
         if (!week) { container.innerHTML = ''; return; }
 
-        // Calculate streaks from the current week's data
-        const todayDayIdx = new Date().getDay();
         const streaks = [];
-
-        Object.entries(week.entries).forEach(([idx, entry]) => {
-            let streak = 0;
-            // Count consecutive days back from today
-            for (let i = todayDayIdx; i >= 0; i--) {
-                const val = entry.tracking[i];
-                if (val === 'X' || val === 'x' || val === '1') {
-                    streak++;
-                } else {
-                    break;
-                }
-            }
-            if (streak > 0) {
-                streaks.push({ name: entry.goal.name, streak });
-            }
+        Object.values(week.entries).forEach(entry => {
+            const streak = this.calculateGoalStreak(entry.goal.name);
+            if (streak > 0) streaks.push({ name: entry.goal.name, streak });
         });
 
         streaks.sort((a, b) => b.streak - a.streak);
@@ -1613,7 +1319,7 @@ class LifeOS {
         container.innerHTML = streaks.slice(0, 10).map(s => `
             <div class="streak-card">
                 <div class="streak-count">${s.streak}</div>
-                <div class="streak-label">days this week</div>
+                <div class="streak-label">${s.streak === 1 ? 'day' : 'days'}</div>
                 <div class="streak-name">${this.escapeHtml(s.name)}</div>
             </div>
         `).join('') || '<div class="empty-state" style="padding:12px;font-size:0.85rem;">Start checking off items to build streaks.</div>';
@@ -1627,26 +1333,26 @@ class LifeOS {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const todayDayIdx = new Date().getDay();
 
-        // Show heatmap for protocol items only (keep it compact)
-        const protocolCats = ['Morning Protocol', 'Midday Protocol', 'Evening Protocol'];
+        // Show heatmap for daily items only (keeps it readable)
         let html = '';
-
         Object.entries(week.entries).forEach(([idx, entry]) => {
-            if (!protocolCats.includes(entry.goal.category)) return;
+            const freq = this.classifyFrequency(entry.goal.target);
+            if (freq.group !== 'daily') return;
             html += `<div class="heatmap-row">
                 <span class="heatmap-label">${this.escapeHtml(entry.goal.name)}</span>
                 <div class="heatmap-cells">`;
             for (let i = 0; i < 7; i++) {
                 const val = entry.tracking[i];
-                const done = val === 'X' || val === 'x' || val === '1';
+                const done = val === 'X' || val === 'x';
+                const strike = val === '1';
                 const isToday = i === todayDayIdx;
-                const cls = done ? 'done' : (i <= todayDayIdx ? 'missed' : '');
+                const cls = done ? 'done' : (strike ? 'strike' : (i <= todayDayIdx ? 'missed' : ''));
                 html += `<div class="heatmap-cell ${cls} ${isToday ? 'today' : ''}" title="${days[i]}">${days[i][0]}</div>`;
             }
             html += '</div></div>';
         });
 
-        container.innerHTML = html || '<div class="empty-state" style="padding:12px;font-size:0.85rem;">No protocol items found.</div>';
+        container.innerHTML = html || '<div class="empty-state" style="padding:12px;font-size:0.85rem;">No daily items found.</div>';
     }
 
     // ========================================
@@ -1891,80 +1597,6 @@ class LifeOS {
             this.renderGoals();
         });
 
-        // Add Transaction
-        document.getElementById('addTransactionForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const txn = {
-                id: 'txn_' + Date.now(),
-                date: document.getElementById('txnDate').value,
-                description: document.getElementById('txnDescription').value.trim(),
-                category: document.getElementById('txnCategory').value,
-                amount: parseFloat(document.getElementById('txnAmount').value),
-                type: document.querySelector('input[name="txnType"]:checked').value,
-                account: document.getElementById('txnAccount').value.trim(),
-                source: 'manual'
-            };
-
-            this.data.transactions.unshift(txn);
-            this.data.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-            this.saveData();
-            this.logActivity(`Added ${txn.type}: $${txn.amount.toFixed(2)} - ${txn.description}`);
-            this.closeModal('addTransactionModal');
-            document.getElementById('addTransactionForm').reset();
-            this.renderFinances();
-        });
-
-        // Add Habit
-        document.getElementById('addHabitForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const habit = {
-                id: 'h_' + Date.now(),
-                name: document.getElementById('habitName').value.trim(),
-                frequency: document.getElementById('habitFrequency').value,
-                category: document.getElementById('habitCategory').value
-            };
-
-            this.data.habits.push(habit);
-            this.saveData();
-            this.logActivity(`Added habit: ${habit.name}`);
-            this.closeModal('addHabitModal');
-            document.getElementById('addHabitForm').reset();
-            this.renderHabits();
-        });
-
-        // Add Account
-        document.getElementById('addAccountForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const account = {
-                id: 'acc_' + Date.now(),
-                name: document.getElementById('accountName').value.trim(),
-                type: document.getElementById('accountType').value,
-                balance: parseFloat(document.getElementById('accountBalance').value)
-            };
-
-            this.data.accounts.push(account);
-            this.saveData();
-            this.logActivity(`Added account: ${account.name}`);
-            this.closeModal('addAccountModal');
-            document.getElementById('addAccountForm').reset();
-            this.renderFinances();
-        });
-
-        // Edit Budget
-        document.getElementById('editBudgetForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            document.querySelectorAll('[data-budget-cat]').forEach(input => {
-                const cat = input.dataset.budgetCat;
-                const val = parseFloat(input.value);
-                if (!isNaN(val)) {
-                    this.data.settings.defaultBudgets[cat] = val;
-                }
-            });
-            this.saveData();
-            this.logActivity('Updated budget');
-            this.closeModal('editBudgetModal');
-            this.renderFinances();
-        });
     }
 
     // ========================================
@@ -1977,10 +1609,6 @@ class LifeOS {
                 switch (action) {
                     case 'log-habit':
                         this.navigateTo('habits');
-                        break;
-                    case 'add-expense':
-                        document.getElementById('txnDate').value = this.getTodayStr();
-                        this.openModal('addTransactionModal');
                         break;
                     case 'journal-entry':
                         this.navigateTo('journal');
