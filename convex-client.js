@@ -1,73 +1,99 @@
 /* ========================================
    Life OS - Convex Sync Layer
-   Stores the entire data blob in one Convex document.
+   Uses Convex HTTP API directly — no WebSocket/SDK needed.
    Falls back silently to LocalStorage if not configured.
    ======================================== */
 
 class ConvexDataLayer {
     constructor(convexUrl) {
-        this.convexUrl = convexUrl;
-        this.client = null;
-        this.connected = false;
-        this._unsub = null;
-        // Don't auto-init — caller must await _init() explicitly
-    }
-
-    async _init(url) {
-        try {
-            const { ConvexClient } = await import('https://cdn.jsdelivr.net/npm/convex@1.17.4/browser/+esm');
-            this.client = new ConvexClient(url);
-            this.connected = true;
-            console.log('[LifeOS] Connected to Convex');
-        } catch (e) {
-            console.warn('[LifeOS] Convex unavailable, using LocalStorage only:', e.message);
-        }
+        this.convexUrl = convexUrl ? convexUrl.replace(/\/$/, '') : null;
+        this.connected = !!convexUrl;
     }
 
     isConnected() {
-        return this.connected && !!this.client;
+        return !!this.convexUrl;
     }
 
-    // Load data from Convex. Returns null if unavailable.
-    load() {
-        if (!this.isConnected()) return Promise.resolve(null);
-        return new Promise((resolve) => {
-            let done = false;
-            const unsub = this.client.onUpdate('functions:getData', {}, (data) => {
-                if (done) return;
-                done = true;
-                if (unsub) unsub();
-                resolve(data ?? null);
-            });
-            // Timeout after 8s in case Convex never fires
-            setTimeout(() => {
-                if (!done) { done = true; resolve(null); }
-            }, 8000);
-        });
-    }
-
-    // Save data to Convex. Fire-and-forget — LocalStorage is already saved.
-    async save(payload) {
-        if (!this.isConnected()) return;
-        try {
-            await this.client.mutation('functions:setData', { payload: JSON.stringify(payload) });
-        } catch (e) {
-            console.error('[LifeOS] Convex save failed:', e);
-        }
-    }
-
-    // Subscribe to real-time updates from other devices.
-    // callback(payload) is called whenever another device saves.
-    subscribe(callback) {
-        if (!this.isConnected()) return;
-        if (this._unsub) this._unsub();
-        this._unsub = this.client.onUpdate('functions:getData', {}, (payload) => {
-            if (payload != null) callback(payload);
-        });
+    async _init() {
+        // Nothing to init — HTTP API needs no handshake
+        return true;
     }
 
     unsubscribe() {
-        if (this._unsub) { this._unsub(); this._unsub = null; }
+        // No-op — HTTP API has no persistent subscription
+    }
+
+    // Load data from Convex via HTTP query API
+    async load() {
+        if (!this.convexUrl) return null;
+        try {
+            const resp = await fetch(`${this.convexUrl}/api/query`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: 'functions:getData', args: {}, format: 'json' })
+            });
+            if (!resp.ok) {
+                console.error('[LifeOS] Convex load HTTP error:', resp.status);
+                return null;
+            }
+            const result = await resp.json();
+            if (result.status !== 'success') {
+                console.error('[LifeOS] Convex load failed:', result);
+                return null;
+            }
+            const data = result.value;
+            if (!data) return null;
+            return typeof data === 'string' ? JSON.parse(data) : data;
+        } catch (e) {
+            console.error('[LifeOS] Convex load error:', e);
+            return null;
+        }
+    }
+
+    // Save data to Convex via HTTP mutation API — fire and forget
+    async save(payload) {
+        if (!this.convexUrl) return;
+        try {
+            const resp = await fetch(`${this.convexUrl}/api/mutation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    path: 'functions:setData',
+                    args: { payload: JSON.stringify(payload) },
+                    format: 'json'
+                })
+            });
+            if (!resp.ok) console.error('[LifeOS] Convex save HTTP error:', resp.status);
+        } catch (e) {
+            console.error('[LifeOS] Convex save error:', e);
+        }
+    }
+
+    // Polling-based subscribe — checks for changes every 30s
+    subscribe(callback) {
+        if (!this.convexUrl) return;
+        let lastUpdatedAt = null;
+        this._pollInterval = setInterval(async () => {
+            try {
+                const resp = await fetch(`${this.convexUrl}/api/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: 'functions:getUpdatedAt', args: {}, format: 'json' })
+                });
+                if (!resp.ok) return;
+                const result = await resp.json();
+                if (result.status !== 'success') return;
+                const updatedAt = result.value;
+                if (updatedAt && updatedAt !== lastUpdatedAt) {
+                    if (lastUpdatedAt !== null) {
+                        // Something changed — load full data
+                        const data = await this.load();
+                        if (data) callback(data);
+                    }
+                    lastUpdatedAt = updatedAt;
+                }
+            } catch (e) { /* silent */ }
+        }, 30000);
     }
 }
 

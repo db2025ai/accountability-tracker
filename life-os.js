@@ -210,12 +210,10 @@ class LifeOS {
             this.createNewWeek();
         }
 
-        // After local render, try to pull fresher data from Convex
+        // After local render, pull fresher data from Convex
         if (this.convex) {
-            this.convex._init(this.convex.convexUrl).then(async () => {
-                const remote = await this.convex.load();
+            this.convex.load().then(remote => {
                 if (remote) {
-                    // Use remote data if it's newer (more weeks or more recent activity)
                     const remoteWeeks = (remote.weeks || []).length;
                     const localWeeks = (this.data.weeks || []).length;
                     if (remoteWeeks >= localWeeks) {
@@ -224,7 +222,6 @@ class LifeOS {
                         this.renderAll();
                     }
                 }
-                // Subscribe to live updates from other devices
                 this.convex.subscribe((payload) => {
                     this.data = payload;
                     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
@@ -2183,29 +2180,24 @@ class LifeOS {
             localStorage.setItem('lifeOS_convexUrl', url);
             if (this.convex) this.convex.unsubscribe();
             this.convex = new ConvexDataLayer(url);
-            await this.convex._init(url);
             this.updateConvexStatusUI();
-            if (this.convex.isConnected()) {
-                // Load remote first — only push local if it has more data
-                const remote = await this.convex.load();
-                const remoteWeeks = (remote?.weeks || []).length;
-                const localWeeks = (this.data.weeks || []).length;
-                if (remote && remoteWeeks >= localWeeks) {
-                    // Remote is authoritative — pull it down
-                    this.data = remote;
-                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
-                    this.renderAll();
-                } else {
-                    // Local has more data — push it up
-                    await this.convex.save(this.data);
-                }
-                this.convex.subscribe((payload) => {
-                    this.data = payload;
-                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
-                    this.renderAll();
-                });
-                this.logActivity('Connected to Convex — sync active');
+            // Load remote first — only push if local has more data
+            const remote = await this.convex.load();
+            const remoteWeeks = (remote?.weeks || []).length;
+            const localWeeks = (this.data.weeks || []).length;
+            if (remote && remoteWeeks >= localWeeks) {
+                this.data = remote;
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+                this.renderAll();
+            } else {
+                await this.convex.save(this.data);
             }
+            this.convex.subscribe((payload) => {
+                this.data = payload;
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+                this.renderAll();
+            });
+            this.logActivity('Connected to Convex — sync active');
         });
 
         document.getElementById('syncToConvexBtn').addEventListener('click', async () => {
