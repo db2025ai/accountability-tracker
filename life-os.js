@@ -245,6 +245,11 @@ class LifeOS {
         document.getElementById('dashboardDate').textContent = new Date().toLocaleDateString('en-US', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
+
+        // On mobile, default to Today tab instead of Dashboard
+        if (window.innerWidth <= 768) {
+            this.navigateTo('habits');
+        }
     }
 
     renderAll() {
