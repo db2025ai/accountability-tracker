@@ -3,6 +3,9 @@
    Main Application Logic
    ======================================== */
 
+// Categories excluded from all-time stats (one-time tasks, low-signal noise)
+const EXCLUDE_CATS = new Set(['other', 'one-time / other', 'one-time/other', 'general']);
+
 class LifeOS {
     constructor() {
         this.STORAGE_KEY = 'lifeOSData';
@@ -321,22 +324,47 @@ class LifeOS {
         return d;
     }
 
+    // Returns 'YYYY-MM-DD' for the Sunday of the week containing the given date
+    weekKey(date) {
+        return this.getWeekStartDate(date).toISOString().slice(0, 10);
+    }
+
     createNewWeek() {
         const startDate = this.getWeekStartDate();
-        // Check if this week already exists
-        const exists = this.data.weeks.some(w => {
-            const ws = new Date(w.startDate);
-            return ws.toDateString() === startDate.toDateString();
-        });
+        const key = this.weekKey(startDate);
 
-        if (exists) return;
+        // Check if a week for this Sunday already exists (normalize by date only)
+        const existing = this.data.weeks.find(w => this.weekKey(new Date(w.startDate)) === key);
+
+        if (existing) {
+            // If the existing week came from historical import and has no current goals,
+            // update its startDate to match the app format and add current goals
+            const hasCurrentGoals = this.data.goals.some(g =>
+                Object.values(existing.entries).some(e => e.goal.name === g.name)
+            );
+            if (hasCurrentGoals) return; // Already set up — nothing to do
+
+            // Add current goals that aren't already in the week
+            const existingNames = new Set(Object.values(existing.entries).map(e => e.goal.name));
+            const nextIdx = Object.keys(existing.entries).reduce((max, k) => Math.max(max, Number(k)), 0) + 1;
+            this.data.goals.forEach((goal, i) => {
+                if (!existingNames.has(goal.name)) {
+                    existing.entries[nextIdx + i] = {
+                        goal: { ...goal },
+                        tracking: ['', '', '', '', '', '', '']
+                    };
+                }
+            });
+            this.saveData();
+            this.logActivity('Added current goals to existing week');
+            return;
+        }
 
         const week = {
             startDate: startDate.toISOString(),
             entries: {}
         };
 
-        // Initialize entries for each goal
         this.data.goals.forEach((goal, i) => {
             week.entries[i] = {
                 goal: { ...goal },
@@ -345,6 +373,8 @@ class LifeOS {
         });
 
         this.data.weeks.push(week);
+        // Keep weeks sorted by date
+        this.data.weeks.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
         this.saveData();
         this.logActivity('New week started');
     }
@@ -394,6 +424,7 @@ class LifeOS {
         this.renderCategoryBars();
         this.renderProblemAreas();
         this.renderAllTimeStats();
+        this.renderDeepDive();
         this.renderActivityFeed();
     }
 
@@ -648,38 +679,184 @@ class LifeOS {
         if (this.data.weeks.length <= 1) { container.style.display = 'none'; return; }
         container.style.display = 'block';
 
-        const catStats = {};
+        const catStats = {};   // cat -> { done, strikes, total, weekCount: Set, goals: { name -> {done,strikes,total} } }
         this.data.weeks.forEach(week => {
             Object.values(week.entries).forEach(entry => {
-                const cat = entry.goal.category || 'Other';
-                if (!catStats[cat]) catStats[cat] = { done: 0, strikes: 0, total: 0 };
+                const cat = (entry.goal.category || 'Other').trim();
+                if (EXCLUDE_CATS.has(cat.toLowerCase())) return;
+                if (!catStats[cat]) catStats[cat] = { done: 0, strikes: 0, total: 0, weekCount: new Set(), goals: {} };
+                const cStat = catStats[cat];
+                cStat.weekCount.add(week.startDate);
+                const gName = entry.goal.name;
+                if (!cStat.goals[gName]) cStat.goals[gName] = { done: 0, strikes: 0, total: 0 };
+                const gStat = cStat.goals[gName];
                 entry.tracking.forEach(v => {
-                    if (v !== '') catStats[cat].total++;
-                    if (v === 'X' || v === 'x') catStats[cat].done++;
-                    else if (v !== '' && !isNaN(parseInt(v))) catStats[cat].strikes += parseInt(v);
+                    if (v !== '') { cStat.total++; gStat.total++; }
+                    if (v === 'X' || v === 'x') { cStat.done++; gStat.done++; }
+                    else if (v !== '' && !isNaN(parseInt(v))) {
+                        const n = parseInt(v);
+                        cStat.strikes += n; gStat.strikes += n;
+                    }
                 });
             });
         });
 
+        // Filter out categories with very little data (< 20 tracked instances)
         const sorted = Object.entries(catStats)
-            .filter(([, s]) => s.total > 0)
+            .filter(([, s]) => s.total >= 20)
             .sort((a, b) => (b[1].done / b[1].total) - (a[1].done / a[1].total));
+
+        if (sorted.length === 0) { container.style.display = 'none'; return; }
+
+        const cards = sorted.map(([cat, s]) => {
+            const pct = Math.round((s.done / s.total) * 100);
+            const cls = pct >= 80 ? 'good' : pct >= 60 ? 'okay' : 'needs-work';
+            const wks = s.weekCount.size;
+
+            // Top goals by frequency (most tracked), show pct for each
+            const topGoals = Object.entries(s.goals)
+                .filter(([, g]) => g.total >= 5)
+                .sort((a, b) => b[1].total - a[1].total)
+                .slice(0, 5)
+                .map(([name, g]) => {
+                    const gpct = Math.round((g.done / g.total) * 100);
+                    const gcls = gpct >= 80 ? 'var(--success)' : gpct >= 60 ? 'var(--warning)' : 'var(--danger)';
+                    return `<div class="alltime-goal-row">
+                        <span class="alltime-goal-name">${this.escapeHtml(name)}</span>
+                        <span class="alltime-goal-pct" style="color:${gcls}">${gpct}%</span>
+                    </div>`;
+                }).join('');
+
+            return `<div class="alltime-cat-card ${cls}">
+                <div class="alltime-cat-header">
+                    <span class="alltime-cat-name">${cat}</span>
+                    <span class="alltime-cat-pct">${pct}%</span>
+                </div>
+                <div class="alltime-cat-detail">${s.done}✓ · ${s.strikes > 0 ? s.strikes + '✗ · ' : ''}${wks}wks</div>
+                ${topGoals ? `<div class="alltime-goals-list">${topGoals}</div>` : ''}
+            </div>`;
+        }).join('');
 
         container.innerHTML = `
             <div class="alltime-stats">
                 <h3>All-Time by Category <span class="alltime-weeks-label">${this.data.weeks.length} weeks tracked</span></h3>
-                <div class="alltime-grid">
-                    ${sorted.map(([cat, s]) => {
-                        const pct = Math.round((s.done / s.total) * 100);
-                        const cls = pct >= 80 ? 'good' : pct >= 60 ? 'okay' : 'needs-work';
-                        return `<div class="alltime-cat-card ${cls}">
-                            <div class="alltime-cat-name">${cat}</div>
-                            <div class="alltime-cat-pct">${pct}%</div>
-                            <div class="alltime-cat-detail">${s.done}✓ · ${s.strikes}✗</div>
-                        </div>`;
-                    }).join('')}
+                <div class="alltime-grid">${cards}</div>
+            </div>`;
+    }
+
+    renderDeepDive() {
+        const container = document.getElementById('deepDive');
+        if (!container) return;
+        if (this.data.weeks.length < 4) { container.style.display = 'none'; return; }
+        container.style.display = 'block';
+
+        // ── Month-over-month trend ──────────────────────────────────────
+        const monthStats = {};
+        this.data.weeks.forEach(week => {
+            const d = new Date(week.startDate);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (!monthStats[key]) monthStats[key] = { done: 0, total: 0 };
+            Object.values(week.entries).forEach(entry => {
+                entry.tracking.forEach(v => {
+                    if (v !== '') monthStats[key].total++;
+                    if (v === 'X' || v === 'x') monthStats[key].done++;
+                });
+            });
+        });
+        const months = Object.keys(monthStats).sort().slice(-12); // last 12 months
+        const maxPct = 100;
+        const monthBars = months.map(key => {
+            const s = monthStats[key];
+            const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
+            const color = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)';
+            const label = key.slice(5); // MM
+            const monthName = new Date(key + '-01').toLocaleDateString('en-US', { month: 'short' });
+            return `<div class="trend-bar-col">
+                <div class="trend-bar-wrap">
+                    <div class="trend-bar-fill" style="height:${pct}%;background:${color};" title="${pct}%"></div>
+                </div>
+                <div class="trend-bar-label">${monthName}</div>
+            </div>`;
+        }).join('');
+
+        // ── All-time top streaks ────────────────────────────────────────
+        const goalNames = new Set();
+        this.data.weeks.forEach(w => Object.values(w.entries).forEach(e => goalNames.add(e.goal.name)));
+        const streaks = [...goalNames].map(name => ({
+            name,
+            streak: this.calculateGoalStreak(name)
+        })).filter(g => g.streak >= 3)
+          .sort((a, b) => b.streak - a.streak)
+          .slice(0, 5);
+
+        const streakRows = streaks.length ? streaks.map(g => {
+            const badge = g.streak >= 30 ? '👑' : g.streak >= 14 ? '💎' : g.streak >= 7 ? '⭐' : '🔥';
+            return `<div class="deepdive-row">
+                <span class="deepdive-name">${this.escapeHtml(g.name)}</span>
+                <span class="deepdive-val">${badge} ${g.streak}d</span>
+            </div>`;
+        }).join('') : '<div class="deepdive-empty">No streaks yet — keep going!</div>';
+
+        // ── All-time top & bottom goals ─────────────────────────────────
+        const goalStats = {};
+        this.data.weeks.forEach(week => {
+            Object.values(week.entries).forEach(entry => {
+                const name = entry.goal.name;
+                if (!goalStats[name]) goalStats[name] = { done: 0, total: 0 };
+                entry.tracking.forEach(v => {
+                    if (v !== '') goalStats[name].total++;
+                    if (v === 'X' || v === 'x') goalStats[name].done++;
+                });
+            });
+        });
+        const rankedGoals = Object.entries(goalStats)
+            .filter(([, s]) => s.total >= 10)
+            .map(([name, s]) => ({ name, pct: Math.round((s.done / s.total) * 100) }))
+            .sort((a, b) => b.pct - a.pct);
+
+        const top5 = rankedGoals.slice(0, 5);
+        const bot5 = rankedGoals.slice(-5).reverse();
+
+        const goalRow = (g, colorVar) => `<div class="deepdive-row">
+            <span class="deepdive-name">${this.escapeHtml(g.name)}</span>
+            <span class="deepdive-val" style="color:${colorVar}">${g.pct}%</span>
+        </div>`;
+
+        container.innerHTML = `
+            <div class="deepdive-wrap">
+                <button class="deepdive-toggle" id="deepDiveToggle">
+                    <span>📊 Deep Dive</span>
+                    <span class="deepdive-chevron" id="deepDiveChevron">▶</span>
+                </button>
+                <div class="deepdive-body" id="deepDiveBody" style="display:none;">
+                    <div class="deepdive-section">
+                        <h4>Month-over-Month</h4>
+                        <div class="trend-bars">${monthBars}</div>
+                    </div>
+                    <div class="deepdive-cols">
+                        <div class="deepdive-section">
+                            <h4>Active Streaks</h4>
+                            ${streakRows}
+                        </div>
+                        <div class="deepdive-section">
+                            <h4>All-Time Best</h4>
+                            ${top5.map(g => goalRow(g, 'var(--success)')).join('') || '<div class="deepdive-empty">Not enough data</div>'}
+                        </div>
+                        <div class="deepdive-section">
+                            <h4>Needs Work</h4>
+                            ${bot5.map(g => goalRow(g, 'var(--danger)')).join('') || '<div class="deepdive-empty">Not enough data</div>'}
+                        </div>
+                    </div>
                 </div>
             </div>`;
+
+        document.getElementById('deepDiveToggle').addEventListener('click', () => {
+            const body = document.getElementById('deepDiveBody');
+            const chevron = document.getElementById('deepDiveChevron');
+            const open = body.style.display === 'none';
+            body.style.display = open ? 'block' : 'none';
+            chevron.textContent = open ? '▼' : '▶';
+        });
     }
 
     renderActivityFeed() {
@@ -733,7 +910,6 @@ class LifeOS {
         });
 
         document.getElementById('addGoalBtn').addEventListener('click', () => this.openModal('addGoalModal'));
-        document.getElementById('importAccountabilityBtn').addEventListener('click', () => this.importFromAccountabilityTracker());
 
         document.getElementById('vacationWeekBtn').addEventListener('click', () => {
             const week = this.getCurrentWeek();
@@ -1904,8 +2080,6 @@ class LifeOS {
             if (file) this.importGoogleSheetsCSV(file);
         });
 
-        document.getElementById('syncFromTrackerBtn').addEventListener('click', () => this.importFromAccountabilityTracker());
-
         document.getElementById('exportAllBtn').addEventListener('click', () => {
             const blob = new Blob([JSON.stringify(this.data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1936,6 +2110,30 @@ class LifeOS {
                 }
             };
             reader.readAsText(file);
+        });
+
+        document.getElementById('dedupWeeksBtn').addEventListener('click', () => {
+            const before = this.data.weeks.length;
+            // Group weeks by their Sunday date key; keep the one with more tracked cells
+            const byKey = {};
+            this.data.weeks.forEach(w => {
+                const key = this.weekKey(new Date(w.startDate));
+                if (!byKey[key]) { byKey[key] = w; return; }
+                // Count non-empty tracking cells for each candidate
+                const countCells = week => Object.values(week.entries)
+                    .reduce((n, e) => n + e.tracking.filter(v => v !== '').length, 0);
+                if (countCells(w) > countCells(byKey[key])) byKey[key] = w;
+            });
+            this.data.weeks = Object.values(byKey)
+                .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+            const removed = before - this.data.weeks.length;
+            this.saveData();
+            if (removed > 0) {
+                alert(`Removed ${removed} duplicate week${removed > 1 ? 's' : ''}. Page will reload.`);
+                location.reload();
+            } else {
+                alert('No duplicate weeks found — your data is clean!');
+            }
         });
 
         document.getElementById('resetAllBtn').addEventListener('click', () => {
@@ -2008,20 +2206,20 @@ class LifeOS {
                     return;
                 }
 
-                // Build a map of existing weeks by startDate
+                // Build a map keyed by the Sunday date (YYYY-MM-DD) — ignores time zone differences
                 const existingMap = {};
                 (this.data.weeks || []).forEach(w => {
-                    existingMap[w.startDate] = w;
+                    existingMap[this.weekKey(new Date(w.startDate))] = w;
                 });
 
                 let added = 0, skipped = 0;
                 historicalWeeks.forEach(hw => {
-                    const sd = hw.startDate;
-                    if (existingMap[sd]) {
+                    const key = this.weekKey(new Date(hw.startDate));
+                    if (existingMap[key]) {
                         // Week already exists — skip (don't overwrite user's current data)
                         skipped++;
                     } else {
-                        existingMap[sd] = hw;
+                        existingMap[key] = hw;
                         added++;
                     }
                 });

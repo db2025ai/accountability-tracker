@@ -119,6 +119,9 @@
             <!-- All-Time Stats -->
             <div id="allTimeStats" style="display:none;"></div>
 
+            <!-- Deep Dive -->
+            <div id="deepDive" style="display:none;"></div>
+
             <!-- Recent Activity -->
             <div class="recent-activity">
                 <h3>Recent Activity</h3>
@@ -137,7 +140,6 @@
             <div class="section-header">
                 <h1>Goals & Accountability</h1>
                 <div class="section-actions">
-                    <button class="btn btn-primary" id="importAccountabilityBtn">Import from Tracker</button>
                     <button class="btn btn-secondary" id="newWeekBtn">+ New Week</button>
                 </div>
             </div>
@@ -512,11 +514,6 @@
                     <button class="btn btn-secondary" id="importSheetsBtn">Import Google Sheets CSV</button>
                 </div>
                 <div class="setting-item">
-                    <label>Import Accountability Tracker Data</label>
-                    <p class="setting-desc">Load data from your existing accountability tracker (LocalStorage key: accountabilityData)</p>
-                    <button class="btn btn-secondary" id="syncFromTrackerBtn">Sync from Tracker</button>
-                </div>
-                <div class="setting-item">
                     <label>Export All Life OS Data</label>
                     <p class="setting-desc">Download a JSON backup of all your data</p>
                     <button class="btn btn-secondary" id="exportAllBtn">Export JSON</button>
@@ -526,6 +523,11 @@
                     <p class="setting-desc">Restore from a JSON backup</p>
                     <input type="file" id="importJsonInput" accept=".json" style="display:none;">
                     <button class="btn btn-secondary" id="importAllBtn">Import JSON</button>
+                </div>
+                <div class="setting-item">
+                    <label>Fix Duplicate Weeks</label>
+                    <p class="setting-desc">Remove duplicate weeks caused by timezone differences during import. Keeps the week with more tracking data.</p>
+                    <button class="btn btn-secondary" id="dedupWeeksBtn">Remove Duplicates</button>
                 </div>
                 <div class="setting-item danger">
                     <label>Reset All Data</label>
