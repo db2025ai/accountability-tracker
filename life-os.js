@@ -673,15 +673,27 @@ class LifeOS {
             </div>`;
     }
 
-    renderAllTimeStats() {
+    renderAllTimeStats(period) {
         const container = document.getElementById('allTimeStats');
         if (!container) return;
         if (this.data.weeks.length <= 1) { container.style.display = 'none'; return; }
         container.style.display = 'block';
 
-        const todayWeekKey = this.weekKey(new Date());
+        if (!period) period = this.allStatsPeriod || 'all';
+        this.allStatsPeriod = period;
+
+        const now = new Date();
+        const periodCutoff = {
+            '1m':  new Date(now - 30 * 864e5),
+            '3m':  new Date(now - 91 * 864e5),
+            'ytd': new Date(now.getFullYear(), 0, 1),
+            'all': new Date(0)
+        }[period];
+        const weeks = this.data.weeks.filter(w => new Date(w.startDate) >= periodCutoff);
+
+        const todayWeekKey = this.weekKey(now);
         const catStats = {};   // cat -> { done, strikes, total, weekCount: Set, goals: { name -> {done,strikes,total} } }
-        this.data.weeks.forEach(week => {
+        weeks.forEach(week => {
             const isCurrentWeek = this.weekKey(new Date(week.startDate)) === todayWeekKey;
             const maxDay = isCurrentWeek ? new Date().getDay() : 6; // don't count future days
             const vacDays = new Set(week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []));
@@ -743,11 +755,23 @@ class LifeOS {
             </div>`;
         }).join('');
 
+        const periodBtns = [
+            { id: '1m', label: '1M' }, { id: '3m', label: '3M' },
+            { id: 'ytd', label: 'YTD' }, { id: 'all', label: 'All' }
+        ].map(p => `<button class="deepdive-period-btn allstats-period-btn${period === p.id ? ' active' : ''}" data-period="${p.id}">${p.label}</button>`).join('');
+
         container.innerHTML = `
             <div class="alltime-stats">
-                <h3>All-Time by Category <span class="alltime-weeks-label">${this.data.weeks.length} weeks tracked</span></h3>
+                <div class="alltime-header">
+                    <h3>By Category <span class="alltime-weeks-label">${weeks.length} weeks</span></h3>
+                    <div class="deepdive-period-filter">${periodBtns}</div>
+                </div>
                 <div class="alltime-grid">${cards}</div>
             </div>`;
+
+        container.querySelectorAll('.allstats-period-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.renderAllTimeStats(btn.dataset.period));
+        });
     }
 
     renderDeepDive(period) {
@@ -1033,8 +1057,8 @@ class LifeOS {
         html += '</tbody></table>';
         document.getElementById('goalsGrid').innerHTML = html;
 
-        // Bind cell clicks
-        document.querySelectorAll('#goalsGrid .day-cell').forEach(cell => {
+        // Bind cell clicks — skip vacation day cells
+        document.querySelectorAll('#goalsGrid .day-cell:not(.vacation-day)').forEach(cell => {
             cell.addEventListener('click', () => {
                 const goalIdx = parseInt(cell.dataset.goal);
                 const dayIdx = parseInt(cell.dataset.day);
@@ -1065,15 +1089,18 @@ class LifeOS {
 
     toggleGoalCell(goalIdx, dayIdx) {
         const week = this.getCurrentWeek();
-        if (!week || !week.entries[goalIdx]) return;
+        if (!week) return;
+        // Entries may be keyed as strings or integers depending on import source
+        const entry = week.entries[goalIdx] ?? week.entries[String(goalIdx)];
+        if (!entry) return;
 
-        const current = week.entries[goalIdx].tracking[dayIdx];
+        const current = entry.tracking[dayIdx];
         if (current === '') {
-            week.entries[goalIdx].tracking[dayIdx] = 'X';
+            entry.tracking[dayIdx] = 'X';
         } else if (current === 'X' || current === 'x') {
-            week.entries[goalIdx].tracking[dayIdx] = '1';
+            entry.tracking[dayIdx] = '1';
         } else {
-            week.entries[goalIdx].tracking[dayIdx] = '';
+            entry.tracking[dayIdx] = '';
         }
 
         this.saveData();
@@ -1704,7 +1731,7 @@ class LifeOS {
             cb.addEventListener('click', () => {
                 const entryIdx = cb.dataset.entryIdx;
                 const dayIdx = parseInt(cb.dataset.day);
-                const entry = week.entries[entryIdx];
+                const entry = week.entries[entryIdx] ?? week.entries[parseInt(entryIdx)];
                 if (!entry) return;
 
                 const current = entry.tracking[dayIdx];
