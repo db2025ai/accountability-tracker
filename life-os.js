@@ -1849,6 +1849,14 @@ class LifeOS {
             }
         });
 
+        document.getElementById('mergeHistoricalBtn').addEventListener('click', () => {
+            document.getElementById('mergeHistoricalInput').click();
+        });
+        document.getElementById('mergeHistoricalInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) this.mergeHistoricalJSON(file);
+        });
+
         document.getElementById('importSheetsBtn').addEventListener('click', () => {
             document.getElementById('sheetsFileInput').click();
         });
@@ -1950,6 +1958,50 @@ class LifeOS {
         return result;
     }
 
+    mergeHistoricalJSON(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const imported = JSON.parse(e.target.result);
+                const historicalWeeks = imported.weeks || [];
+                if (!historicalWeeks.length) {
+                    alert('No weeks found in the JSON file.');
+                    return;
+                }
+
+                // Build a map of existing weeks by startDate
+                const existingMap = {};
+                (this.data.weeks || []).forEach(w => {
+                    existingMap[w.startDate] = w;
+                });
+
+                let added = 0, skipped = 0;
+                historicalWeeks.forEach(hw => {
+                    const sd = hw.startDate;
+                    if (existingMap[sd]) {
+                        // Week already exists — skip (don't overwrite user's current data)
+                        skipped++;
+                    } else {
+                        existingMap[sd] = hw;
+                        added++;
+                    }
+                });
+
+                // Sort weeks by date and save
+                this.data.weeks = Object.values(existingMap)
+                    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+                this.saveData();
+                this.logActivity(`Merged ${added} historical weeks (${skipped} already existed)`);
+                alert(`Import complete!\n✅ ${added} weeks added\n⏭ ${skipped} weeks already existed (not overwritten)\n\nPage will reload to apply changes.`);
+                location.reload();
+            } catch (err) {
+                alert('Error reading file: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+
     importGoogleSheetsCSV(file) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -1967,67 +2019,75 @@ class LifeOS {
                 const knownCats = ['physical health', 'mental health', 'budgeting', 'work',
                     'cooking', 'monthly', 'other', 'morning protocol', 'midday protocol',
                     'evening protocol'];
-                const skipRows = ['grand total', 'total strikes', 'week specific', 'misses',
-                    'keep strike'];
+                const skipPatterns = ['grand total', 'total strikes', 'week specific',
+                    'misses:', 'keep strike', 'this week'];
+                const dayLabels = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+
+                const inferYear = (month) => {
+                    if (!currentYear) {
+                        return month >= 9 ? 2024 : 2025;
+                    }
+                    if (lastMonth && lastMonth > month + 2) return currentYear + 1;
+                    return currentYear;
+                };
+
+                const startWeek = (monthDayStr) => {
+                    const [m, d] = monthDayStr.split('/').map(Number);
+                    if (isNaN(m) || isNaN(d)) return;
+                    currentYear = inferYear(m);
+                    lastMonth = m;
+                    if (currentWeek && Object.keys(currentWeek.entries).length > 0) {
+                        importedWeeks.push(currentWeek);
+                    }
+                    const startStr = `${currentYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                    currentWeek = { startDate: new Date(startStr + 'T12:00:00').toISOString(), entries: {}, source: 'imported' };
+                    currentCategory = null;
+                };
 
                 for (const rawLine of lines) {
                     const cells = this.parseCSVLine(rawLine);
-                    if (cells.length < 3) continue;
+                    if (cells.length < 2) continue;
 
                     const c0 = (cells[0] || '').trim();
                     const c1 = (cells[1] || '').trim();
                     const c2 = (cells[2] || '').trim();
+                    const lc0 = c0.toLowerCase();
+                    const lc1 = c1.toLowerCase();
 
-                    // Skip header and day-label rows
-                    if (c0.toLowerCase().includes('this week')) continue;
-                    if (['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].includes(c2.toLowerCase())) continue;
+                    // Skip noise rows
+                    if (skipPatterns.some(p => lc0.startsWith(p) || lc1.startsWith(p))) continue;
+                    if (dayLabels.includes(c2.toLowerCase())) continue;
 
-                    // Detect week start: first two cells empty, third is MM/DD
+                    // FORMAT 1: ,,MM/DD,MM/DD,... (dates in cols 2+, c0 and c1 empty)
                     if (c0 === '' && c1 === '' && /^\d{1,2}\/\d{1,2}$/.test(c2)) {
-                        const month = parseInt(c2.split('/')[0]);
-                        if (!currentYear) {
-                            currentYear = month >= 9 ? 2024 : 2025; // Sep+ = 2024, else 2025
-                        } else if (lastMonth && lastMonth > month + 2) {
-                            currentYear++; // Year wrapped
-                        }
-                        lastMonth = month;
+                        startWeek(c2);
+                        continue;
+                    }
 
-                        if (currentWeek && Object.keys(currentWeek.entries).length > 0) {
-                            importedWeeks.push(currentWeek);
-                        }
-
-                        const [m, d] = c2.split('/').map(Number);
-                        const startStr = `${currentYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                        currentWeek = {
-                            startDate: new Date(startStr + 'T12:00:00').toISOString(),
-                            entries: {},
-                            source: 'imported'
-                        };
-                        currentCategory = null;
+                    // FORMAT 2: MM/DD-MM/DD,,,... (date range in col 0)
+                    if (/^\d{1,2}\/\d{1,2}-\d{1,2}\/\d{1,2}$/.test(c0)) {
+                        startWeek(c0.split('-')[0]);
                         continue;
                     }
 
                     if (!currentWeek || !c1) continue;
 
-                    const lc1 = c1.toLowerCase();
-                    if (skipRows.some(s => lc1.startsWith(s))) continue;
-
-                    // Category row: known category name or all-empty tracking
+                    // Category row detection
                     const tracking7 = cells.slice(2, 9);
-                    const hasTracking = tracking7.some(v => v === 'X' || v === 'x' || v === '1');
-                    if (knownCats.includes(lc1) || (!hasTracking && c1.length < 40 && c1 === c1.replace(/[^a-zA-Z\s&]/g, ''))) {
+                    const hasTracking = tracking7.some(v => (v || '').trim() === 'X' || (v || '').trim() === 'x' || (v || '').trim() === '1');
+
+                    if (knownCats.includes(lc1) || (!hasTracking && c1.length < 45)) {
                         currentCategory = c1;
                         continue;
                     }
 
-                    // Goal row
+                    // Goal row — extract tracking from cols 2-8
                     const tracking = tracking7.map(v => {
                         const t = (v || '').trim();
                         if (t === 'X' || t === 'x') return 'X';
                         if (t === '1') return '1';
                         return '';
                     });
-                    // Pad to 7 if needed
                     while (tracking.length < 7) tracking.push('');
 
                     const idx = Object.keys(currentWeek.entries).length;
