@@ -9,12 +9,13 @@ export const getData = query({
       .query("userData")
       .withIndex("by_userId", (q) => q.eq("userId", DEFAULT_USER))
       .first();
-    return row ? row.payload : null;
+    // Parse from JSON string back to object
+    return row ? JSON.parse(row.payload) : null;
   },
 });
 
 export const setData = mutation({
-  args: { payload: v.any() },
+  args: { payload: v.string() }, // expects JSON string
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("userData")

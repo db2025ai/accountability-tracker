@@ -44,7 +44,7 @@ class ConvexDataLayer {
     async save(payload) {
         if (!this.isConnected()) return;
         try {
-            await this.client.mutation('functions:setData', { payload });
+            await this.client.mutation('functions:setData', { payload: JSON.stringify(payload) });
         } catch (e) {
             console.error('[LifeOS] Convex save failed:', e);
         }
