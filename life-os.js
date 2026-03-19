@@ -769,7 +769,10 @@ class LifeOS {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const weekVacDays = week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []);
         let html = '<table><thead><tr><th>Goal</th>';
-        days.forEach(d => html += `<th>${d}</th>`);
+        days.forEach((d, i) => {
+            const isVac = weekVacDays.includes(i);
+            html += `<th class="day-header${isVac ? ' vac-header' : ''}" data-day="${i}" title="${isVac ? 'Click to remove vacation' : 'Click to mark as vacation'}">${isVac ? '🏖️' : d}</th>`;
+        });
         html += '<th>Strikes</th></tr></thead><tbody>';
 
         // Group by category
@@ -813,6 +816,23 @@ class LifeOS {
                 const goalIdx = parseInt(cell.dataset.goal);
                 const dayIdx = parseInt(cell.dataset.day);
                 this.toggleGoalCell(goalIdx, dayIdx);
+            });
+        });
+
+        // Bind day header clicks to toggle vacation for that day
+        document.querySelectorAll('#goalsGrid .day-header').forEach(th => {
+            th.addEventListener('click', () => {
+                const dayIdx = parseInt(th.dataset.day);
+                const w = this.getCurrentWeek();
+                if (!w) return;
+                if (!w.vacationDays) w.vacationDays = [];
+                const isVac = w.vacationDays.includes(dayIdx);
+                w.vacationDays = isVac
+                    ? w.vacationDays.filter(d => d !== dayIdx)
+                    : [...w.vacationDays, dayIdx].sort();
+                w.vacation = w.vacationDays.length === 7;
+                this.saveData();
+                this.renderGoals();
             });
         });
 

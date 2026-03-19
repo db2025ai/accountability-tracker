@@ -2233,6 +2233,14 @@ body {
 /* ========================================
    Travel Day / Partial Vacation
    ======================================== */
+.day-header {
+    cursor: pointer;
+    user-select: none;
+    transition: var(--transition);
+}
+.day-header:hover { background: rgba(99,102,241,0.1); color: var(--primary); }
+.day-header.vac-header { background: rgba(99,102,241,0.08); color: var(--primary); }
+
 .today-header-row {
     display: flex;
     align-items: center;
