@@ -2214,13 +2214,35 @@ class LifeOS {
                 return;
             }
             const btn = document.getElementById('syncToConvexBtn');
-            btn.textContent = 'Syncing...';
+            btn.textContent = 'Pushing...';
             btn.disabled = true;
             await this.convex.save(this.data);
-            btn.textContent = 'Synced ✓';
+            btn.textContent = 'Pushed ✓';
             btn.disabled = false;
             setTimeout(() => { btn.textContent = 'Push to Convex'; }, 2000);
             this.logActivity('Manually pushed data to Convex');
+        });
+
+        document.getElementById('pullFromConvexBtn').addEventListener('click', async () => {
+            if (!this.convex || !this.convex.isConnected()) {
+                alert('Not connected to Convex. Save your URL first.');
+                return;
+            }
+            const btn = document.getElementById('pullFromConvexBtn');
+            btn.textContent = 'Pulling...';
+            btn.disabled = true;
+            const remote = await this.convex.load();
+            if (remote) {
+                this.data = remote;
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+                this.renderAll();
+                btn.textContent = 'Pulled ✓';
+                this.logActivity('Manually pulled data from Convex');
+            } else {
+                btn.textContent = 'Nothing found';
+            }
+            btn.disabled = false;
+            setTimeout(() => { btn.textContent = 'Pull from Convex'; }, 2000);
         });
 
         document.getElementById('mergeHistoricalBtn').addEventListener('click', () => {
@@ -2313,18 +2335,22 @@ class LifeOS {
 
         if (savedUrl) urlInput.value = savedUrl;
 
+        const pullBtn = document.getElementById('pullFromConvexBtn');
         if (this.convex && this.convex.isConnected()) {
             statusEl.textContent = '🟢 Syncing across devices';
             statusEl.style.color = 'var(--success)';
             syncBtn.style.display = 'inline-block';
+            pullBtn.style.display = 'inline-block';
         } else if (savedUrl) {
             statusEl.textContent = '🟡 Connecting…';
             statusEl.style.color = 'var(--warning)';
             syncBtn.style.display = 'none';
+            pullBtn.style.display = 'none';
         } else {
             statusEl.textContent = '⚪ Local only — enter a Convex URL to sync';
             statusEl.style.color = 'var(--text-muted)';
             syncBtn.style.display = 'none';
+            pullBtn.style.display = 'none';
         }
     }
 

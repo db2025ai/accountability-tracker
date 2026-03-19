@@ -10,7 +10,9 @@ export const getData = query({
       .withIndex("by_userId", (q) => q.eq("userId", DEFAULT_USER))
       .first();
     // Parse from JSON string back to object
-    return row ? JSON.parse(row.payload) : null;
+    if (!row) return null;
+    // Handle both old object format and new string format
+    return typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
   },
 });
 

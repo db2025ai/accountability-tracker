@@ -499,7 +499,10 @@
                         <button class="btn btn-primary" id="connectConvexBtn">Connect</button>
                     </div>
                     <div id="convexStatus" style="font-size:0.8rem;color:var(--text-muted);">Not connected - using local storage</div>
-                    <button class="btn btn-secondary" id="syncToConvexBtn" style="margin-top:8px;display:none;">Sync Local Data to Convex</button>
+                    <div style="display:flex;gap:8px;margin-top:8px;">
+                        <button class="btn btn-secondary" id="syncToConvexBtn" style="display:none;">Push to Convex</button>
+                        <button class="btn btn-secondary" id="pullFromConvexBtn" style="display:none;">Pull from Convex</button>
+                    </div>
                 </div>
                 <div class="setting-item">
                     <label>Import Historical Weeks (JSON)</label>
