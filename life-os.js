@@ -424,6 +424,7 @@ class LifeOS {
         this.renderCategoryBars();
         this.renderProblemAreas();
         this.renderAllTimeStats();
+        this.renderDeepDive();
         this.renderActivityFeed();
     }
 
@@ -741,6 +742,121 @@ class LifeOS {
                 <h3>All-Time by Category <span class="alltime-weeks-label">${this.data.weeks.length} weeks tracked</span></h3>
                 <div class="alltime-grid">${cards}</div>
             </div>`;
+    }
+
+    renderDeepDive() {
+        const container = document.getElementById('deepDive');
+        if (!container) return;
+        if (this.data.weeks.length < 4) { container.style.display = 'none'; return; }
+        container.style.display = 'block';
+
+        // ── Month-over-month trend ──────────────────────────────────────
+        const monthStats = {};
+        this.data.weeks.forEach(week => {
+            const d = new Date(week.startDate);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (!monthStats[key]) monthStats[key] = { done: 0, total: 0 };
+            Object.values(week.entries).forEach(entry => {
+                entry.tracking.forEach(v => {
+                    if (v !== '') monthStats[key].total++;
+                    if (v === 'X' || v === 'x') monthStats[key].done++;
+                });
+            });
+        });
+        const months = Object.keys(monthStats).sort().slice(-12); // last 12 months
+        const maxPct = 100;
+        const monthBars = months.map(key => {
+            const s = monthStats[key];
+            const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
+            const color = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)';
+            const label = key.slice(5); // MM
+            const monthName = new Date(key + '-01').toLocaleDateString('en-US', { month: 'short' });
+            return `<div class="trend-bar-col">
+                <div class="trend-bar-wrap">
+                    <div class="trend-bar-fill" style="height:${pct}%;background:${color};" title="${pct}%"></div>
+                </div>
+                <div class="trend-bar-label">${monthName}</div>
+            </div>`;
+        }).join('');
+
+        // ── All-time top streaks ────────────────────────────────────────
+        const goalNames = new Set();
+        this.data.weeks.forEach(w => Object.values(w.entries).forEach(e => goalNames.add(e.goal.name)));
+        const streaks = [...goalNames].map(name => ({
+            name,
+            streak: this.calculateGoalStreak(name)
+        })).filter(g => g.streak >= 3)
+          .sort((a, b) => b.streak - a.streak)
+          .slice(0, 5);
+
+        const streakRows = streaks.length ? streaks.map(g => {
+            const badge = g.streak >= 30 ? '👑' : g.streak >= 14 ? '💎' : g.streak >= 7 ? '⭐' : '🔥';
+            return `<div class="deepdive-row">
+                <span class="deepdive-name">${this.escapeHtml(g.name)}</span>
+                <span class="deepdive-val">${badge} ${g.streak}d</span>
+            </div>`;
+        }).join('') : '<div class="deepdive-empty">No streaks yet — keep going!</div>';
+
+        // ── All-time top & bottom goals ─────────────────────────────────
+        const goalStats = {};
+        this.data.weeks.forEach(week => {
+            Object.values(week.entries).forEach(entry => {
+                const name = entry.goal.name;
+                if (!goalStats[name]) goalStats[name] = { done: 0, total: 0 };
+                entry.tracking.forEach(v => {
+                    if (v !== '') goalStats[name].total++;
+                    if (v === 'X' || v === 'x') goalStats[name].done++;
+                });
+            });
+        });
+        const rankedGoals = Object.entries(goalStats)
+            .filter(([, s]) => s.total >= 10)
+            .map(([name, s]) => ({ name, pct: Math.round((s.done / s.total) * 100) }))
+            .sort((a, b) => b.pct - a.pct);
+
+        const top5 = rankedGoals.slice(0, 5);
+        const bot5 = rankedGoals.slice(-5).reverse();
+
+        const goalRow = (g, colorVar) => `<div class="deepdive-row">
+            <span class="deepdive-name">${this.escapeHtml(g.name)}</span>
+            <span class="deepdive-val" style="color:${colorVar}">${g.pct}%</span>
+        </div>`;
+
+        container.innerHTML = `
+            <div class="deepdive-wrap">
+                <button class="deepdive-toggle" id="deepDiveToggle">
+                    <span>📊 Deep Dive</span>
+                    <span class="deepdive-chevron" id="deepDiveChevron">▶</span>
+                </button>
+                <div class="deepdive-body" id="deepDiveBody" style="display:none;">
+                    <div class="deepdive-section">
+                        <h4>Month-over-Month</h4>
+                        <div class="trend-bars">${monthBars}</div>
+                    </div>
+                    <div class="deepdive-cols">
+                        <div class="deepdive-section">
+                            <h4>Active Streaks</h4>
+                            ${streakRows}
+                        </div>
+                        <div class="deepdive-section">
+                            <h4>All-Time Best</h4>
+                            ${top5.map(g => goalRow(g, 'var(--success)')).join('') || '<div class="deepdive-empty">Not enough data</div>'}
+                        </div>
+                        <div class="deepdive-section">
+                            <h4>Needs Work</h4>
+                            ${bot5.map(g => goalRow(g, 'var(--danger)')).join('') || '<div class="deepdive-empty">Not enough data</div>'}
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+        document.getElementById('deepDiveToggle').addEventListener('click', () => {
+            const body = document.getElementById('deepDiveBody');
+            const chevron = document.getElementById('deepDiveChevron');
+            const open = body.style.display === 'none';
+            body.style.display = open ? 'block' : 'none';
+            chevron.textContent = open ? '▼' : '▶';
+        });
     }
 
     renderActivityFeed() {
