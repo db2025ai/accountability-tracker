@@ -10,8 +10,7 @@ class ConvexDataLayer {
         this.client = null;
         this.connected = false;
         this._unsub = null;
-
-        if (convexUrl) this._init(convexUrl);
+        // Don't auto-init — caller must await _init() explicitly
     }
 
     async _init(url) {

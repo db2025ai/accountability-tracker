@@ -2974,7 +2974,10 @@ tr:hover .strike-dec { opacity: 1; }
                         <button class="btn btn-primary" id="connectConvexBtn">Connect</button>
                     </div>
                     <div id="convexStatus" style="font-size:0.8rem;color:var(--text-muted);">Not connected - using local storage</div>
-                    <button class="btn btn-secondary" id="syncToConvexBtn" style="margin-top:8px;display:none;">Sync Local Data to Convex</button>
+                    <div style="display:flex;gap:8px;margin-top:8px;">
+                        <button class="btn btn-secondary" id="syncToConvexBtn" style="display:none;">Push to Convex</button>
+                        <button class="btn btn-secondary" id="pullFromConvexBtn" style="display:none;">Pull from Convex</button>
+                    </div>
                 </div>
                 <div class="setting-item">
                     <label>Import Historical Weeks (JSON)</label>
@@ -3054,8 +3057,7 @@ class ConvexDataLayer {
         this.client = null;
         this.connected = false;
         this._unsub = null;
-
-        if (convexUrl) this._init(convexUrl);
+        // Don't auto-init — caller must await _init() explicitly
     }
 
     async _init(url) {
@@ -5329,13 +5331,35 @@ class LifeOS {
                 return;
             }
             const btn = document.getElementById('syncToConvexBtn');
-            btn.textContent = 'Syncing...';
+            btn.textContent = 'Pushing...';
             btn.disabled = true;
             await this.convex.save(this.data);
-            btn.textContent = 'Synced ✓';
+            btn.textContent = 'Pushed ✓';
             btn.disabled = false;
             setTimeout(() => { btn.textContent = 'Push to Convex'; }, 2000);
             this.logActivity('Manually pushed data to Convex');
+        });
+
+        document.getElementById('pullFromConvexBtn').addEventListener('click', async () => {
+            if (!this.convex || !this.convex.isConnected()) {
+                alert('Not connected to Convex. Save your URL first.');
+                return;
+            }
+            const btn = document.getElementById('pullFromConvexBtn');
+            btn.textContent = 'Pulling...';
+            btn.disabled = true;
+            const remote = await this.convex.load();
+            if (remote) {
+                this.data = remote;
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+                this.renderAll();
+                btn.textContent = 'Pulled ✓';
+                this.logActivity('Manually pulled data from Convex');
+            } else {
+                btn.textContent = 'Nothing found';
+            }
+            btn.disabled = false;
+            setTimeout(() => { btn.textContent = 'Pull from Convex'; }, 2000);
         });
 
         document.getElementById('mergeHistoricalBtn').addEventListener('click', () => {
@@ -5428,18 +5452,22 @@ class LifeOS {
 
         if (savedUrl) urlInput.value = savedUrl;
 
+        const pullBtn = document.getElementById('pullFromConvexBtn');
         if (this.convex && this.convex.isConnected()) {
             statusEl.textContent = '🟢 Syncing across devices';
             statusEl.style.color = 'var(--success)';
             syncBtn.style.display = 'inline-block';
+            pullBtn.style.display = 'inline-block';
         } else if (savedUrl) {
             statusEl.textContent = '🟡 Connecting…';
             statusEl.style.color = 'var(--warning)';
             syncBtn.style.display = 'none';
+            pullBtn.style.display = 'none';
         } else {
             statusEl.textContent = '⚪ Local only — enter a Convex URL to sync';
             statusEl.style.color = 'var(--text-muted)';
             syncBtn.style.display = 'none';
+            pullBtn.style.display = 'none';
         }
     }
 
