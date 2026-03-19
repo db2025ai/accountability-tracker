@@ -3,6 +3,16 @@ import { v } from "convex/values";
 
 const DEFAULT_USER = "default";
 
+export const getUpdatedAt = query({
+  handler: async (ctx) => {
+    const row = await ctx.db
+      .query("userData")
+      .withIndex("by_userId", (q) => q.eq("userId", DEFAULT_USER))
+      .first();
+    return row ? row.updatedAt : null;
+  },
+});
+
 export const getData = query({
   handler: async (ctx) => {
     const row = await ctx.db
