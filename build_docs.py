@@ -32,6 +32,17 @@ m = re.search(r'<script[^>]*src=["\']life-os\.js["\'][^>]*></script>', html)
 if m:
     html = html[:m.start()] + js_tag + html[m.end():]
 
+# Fix service worker path for GitHub Pages subpath
+html = html.replace("navigator.serviceWorker.register('/sw.js')",
+                    "navigator.serviceWorker.register('/accountability-tracker/sw.js')")
+
 open('docs/index.html', 'w', encoding='utf-8').write(html)
+
+# Copy manifest.json and sw.js into docs/ so GitHub Pages can serve them
+import shutil, json
+shutil.copy('sw.js', 'docs/sw.js')
+manifest = json.load(open('manifest.json'))
+json.dump(manifest, open('docs/manifest.json', 'w'), indent=2)
+
 size = len(html)
 print(f'Built docs/index.html ({size:,} bytes / {size//1024}KB)')
