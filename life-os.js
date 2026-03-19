@@ -592,7 +592,7 @@ class LifeOS {
             entry.tracking.forEach(v => {
                 if (v !== '') catStats[cat].total++;
                 if (v === 'X' || v === 'x') catStats[cat].done++;
-                if (v === '1') catStats[cat].strikes++;
+                else if (v !== '' && !isNaN(parseInt(v))) catStats[cat].strikes += parseInt(v);
             });
         });
 
@@ -637,7 +637,7 @@ class LifeOS {
                 entry.tracking.forEach(v => {
                     if (v !== '') catStats[cat].total++;
                     if (v === 'X' || v === 'x') catStats[cat].done++;
-                    if (v === '1') catStats[cat].strikes++;
+                    else if (v !== '' && !isNaN(parseInt(v))) catStats[cat].strikes += parseInt(v);
                 });
             });
         });
