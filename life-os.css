@@ -2328,3 +2328,21 @@ body {
 .trend-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
 .trend-bar-fill { width: 100%; border-radius: 2px 2px 0 0; min-height: 2px; transition: height 0.3s; }
 .trend-bar-label { font-size: 0.6rem; color: var(--text-muted); margin-top: 3px; }
+
+/* Deep Dive period filter */
+.deepdive-period-filter { display: flex; gap: 6px; margin-bottom: 14px; }
+.deepdive-period-btn {
+    padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-muted); font-size: 0.75rem;
+    cursor: pointer; font-weight: 500;
+}
+.deepdive-period-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.deepdive-period-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+
+/* Goals grid subtotal / grand total rows */
+.subtotal-row td { background: var(--surface); font-size: 0.72rem; padding: 3px 8px; }
+.subtotal-label { color: var(--text-muted); font-style: italic; text-align: right; }
+.subtotal-val { font-weight: 600; color: var(--text-muted); }
+.grand-total-row td { background: var(--surface-alt, var(--border)); padding: 5px 8px; border-top: 2px solid var(--border); }
+.grand-total-label { font-weight: 700; font-size: 0.8rem; text-align: right; }
+.grand-total-val { font-weight: 700; font-size: 0.9rem; color: var(--danger); }

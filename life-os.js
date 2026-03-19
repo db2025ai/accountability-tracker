@@ -679,8 +679,13 @@ class LifeOS {
         if (this.data.weeks.length <= 1) { container.style.display = 'none'; return; }
         container.style.display = 'block';
 
+        const todayWeekKey = this.weekKey(new Date());
         const catStats = {};   // cat -> { done, strikes, total, weekCount: Set, goals: { name -> {done,strikes,total} } }
         this.data.weeks.forEach(week => {
+            const isCurrentWeek = this.weekKey(new Date(week.startDate)) === todayWeekKey;
+            const maxDay = isCurrentWeek ? new Date().getDay() : 6; // don't count future days
+            const vacDays = new Set(week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []));
+
             Object.values(week.entries).forEach(entry => {
                 const cat = (entry.goal.category || 'Other').trim();
                 if (EXCLUDE_CATS.has(cat.toLowerCase())) return;
@@ -690,13 +695,15 @@ class LifeOS {
                 const gName = entry.goal.name;
                 if (!cStat.goals[gName]) cStat.goals[gName] = { done: 0, strikes: 0, total: 0 };
                 const gStat = cStat.goals[gName];
-                entry.tracking.forEach(v => {
-                    if (v !== '') { cStat.total++; gStat.total++; }
+                entry.tracking.forEach((v, dayIdx) => {
+                    if (dayIdx > maxDay || vacDays.has(dayIdx)) return; // skip future days + vacation
+                    cStat.total++; gStat.total++; // every applicable day is an opportunity
                     if (v === 'X' || v === 'x') { cStat.done++; gStat.done++; }
-                    else if (v !== '' && !isNaN(parseInt(v))) {
+                    else if (!isNaN(parseInt(v))) {
                         const n = parseInt(v);
                         cStat.strikes += n; gStat.strikes += n;
                     }
+                    // empty = missed — counted in total but not done
                 });
             });
         });
@@ -744,33 +751,56 @@ class LifeOS {
             </div>`;
     }
 
-    renderDeepDive() {
+    renderDeepDive(period) {
         const container = document.getElementById('deepDive');
         if (!container) return;
         if (this.data.weeks.length < 4) { container.style.display = 'none'; return; }
         container.style.display = 'block';
 
-        // ── Month-over-month trend ──────────────────────────────────────
+        // Preserve open/closed state across re-renders
+        const wasOpen = document.getElementById('deepDiveBody')?.style.display !== 'none';
+        if (!period) period = this.deepDivePeriod || 'all';
+        this.deepDivePeriod = period;
+
+        // Filter weeks by selected period
+        const now = new Date();
+        const todayWeekKey = this.weekKey(now);
+        const periodCutoff = {
+            '3w':  new Date(now - 21 * 864e5),
+            '3m':  new Date(now - 91 * 864e5),
+            'ytd': new Date(now.getFullYear(), 0, 1),
+            'all': new Date(0)
+        }[period];
+        const weeks = this.data.weeks.filter(w => new Date(w.startDate) >= periodCutoff);
+
+        // ── Shared stat builder ─────────────────────────────────────────
+        const accum = (weeksArr, perWeek) => weeksArr.forEach(week => {
+            const isCurrentWeek = this.weekKey(new Date(week.startDate)) === todayWeekKey;
+            const maxDay = isCurrentWeek ? now.getDay() : 6;
+            const vacDays = new Set(week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []));
+            perWeek(week, maxDay, vacDays);
+        });
+
+        // ── Month-over-month bars ───────────────────────────────────────
         const monthStats = {};
-        this.data.weeks.forEach(week => {
+        accum(weeks, (week, maxDay, vacDays) => {
             const d = new Date(week.startDate);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             if (!monthStats[key]) monthStats[key] = { done: 0, total: 0 };
             Object.values(week.entries).forEach(entry => {
-                entry.tracking.forEach(v => {
-                    if (v !== '') monthStats[key].total++;
+                entry.tracking.forEach((v, dayIdx) => {
+                    if (dayIdx > maxDay || vacDays.has(dayIdx)) return;
+                    monthStats[key].total++;
                     if (v === 'X' || v === 'x') monthStats[key].done++;
                 });
             });
         });
-        const months = Object.keys(monthStats).sort().slice(-12); // last 12 months
-        const maxPct = 100;
-        const monthBars = months.map(key => {
+        const monthKeys = Object.keys(monthStats).sort().slice(-12);
+        const monthBars = monthKeys.map(key => {
             const s = monthStats[key];
             const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
             const color = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)';
-            const label = key.slice(5); // MM
-            const monthName = new Date(key + '-01').toLocaleDateString('en-US', { month: 'short' });
+            const monthName = new Date(key + '-15').toLocaleDateString('en-US', { month: 'short' });
             return `<div class="trend-bar-col">
                 <div class="trend-bar-wrap">
                     <div class="trend-bar-fill" style="height:${pct}%;background:${color};" title="${pct}%"></div>
@@ -779,59 +809,65 @@ class LifeOS {
             </div>`;
         }).join('');
 
-        // ── All-time top streaks ────────────────────────────────────────
+        // ── Active streaks (always all-time — streaks are live) ─────────
         const goalNames = new Set();
         this.data.weeks.forEach(w => Object.values(w.entries).forEach(e => goalNames.add(e.goal.name)));
-        const streaks = [...goalNames].map(name => ({
-            name,
-            streak: this.calculateGoalStreak(name)
-        })).filter(g => g.streak >= 3)
-          .sort((a, b) => b.streak - a.streak)
-          .slice(0, 5);
-
+        const streaks = [...goalNames].map(name => ({ name, streak: this.calculateGoalStreak(name) }))
+            .filter(g => g.streak >= 3).sort((a, b) => b.streak - a.streak).slice(0, 5);
         const streakRows = streaks.length ? streaks.map(g => {
             const badge = g.streak >= 30 ? '👑' : g.streak >= 14 ? '💎' : g.streak >= 7 ? '⭐' : '🔥';
             return `<div class="deepdive-row">
                 <span class="deepdive-name">${this.escapeHtml(g.name)}</span>
                 <span class="deepdive-val">${badge} ${g.streak}d</span>
             </div>`;
-        }).join('') : '<div class="deepdive-empty">No streaks yet — keep going!</div>';
+        }).join('') : '<div class="deepdive-empty">No active streaks ≥ 3 days</div>';
 
-        // ── All-time top & bottom goals ─────────────────────────────────
+        // ── Top & bottom goals ──────────────────────────────────────────
         const goalStats = {};
-        this.data.weeks.forEach(week => {
+        accum(weeks, (week, maxDay, vacDays) => {
             Object.values(week.entries).forEach(entry => {
                 const name = entry.goal.name;
                 if (!goalStats[name]) goalStats[name] = { done: 0, total: 0 };
-                entry.tracking.forEach(v => {
-                    if (v !== '') goalStats[name].total++;
+                entry.tracking.forEach((v, dayIdx) => {
+                    if (dayIdx > maxDay || vacDays.has(dayIdx)) return;
+                    goalStats[name].total++;
                     if (v === 'X' || v === 'x') goalStats[name].done++;
                 });
             });
         });
+        const minTotal = period === '3w' ? 3 : period === '3m' ? 10 : 10;
         const rankedGoals = Object.entries(goalStats)
-            .filter(([, s]) => s.total >= 10)
+            .filter(([, s]) => s.total >= minTotal)
             .map(([name, s]) => ({ name, pct: Math.round((s.done / s.total) * 100) }))
             .sort((a, b) => b.pct - a.pct);
-
         const top5 = rankedGoals.slice(0, 5);
         const bot5 = rankedGoals.slice(-5).reverse();
-
         const goalRow = (g, colorVar) => `<div class="deepdive-row">
             <span class="deepdive-name">${this.escapeHtml(g.name)}</span>
             <span class="deepdive-val" style="color:${colorVar}">${g.pct}%</span>
         </div>`;
 
+        const periods = [
+            { id: '3w', label: '3W' },
+            { id: '3m', label: '3M' },
+            { id: 'ytd', label: 'YTD' },
+            { id: 'all', label: 'All' }
+        ];
+        const filterBtns = periods.map(p =>
+            `<button class="deepdive-period-btn${period === p.id ? ' active' : ''}" data-period="${p.id}">${p.label}</button>`
+        ).join('');
+
         container.innerHTML = `
             <div class="deepdive-wrap">
                 <button class="deepdive-toggle" id="deepDiveToggle">
                     <span>📊 Deep Dive</span>
-                    <span class="deepdive-chevron" id="deepDiveChevron">▶</span>
+                    <span class="deepdive-chevron" id="deepDiveChevron">${wasOpen ? '▼' : '▶'}</span>
                 </button>
-                <div class="deepdive-body" id="deepDiveBody" style="display:none;">
+                <div class="deepdive-body" id="deepDiveBody" style="display:${wasOpen ? 'block' : 'none'};">
+                    <div class="deepdive-period-filter">${filterBtns}</div>
                     <div class="deepdive-section">
                         <h4>Month-over-Month</h4>
-                        <div class="trend-bars">${monthBars}</div>
+                        <div class="trend-bars">${monthBars || '<span class="deepdive-empty">No data for this period</span>'}</div>
                     </div>
                     <div class="deepdive-cols">
                         <div class="deepdive-section">
@@ -839,7 +875,7 @@ class LifeOS {
                             ${streakRows}
                         </div>
                         <div class="deepdive-section">
-                            <h4>All-Time Best</h4>
+                            <h4>Best</h4>
                             ${top5.map(g => goalRow(g, 'var(--success)')).join('') || '<div class="deepdive-empty">Not enough data</div>'}
                         </div>
                         <div class="deepdive-section">
@@ -856,6 +892,10 @@ class LifeOS {
             const open = body.style.display === 'none';
             body.style.display = open ? 'block' : 'none';
             chevron.textContent = open ? '▼' : '▶';
+        });
+
+        container.querySelectorAll('.deepdive-period-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.renderDeepDive(btn.dataset.period));
         });
     }
 
@@ -959,8 +999,10 @@ class LifeOS {
             grouped[cat].push({ idx: parseInt(idx), ...entry });
         });
 
+        let grandTotal = 0;
         for (const [cat, entries] of Object.entries(grouped)) {
             html += `<tr><td class="cat-header" colspan="${days.length + 2}">${cat}</td></tr>`;
+            let catTotal = 0;
             entries.forEach(entry => {
                 html += `<tr><td class="goal-name-cell">${this.escapeHtml(entry.goal.name)}</td>`;
                 entry.tracking.forEach((val, dayIdx) => {
@@ -978,11 +1020,17 @@ class LifeOS {
                     }
                     html += `<td class="${cls}" data-goal="${entry.idx}" data-day="${dayIdx}">${display}</td>`;
                 });
-                const strikes = entry.tracking.filter(v => v === '1').length;
+                const strikes = entry.tracking.reduce((n, v) => n + (!isNaN(parseInt(v)) ? parseInt(v) : 0), 0);
+                catTotal += strikes;
+                grandTotal += strikes;
                 html += `<td class="strike-count">${strikes > 0 ? strikes : ''}</td></tr>`;
             });
+            // Category subtotal row
+            html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label">${cat} subtotal</td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;
         }
 
+        // Grand total row
+        html += `<tr class="grand-total-row"><td colspan="${days.length + 1}" class="grand-total-label">Total Strikes This Week</td><td class="strike-count grand-total-val">${grandTotal > 0 ? grandTotal : '0'}</td></tr>`;
         html += '</tbody></table>';
         document.getElementById('goalsGrid').innerHTML = html;
 
