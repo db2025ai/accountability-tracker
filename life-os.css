@@ -2346,3 +2346,6 @@ body {
 .grand-total-row td { background: var(--surface-alt, var(--border)); padding: 5px 8px; border-top: 2px solid var(--border); }
 .grand-total-label { font-weight: 700; font-size: 0.8rem; text-align: right; }
 .grand-total-val { font-weight: 700; font-size: 0.9rem; color: var(--danger); }
+
+.alltime-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.alltime-header h3 { margin-bottom: 0; }
