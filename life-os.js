@@ -974,6 +974,30 @@ class LifeOS {
 
         document.getElementById('addGoalBtn').addEventListener('click', () => this.openModal('addGoalModal'));
 
+        // Delegated: cell clicks and day-header vacation toggles
+        // Bound once here instead of re-binding inside renderGoals on every render
+        document.getElementById('goalsGrid').addEventListener('click', (e) => {
+            const cell = e.target.closest('.day-cell:not(.vacation-day)');
+            if (cell) {
+                this.toggleGoalCell(parseInt(cell.dataset.goal), parseInt(cell.dataset.day));
+                return;
+            }
+            const th = e.target.closest('.day-header');
+            if (th) {
+                const dayIdx = parseInt(th.dataset.day);
+                const w = this.getCurrentWeek();
+                if (!w) return;
+                if (!w.vacationDays) w.vacationDays = [];
+                const isVac = w.vacationDays.includes(dayIdx);
+                w.vacationDays = isVac
+                    ? w.vacationDays.filter(d => d !== dayIdx)
+                    : [...w.vacationDays, dayIdx].sort();
+                w.vacation = w.vacationDays.length === 7;
+                this.saveData();
+                this.renderGoals();
+            }
+        });
+
         document.getElementById('vacationWeekBtn').addEventListener('click', () => {
             const week = this.getCurrentWeek();
             if (!week) return;
@@ -1056,32 +1080,6 @@ class LifeOS {
         html += `<tr class="grand-total-row"><td colspan="${days.length + 1}" class="grand-total-label">Total Strikes This Week</td><td class="strike-count grand-total-val">${grandTotal > 0 ? grandTotal : '0'}</td></tr>`;
         html += '</tbody></table>';
         document.getElementById('goalsGrid').innerHTML = html;
-
-        // Bind cell clicks — skip vacation day cells
-        document.querySelectorAll('#goalsGrid .day-cell:not(.vacation-day)').forEach(cell => {
-            cell.addEventListener('click', () => {
-                const goalIdx = parseInt(cell.dataset.goal);
-                const dayIdx = parseInt(cell.dataset.day);
-                this.toggleGoalCell(goalIdx, dayIdx);
-            });
-        });
-
-        // Bind day header clicks to toggle vacation for that day
-        document.querySelectorAll('#goalsGrid .day-header').forEach(th => {
-            th.addEventListener('click', () => {
-                const dayIdx = parseInt(th.dataset.day);
-                const w = this.getCurrentWeek();
-                if (!w) return;
-                if (!w.vacationDays) w.vacationDays = [];
-                const isVac = w.vacationDays.includes(dayIdx);
-                w.vacationDays = isVac
-                    ? w.vacationDays.filter(d => d !== dayIdx)
-                    : [...w.vacationDays, dayIdx].sort();
-                w.vacation = w.vacationDays.length === 7;
-                this.saveData();
-                this.renderGoals();
-            });
-        });
 
         this.renderGoalCharts();
         this.renderGoalsList();
@@ -1463,6 +1461,22 @@ class LifeOS {
     bindHabits() {
         document.getElementById('addHabitBtn').addEventListener('click', () => this.openModal('addGoalModal'));
 
+        // Delegated: habit checkbox clicks — bound once, survives re-renders
+        document.getElementById('habitsChecklist').addEventListener('click', (e) => {
+            const cb = e.target.closest('.habit-checkbox');
+            if (!cb) return;
+            const week = this.getTodayWeek();
+            if (!week) return;
+            const entryIdx = cb.dataset.entryIdx;
+            const dayIdx = parseInt(cb.dataset.day);
+            const entry = week.entries[entryIdx] ?? week.entries[parseInt(entryIdx)];
+            if (!entry) return;
+            const current = entry.tracking[dayIdx];
+            entry.tracking[dayIdx] = (current === 'X' || current === 'x') ? '' : 'X';
+            this.saveData();
+            this.renderHabits();
+        });
+
         document.getElementById('vacationDayBtn').addEventListener('click', () => {
             const week = this.getTodayWeek();
             if (!week) return;
@@ -1725,21 +1739,6 @@ class LifeOS {
         });
 
         checklist.innerHTML = html;
-
-        // Click to toggle today's cell in the weekly grid
-        checklist.querySelectorAll('.habit-checkbox').forEach(cb => {
-            cb.addEventListener('click', () => {
-                const entryIdx = cb.dataset.entryIdx;
-                const dayIdx = parseInt(cb.dataset.day);
-                const entry = week.entries[entryIdx] ?? week.entries[parseInt(entryIdx)];
-                if (!entry) return;
-
-                const current = entry.tracking[dayIdx];
-                entry.tracking[dayIdx] = (current === 'X' || current === 'x') ? '' : 'X';
-                this.saveData();
-                this.renderHabits();
-            });
-        });
 
         this.renderAdhocTasks();
         this.renderStreaks();
