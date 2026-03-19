@@ -3836,14 +3836,13 @@ class LifeOS {
                 if (!cStat.goals[gName]) cStat.goals[gName] = { done: 0, strikes: 0, total: 0 };
                 const gStat = cStat.goals[gName];
                 entry.tracking.forEach((v, dayIdx) => {
-                    if (dayIdx > maxDay || vacDays.has(dayIdx)) return; // skip future days + vacation
-                    cStat.total++; gStat.total++; // every applicable day is an opportunity
+                    if (dayIdx > maxDay || vacDays.has(dayIdx) || v === '') return;
+                    cStat.total++; gStat.total++;
                     if (v === 'X' || v === 'x') { cStat.done++; gStat.done++; }
                     else if (!isNaN(parseInt(v))) {
                         const n = parseInt(v);
                         cStat.strikes += n; gStat.strikes += n;
                     }
-                    // empty = missed — counted in total but not done
                 });
             });
         });
@@ -3929,7 +3928,7 @@ class LifeOS {
             if (!monthStats[key]) monthStats[key] = { done: 0, total: 0 };
             Object.values(week.entries).forEach(entry => {
                 entry.tracking.forEach((v, dayIdx) => {
-                    if (dayIdx > maxDay || vacDays.has(dayIdx)) return;
+                    if (dayIdx > maxDay || vacDays.has(dayIdx) || v === '') return;
                     monthStats[key].total++;
                     if (v === 'X' || v === 'x') monthStats[key].done++;
                 });
@@ -3969,7 +3968,7 @@ class LifeOS {
                 const name = entry.goal.name;
                 if (!goalStats[name]) goalStats[name] = { done: 0, total: 0 };
                 entry.tracking.forEach((v, dayIdx) => {
-                    if (dayIdx > maxDay || vacDays.has(dayIdx)) return;
+                    if (dayIdx > maxDay || vacDays.has(dayIdx) || v === '') return;
                     goalStats[name].total++;
                     if (v === 'X' || v === 'x') goalStats[name].done++;
                 });
