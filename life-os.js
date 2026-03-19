@@ -357,6 +357,25 @@ class LifeOS {
         return this.data.weeks[this.currentWeekIndex];
     }
 
+    // Always returns the week that contains today (for the Today/habits section).
+    // Falls back to the most recent week if today doesn't fall in any stored week.
+    getTodayWeek() {
+        if (this.data.weeks.length === 0) return null;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        // Search from most recent backward
+        for (let i = this.data.weeks.length - 1; i >= 0; i--) {
+            const w = this.data.weeks[i];
+            const start = new Date(w.startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(start);
+            end.setDate(end.getDate() + 6);
+            if (today >= start && today <= end) return w;
+        }
+        // No exact match — return the most recent week
+        return this.data.weeks[this.data.weeks.length - 1];
+    }
+
     formatWeekDate(isoStr) {
         const d = new Date(isoStr);
         const end = new Date(d);
@@ -1175,7 +1194,7 @@ class LifeOS {
         document.getElementById('addHabitBtn').addEventListener('click', () => this.openModal('addGoalModal'));
 
         document.getElementById('vacationDayBtn').addEventListener('click', () => {
-            const week = this.getCurrentWeek();
+            const week = this.getTodayWeek();
             if (!week) return;
             if (!week.vacationDays) week.vacationDays = [];
             const todayIdx = new Date().getDay();
@@ -1291,7 +1310,7 @@ class LifeOS {
         });
 
         const checklist = document.getElementById('habitsChecklist');
-        const week = this.getCurrentWeek();
+        const week = this.getTodayWeek();
 
         if (!week) {
             checklist.innerHTML = '<div class="empty-state">No active week. Go to Goals and click "+ New Week" first.</div>';
@@ -1493,7 +1512,7 @@ class LifeOS {
         const container = document.getElementById('streaksGrid');
         if (this.data.weeks.length === 0) { container.innerHTML = ''; return; }
 
-        const week = this.getCurrentWeek();
+        const week = this.getTodayWeek();
         if (!week) { container.innerHTML = ''; return; }
 
         const streaks = [];
@@ -1515,7 +1534,7 @@ class LifeOS {
 
     renderHeatmap() {
         const container = document.getElementById('habitHeatmap');
-        const week = this.getCurrentWeek();
+        const week = this.getTodayWeek();
         if (!week) { container.innerHTML = ''; return; }
 
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
