@@ -1,8 +1,9 @@
 {
   "name": "Life OS",
   "short_name": "Life OS",
-  "description": "Personal Operating System - Goals, Finances, Health, Habits, Journal",
-  "start_url": "/life-os.html",
+  "description": "Personal Operating System - Goals, Health, Habits, Journal",
+  "start_url": "/accountability-tracker/",
+  "scope": "/accountability-tracker/",
   "display": "standalone",
   "background_color": "#1a1d23",
   "theme_color": "#6366f1",

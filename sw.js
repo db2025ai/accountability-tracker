@@ -1,8 +1,7 @@
-const CACHE_NAME = 'life-os-v1';
+const CACHE_NAME = 'life-os-v2';
 const ASSETS_TO_CACHE = [
-  '/life-os.html',
-  '/life-os.css',
-  '/life-os.js',
+  '/accountability-tracker/',
+  '/accountability-tracker/index.html',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
 ];
 

@@ -2211,13 +2211,22 @@ tr:hover .strike-dec { opacity: 1; }
         padding: 10px 0;
     }
 
-    /* Dashboard life score smaller on phone */
+    /* Dashboard life score — fit within mobile card */
+    .life-score-card {
+        padding: 16px;
+        width: 100%;
+        box-sizing: border-box;
+    }
     .life-score-ring {
-        width: 110px;
-        height: 110px;
+        width: 120px;
+        height: 120px;
+    }
+    .life-score-ring canvas {
+        width: 120px !important;
+        height: 120px !important;
     }
     .life-score-value {
-        font-size: 1.6rem;
+        font-size: 1.4rem;
     }
 
     /* Today checklist items — bigger tap area */
