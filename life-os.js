@@ -13,12 +13,13 @@ class LifeOS {
         this.currentWeekIndex = -1; // -1 = latest
         this.charts = {};
 
-        // Initialize Convex if URL is saved
+        // Initialize Convex sync if URL is saved
         this.convex = null;
         const savedConvexUrl = localStorage.getItem('lifeOS_convexUrl');
         if (savedConvexUrl && window.ConvexDataLayer) {
             this.convex = new ConvexDataLayer(savedConvexUrl);
         }
+        this._convexInitialized = false;
 
         this.init();
     }
@@ -173,6 +174,8 @@ class LifeOS {
             console.error('Error saving data:', e);
             alert('Warning: Could not save data. LocalStorage may be full.');
         }
+        // Mirror to Convex in the background — no await, local save already done
+        if (this.convex) this.convex.save(this.data);
     }
 
     logActivity(text) {
@@ -207,6 +210,30 @@ class LifeOS {
             this.createNewWeek();
         }
 
+        // After local render, try to pull fresher data from Convex
+        if (this.convex) {
+            this.convex._init(this.convex.convexUrl).then(async () => {
+                const remote = await this.convex.load();
+                if (remote) {
+                    // Use remote data if it's newer (more weeks or more recent activity)
+                    const remoteWeeks = (remote.weeks || []).length;
+                    const localWeeks = (this.data.weeks || []).length;
+                    if (remoteWeeks >= localWeeks) {
+                        this.data = remote;
+                        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+                        this.renderAll();
+                    }
+                }
+                // Subscribe to live updates from other devices
+                this.convex.subscribe((payload) => {
+                    this.data = payload;
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+                    this.renderAll();
+                });
+                this.updateConvexStatusUI();
+            });
+        }
+
         this.renderDashboard();
         this.renderGoals();
         this.renderHealth();
@@ -218,6 +245,15 @@ class LifeOS {
         document.getElementById('dashboardDate').textContent = new Date().toLocaleDateString('en-US', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
+    }
+
+    renderAll() {
+        this.renderDashboard();
+        this.renderGoals();
+        this.renderHealth();
+        this.renderHabits();
+        this.renderJournal();
+        this.renderReview();
     }
 
     // ========================================
@@ -2136,34 +2172,39 @@ class LifeOS {
         });
 
         // Convex connection
-        document.getElementById('connectConvexBtn').addEventListener('click', () => {
+        document.getElementById('connectConvexBtn').addEventListener('click', async () => {
             const url = document.getElementById('convexUrlInput').value.trim();
-            if (!url) {
-                alert('Please enter a Convex deployment URL');
-                return;
-            }
+            if (!url) { alert('Please enter a Convex deployment URL'); return; }
             localStorage.setItem('lifeOS_convexUrl', url);
+            if (this.convex) this.convex.unsubscribe();
             this.convex = new ConvexDataLayer(url);
-            this.convex.on('connected', () => {
-                this.updateConvexStatusUI();
-            });
-            setTimeout(() => this.updateConvexStatusUI(), 2000);
+            await this.convex._init(url);
+            this.updateConvexStatusUI();
+            if (this.convex.isConnected()) {
+                // Push local data up immediately on first connect
+                await this.convex.save(this.data);
+                this.convex.subscribe((payload) => {
+                    this.data = payload;
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+                    this.renderAll();
+                });
+                this.logActivity('Connected to Convex — sync active');
+            }
         });
 
         document.getElementById('syncToConvexBtn').addEventListener('click', async () => {
             if (!this.convex || !this.convex.isConnected()) {
-                alert('Not connected to Convex');
+                alert('Not connected to Convex. Save your URL first.');
                 return;
             }
             const btn = document.getElementById('syncToConvexBtn');
             btn.textContent = 'Syncing...';
             btn.disabled = true;
-            const success = await this.convex.syncFromLocalStorage(this.data);
-            btn.textContent = success ? 'Sync Complete!' : 'Sync Failed';
+            await this.convex.save(this.data);
+            btn.textContent = 'Synced ✓';
             btn.disabled = false;
-            if (success) {
-                this.logActivity('Synced all data to Convex backend');
-            }
+            setTimeout(() => { btn.textContent = 'Push to Convex'; }, 2000);
+            this.logActivity('Manually pushed data to Convex');
         });
 
         document.getElementById('mergeHistoricalBtn').addEventListener('click', () => {
@@ -2257,15 +2298,15 @@ class LifeOS {
         if (savedUrl) urlInput.value = savedUrl;
 
         if (this.convex && this.convex.isConnected()) {
-            statusEl.textContent = 'Connected to Convex';
+            statusEl.textContent = '🟢 Syncing across devices';
             statusEl.style.color = 'var(--success)';
             syncBtn.style.display = 'inline-block';
         } else if (savedUrl) {
-            statusEl.textContent = 'Connecting...';
+            statusEl.textContent = '🟡 Connecting…';
             statusEl.style.color = 'var(--warning)';
             syncBtn.style.display = 'none';
         } else {
-            statusEl.textContent = 'Not connected - using local storage';
+            statusEl.textContent = '⚪ Local only — enter a Convex URL to sync';
             statusEl.style.color = 'var(--text-muted)';
             syncBtn.style.display = 'none';
         }
