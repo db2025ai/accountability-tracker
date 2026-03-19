@@ -789,7 +789,7 @@ class LifeOS {
         const now = new Date();
         const todayWeekKey = this.weekKey(now);
         const periodCutoff = {
-            '3w':  new Date(now - 21 * 864e5),
+            '1m':  new Date(now - 30 * 864e5),
             '3m':  new Date(now - 91 * 864e5),
             'ytd': new Date(now.getFullYear(), 0, 1),
             'all': new Date(0)
@@ -858,7 +858,7 @@ class LifeOS {
                 });
             });
         });
-        const minTotal = period === '3w' ? 3 : period === '3m' ? 10 : 10;
+        const minTotal = period === '1m' ? 3 : 10;
         const rankedGoals = Object.entries(goalStats)
             .filter(([, s]) => s.total >= minTotal)
             .map(([name, s]) => ({ name, pct: Math.round((s.done / s.total) * 100) }))
@@ -871,7 +871,7 @@ class LifeOS {
         </div>`;
 
         const periods = [
-            { id: '3w', label: '3W' },
+            { id: '1m', label: '1M' },
             { id: '3m', label: '3M' },
             { id: 'ytd', label: 'YTD' },
             { id: 'all', label: 'All' }
