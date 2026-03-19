@@ -1996,6 +1996,30 @@ class LifeOS {
             reader.readAsText(file);
         });
 
+        document.getElementById('dedupWeeksBtn').addEventListener('click', () => {
+            const before = this.data.weeks.length;
+            // Group weeks by their Sunday date key; keep the one with more tracked cells
+            const byKey = {};
+            this.data.weeks.forEach(w => {
+                const key = this.weekKey(new Date(w.startDate));
+                if (!byKey[key]) { byKey[key] = w; return; }
+                // Count non-empty tracking cells for each candidate
+                const countCells = week => Object.values(week.entries)
+                    .reduce((n, e) => n + e.tracking.filter(v => v !== '').length, 0);
+                if (countCells(w) > countCells(byKey[key])) byKey[key] = w;
+            });
+            this.data.weeks = Object.values(byKey)
+                .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+            const removed = before - this.data.weeks.length;
+            this.saveData();
+            if (removed > 0) {
+                alert(`Removed ${removed} duplicate week${removed > 1 ? 's' : ''}. Page will reload.`);
+                location.reload();
+            } else {
+                alert('No duplicate weeks found — your data is clean!');
+            }
+        });
+
         document.getElementById('resetAllBtn').addEventListener('click', () => {
             if (confirm('Are you sure you want to reset ALL Life OS data? This cannot be undone.')) {
                 if (confirm('This will delete everything. Last chance - are you sure?')) {

@@ -521,6 +521,11 @@
                     <input type="file" id="importJsonInput" accept=".json" style="display:none;">
                     <button class="btn btn-secondary" id="importAllBtn">Import JSON</button>
                 </div>
+                <div class="setting-item">
+                    <label>Fix Duplicate Weeks</label>
+                    <p class="setting-desc">Remove duplicate weeks caused by timezone differences during import. Keeps the week with more tracking data.</p>
+                    <button class="btn btn-secondary" id="dedupWeeksBtn">Remove Duplicates</button>
+                </div>
                 <div class="setting-item danger">
                     <label>Reset All Data</label>
                     <p class="setting-desc">Clear all Life OS data. This cannot be undone.</p>
