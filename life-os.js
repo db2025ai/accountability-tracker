@@ -2186,8 +2186,19 @@ class LifeOS {
             await this.convex._init(url);
             this.updateConvexStatusUI();
             if (this.convex.isConnected()) {
-                // Push local data up immediately on first connect
-                await this.convex.save(this.data);
+                // Load remote first — only push local if it has more data
+                const remote = await this.convex.load();
+                const remoteWeeks = (remote?.weeks || []).length;
+                const localWeeks = (this.data.weeks || []).length;
+                if (remote && remoteWeeks >= localWeeks) {
+                    // Remote is authoritative — pull it down
+                    this.data = remote;
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+                    this.renderAll();
+                } else {
+                    // Local has more data — push it up
+                    await this.convex.save(this.data);
+                }
                 this.convex.subscribe((payload) => {
                     this.data = payload;
                     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
