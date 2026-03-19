@@ -29,14 +29,21 @@ class ConvexDataLayer {
     }
 
     // Load data from Convex. Returns null if unavailable.
-    async load() {
-        if (!this.isConnected()) return null;
-        try {
-            return await this.client.query('functions:getData', {});
-        } catch (e) {
-            console.error('[LifeOS] Convex load failed:', e);
-            return null;
-        }
+    load() {
+        if (!this.isConnected()) return Promise.resolve(null);
+        return new Promise((resolve) => {
+            let done = false;
+            const unsub = this.client.onUpdate('functions:getData', {}, (data) => {
+                if (done) return;
+                done = true;
+                if (unsub) unsub();
+                resolve(data ?? null);
+            });
+            // Timeout after 8s in case Convex never fires
+            setTimeout(() => {
+                if (!done) { done = true; resolve(null); }
+            }, 8000);
+        });
     }
 
     // Save data to Convex. Fire-and-forget — LocalStorage is already saved.
