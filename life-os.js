@@ -974,12 +974,36 @@ class LifeOS {
 
         document.getElementById('addGoalBtn').addEventListener('click', () => this.openModal('addGoalModal'));
 
-        // Delegated: cell clicks and day-header vacation toggles
+        // Delegated: cell clicks, strike +/-, and day-header vacation toggles
         // Bound once here instead of re-binding inside renderGoals on every render
         document.getElementById('goalsGrid').addEventListener('click', (e) => {
             const cell = e.target.closest('.day-cell:not(.vacation-day)');
             if (cell) {
                 this.toggleGoalCell(parseInt(cell.dataset.goal), parseInt(cell.dataset.day));
+                return;
+            }
+            const incBtn = e.target.closest('.strike-inc');
+            if (incBtn) {
+                const week = this.getCurrentWeek();
+                if (!week) return;
+                const idx = incBtn.dataset.goal;
+                const entry = week.entries[idx] ?? week.entries[parseInt(idx)];
+                if (!entry) return;
+                entry.manual = (entry.manual || 0) + 1;
+                this.saveData();
+                this.renderGoals();
+                return;
+            }
+            const decBtn = e.target.closest('.strike-dec');
+            if (decBtn) {
+                const week = this.getCurrentWeek();
+                if (!week) return;
+                const idx = decBtn.dataset.goal;
+                const entry = week.entries[idx] ?? week.entries[parseInt(idx)];
+                if (!entry) return;
+                entry.manual = Math.max(0, (entry.manual || 0) - 1);
+                this.saveData();
+                this.renderGoals();
                 return;
             }
             const th = e.target.closest('.day-header');
@@ -1067,10 +1091,15 @@ class LifeOS {
                     }
                     html += `<td class="${cls}" data-goal="${entry.idx}" data-day="${dayIdx}">${display}</td>`;
                 });
-                const strikes = entry.tracking.reduce((n, v) => n + (!isNaN(parseInt(v)) ? parseInt(v) : 0), 0);
-                catTotal += strikes;
-                grandTotal += strikes;
-                html += `<td class="strike-count">${strikes > 0 ? strikes : ''}</td></tr>`;
+                const calcStrikes = entry.tracking.reduce((n, v) => n + (!isNaN(parseInt(v)) ? parseInt(v) : 0), 0);
+                const manualStrikes = entry.manual || 0;
+                const totalStrikes = calcStrikes + manualStrikes;
+                catTotal += totalStrikes;
+                grandTotal += totalStrikes;
+                const decBtn = totalStrikes > 0 ? `<button class="strike-dec" data-goal="${entry.idx}">−</button>` : '';
+                html += `<td class="strike-count strike-cell" data-goal="${entry.idx}">
+                    ${decBtn}<span class="strike-num">${totalStrikes > 0 ? totalStrikes : ''}</span><button class="strike-inc" data-goal="${entry.idx}">+</button>
+                </td></tr>`;
             });
             // Category subtotal row
             html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label">${cat} subtotal</td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;

@@ -602,6 +602,33 @@ body {
     font-weight: 700;
     color: var(--danger);
 }
+.strike-cell {
+    white-space: nowrap;
+    padding: 2px 4px !important;
+}
+.strike-cell .strike-num {
+    display: inline-block;
+    min-width: 14px;
+    text-align: center;
+}
+.strike-inc, .strike-dec {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.7rem;
+    line-height: 1;
+    padding: 1px 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.strike-inc { color: var(--danger); }
+tr:hover .strike-inc,
+tr:hover .strike-dec { opacity: 1; }
+@media (max-width: 768px) {
+    .strike-inc, .strike-dec { opacity: 1; }
+}
 
 .goal-analytics {
     display: grid;
