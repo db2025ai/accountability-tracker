@@ -2085,17 +2085,36 @@ class LifeOS {
         const textEl = document.getElementById('strikeSummaryText');
         if (!card || !textEl) return;
 
-        // Find the most recent week that has any tracked data
+        // Prefer the most recently completed week (not current week)
+        // Fall back to current week only if it's the only week with data
+        const currentWeekKey = this.weekKey(new Date());
         const weeks = (this.data.weeks || []).slice().reverse();
         let targetWeek = null;
         let isLastWeek = false;
-        for (let i = 0; i < weeks.length; i++) {
-            const w = weeks[i];
-            const hasData = Object.values(w.entries).some(e => e.tracking.some(v => v !== ''));
-            if (hasData) {
-                targetWeek = w;
-                isLastWeek = i > 0; // not the current week
-                break;
+
+        // First pass: find most recent non-current week with strike data
+        for (const w of weeks) {
+            const wKey = this.weekKey(new Date(w.startDate));
+            if (wKey === currentWeekKey) continue;
+            const hasStrikes = Object.values(w.entries).some(e => e.tracking.some(v => v === '1'));
+            if (hasStrikes) { targetWeek = w; isLastWeek = true; break; }
+        }
+
+        // Second pass: any non-current week with tracking data
+        if (!targetWeek) {
+            for (const w of weeks) {
+                const wKey = this.weekKey(new Date(w.startDate));
+                if (wKey === currentWeekKey) continue;
+                const hasData = Object.values(w.entries).some(e => e.tracking.some(v => v !== ''));
+                if (hasData) { targetWeek = w; isLastWeek = true; break; }
+            }
+        }
+
+        // Last resort: current week
+        if (!targetWeek) {
+            const cur = weeks.find(w => this.weekKey(new Date(w.startDate)) === currentWeekKey);
+            if (cur && Object.values(cur.entries).some(e => e.tracking.some(v => v !== ''))) {
+                targetWeek = cur; isLastWeek = false;
             }
         }
 
