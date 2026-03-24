@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-os-v2';
+const CACHE_NAME = 'life-os-v3';
 const ASSETS_TO_CACHE = [
   '/accountability-tracker/',
   '/accountability-tracker/index.html',
