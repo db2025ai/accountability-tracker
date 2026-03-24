@@ -1524,6 +1524,40 @@ tr:hover .strike-dec { opacity: 1; }
     margin-bottom: 20px;
 }
 
+.strike-summary-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    margin-bottom: 20px;
+}
+
+.strike-summary-card.strike-summary-clean {
+    background: rgba(34, 197, 94, 0.08);
+    border-color: rgba(34, 197, 94, 0.25);
+}
+
+.strike-summary-icon {
+    font-size: 1.3rem;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.strike-summary-clean .strike-summary-icon {
+    content: '✓';
+}
+
+.strike-summary-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text);
+    font-weight: 500;
+}
+
 .review-scores {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
