@@ -2023,20 +2023,20 @@ class LifeOS {
     generateStrikeSummary(week) {
         if (!week) return null;
 
-        // Collect strikes per goal
-        const strikeMap = {}; // goalId -> { name, category, count }
-        Object.values(week.entries).forEach(entry => {
+        // Collect strikes per goal (key by entry index since goals have no id)
+        const strikeList = [];
+        Object.entries(week.entries).forEach(([idx, entry]) => {
             const strikes = entry.tracking.filter(v => v === '1').length;
             if (strikes > 0) {
-                strikeMap[entry.goal.id] = {
+                strikeList.push({
                     name: entry.goal.name,
                     category: entry.goal.category,
                     count: strikes
-                };
+                });
             }
         });
+        strikeList.sort((a, b) => b.count - a.count);
 
-        const strikeList = Object.values(strikeMap).sort((a, b) => b.count - a.count);
         if (strikeList.length === 0) return null;
 
         const totalStrikes = strikeList.reduce((s, g) => s + g.count, 0);
@@ -2085,25 +2085,59 @@ class LifeOS {
         const textEl = document.getElementById('strikeSummaryText');
         if (!card || !textEl) return;
 
-        const week = this.getCurrentWeek();
-        const result = this.generateStrikeSummary(week);
+        // Prefer the most recently completed week (not current week)
+        // Fall back to current week only if it's the only week with data
+        const currentWeekKey = this.weekKey(new Date());
+        const weeks = (this.data.weeks || []).slice().reverse();
+        let targetWeek = null;
+        let isLastWeek = false;
+
+        // First pass: find most recent non-current week with strike data
+        for (const w of weeks) {
+            const wKey = this.weekKey(new Date(w.startDate));
+            if (wKey === currentWeekKey) continue;
+            const hasStrikes = Object.values(w.entries).some(e => e.tracking.some(v => v === '1'));
+            if (hasStrikes) { targetWeek = w; isLastWeek = true; break; }
+        }
+
+        // Second pass: any non-current week with tracking data
+        if (!targetWeek) {
+            for (const w of weeks) {
+                const wKey = this.weekKey(new Date(w.startDate));
+                if (wKey === currentWeekKey) continue;
+                const hasData = Object.values(w.entries).some(e => e.tracking.some(v => v !== ''));
+                if (hasData) { targetWeek = w; isLastWeek = true; break; }
+            }
+        }
+
+        // Last resort: current week
+        if (!targetWeek) {
+            const cur = weeks.find(w => this.weekKey(new Date(w.startDate)) === currentWeekKey);
+            if (cur && Object.values(cur.entries).some(e => e.tracking.some(v => v !== ''))) {
+                targetWeek = cur; isLastWeek = false;
+            }
+        }
+
+        if (!targetWeek) {
+            card.style.display = 'none';
+            return;
+        }
+
+        const result = this.generateStrikeSummary(targetWeek);
+        const weekLabel = isLastWeek ? 'Last week' : 'This week';
 
         if (!result) {
-            // Check if any tracking exists at all
-            const hasData = week && Object.values(week.entries).some(e => e.tracking.some(v => v !== ''));
-            if (hasData) {
-                card.style.display = 'flex';
-                card.classList.add('strike-summary-clean');
-                textEl.textContent = 'Clean week — no strikes recorded. Keep it up!';
-            } else {
-                card.style.display = 'none';
-            }
+            card.style.display = 'flex';
+            card.classList.add('strike-summary-clean');
+            textEl.textContent = `${weekLabel}: no strikes — clean week!`;
             return;
         }
 
         card.style.display = 'flex';
         card.classList.remove('strike-summary-clean');
-        textEl.textContent = result.summary;
+        textEl.textContent = isLastWeek
+            ? result.summary.replace(/^This week/, 'Last week')
+            : result.summary;
     }
 
     renderReviewScores() {
