@@ -5284,25 +5284,40 @@ class LifeOS {
         const textEl = document.getElementById('strikeSummaryText');
         if (!card || !textEl) return;
 
-        const week = this.getCurrentWeek();
-        const result = this.generateStrikeSummary(week);
+        // Find the most recent week that has any tracked data
+        const weeks = (this.data.weeks || []).slice().reverse();
+        let targetWeek = null;
+        let isLastWeek = false;
+        for (let i = 0; i < weeks.length; i++) {
+            const w = weeks[i];
+            const hasData = Object.values(w.entries).some(e => e.tracking.some(v => v !== ''));
+            if (hasData) {
+                targetWeek = w;
+                isLastWeek = i > 0; // not the current week
+                break;
+            }
+        }
+
+        if (!targetWeek) {
+            card.style.display = 'none';
+            return;
+        }
+
+        const result = this.generateStrikeSummary(targetWeek);
+        const weekLabel = isLastWeek ? 'Last week' : 'This week';
 
         if (!result) {
-            // Check if any tracking exists at all
-            const hasData = week && Object.values(week.entries).some(e => e.tracking.some(v => v !== ''));
-            if (hasData) {
-                card.style.display = 'flex';
-                card.classList.add('strike-summary-clean');
-                textEl.textContent = 'Clean week — no strikes recorded. Keep it up!';
-            } else {
-                card.style.display = 'none';
-            }
+            card.style.display = 'flex';
+            card.classList.add('strike-summary-clean');
+            textEl.textContent = `${weekLabel}: no strikes — clean week!`;
             return;
         }
 
         card.style.display = 'flex';
         card.classList.remove('strike-summary-clean');
-        textEl.textContent = result.summary;
+        textEl.textContent = isLastWeek
+            ? result.summary.replace(/^This week/, 'Last week')
+            : result.summary;
     }
 
     renderReviewScores() {
