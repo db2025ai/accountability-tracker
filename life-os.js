@@ -2023,20 +2023,20 @@ class LifeOS {
     generateStrikeSummary(week) {
         if (!week) return null;
 
-        // Collect strikes per goal
-        const strikeMap = {}; // goalId -> { name, category, count }
-        Object.values(week.entries).forEach(entry => {
+        // Collect strikes per goal (key by entry index since goals have no id)
+        const strikeList = [];
+        Object.entries(week.entries).forEach(([idx, entry]) => {
             const strikes = entry.tracking.filter(v => v === '1').length;
             if (strikes > 0) {
-                strikeMap[entry.goal.id] = {
+                strikeList.push({
                     name: entry.goal.name,
                     category: entry.goal.category,
                     count: strikes
-                };
+                });
             }
         });
+        strikeList.sort((a, b) => b.count - a.count);
 
-        const strikeList = Object.values(strikeMap).sort((a, b) => b.count - a.count);
         if (strikeList.length === 0) return null;
 
         const totalStrikes = strikeList.reduce((s, g) => s + g.count, 0);
