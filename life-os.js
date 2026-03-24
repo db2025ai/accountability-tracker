@@ -2012,9 +2012,98 @@ class LifeOS {
             document.getElementById('reviewWeekDate').textContent = this.formatWeekDate(week.startDate);
         }
 
+        // Strike summary
+        this.renderStrikeSummary();
+
         // Review scores from current week
         this.renderReviewScores();
         this.renderPastReviews();
+    }
+
+    generateStrikeSummary(week) {
+        if (!week) return null;
+
+        // Collect strikes per goal
+        const strikeMap = {}; // goalId -> { name, category, count }
+        Object.values(week.entries).forEach(entry => {
+            const strikes = entry.tracking.filter(v => v === '1').length;
+            if (strikes > 0) {
+                strikeMap[entry.goal.id] = {
+                    name: entry.goal.name,
+                    category: entry.goal.category,
+                    count: strikes
+                };
+            }
+        });
+
+        const strikeList = Object.values(strikeMap).sort((a, b) => b.count - a.count);
+        if (strikeList.length === 0) return null;
+
+        const totalStrikes = strikeList.reduce((s, g) => s + g.count, 0);
+
+        // Group by category
+        const catStrikes = {};
+        strikeList.forEach(g => {
+            if (!catStrikes[g.category]) catStrikes[g.category] = { count: 0, goals: [] };
+            catStrikes[g.category].count += g.count;
+            catStrikes[g.category].goals.push(g.name);
+        });
+
+        // Pick top categories
+        const topCats = Object.entries(catStrikes)
+            .sort((a, b) => b[1].count - a[1].count)
+            .slice(0, 2);
+
+        // Build sentence
+        let summary = '';
+        if (strikeList.length === 0) {
+            summary = 'Clean week — no strikes recorded.';
+        } else if (strikeList.length === 1) {
+            const g = strikeList[0];
+            summary = `This week's only strike was ${g.name} (${g.count}x). One thing to tighten up next week.`;
+        } else {
+            const parts = topCats.map(([cat, data]) => {
+                const topGoal = data.goals[0];
+                return data.goals.length > 1
+                    ? `${cat} (${data.count} strikes including ${topGoal})`
+                    : `${topGoal} in ${cat} (${data.count}x)`;
+            });
+
+            summary = `This week's biggest struggles: ${parts.join(' and ')}.`;
+            if (totalStrikes > 3) {
+                summary += ` ${totalStrikes} total strikes — focus here heading into next week.`;
+            } else {
+                summary += ` Small gaps — easy to close next week.`;
+            }
+        }
+
+        return { summary, totalStrikes, topGoals: strikeList.slice(0, 3) };
+    }
+
+    renderStrikeSummary() {
+        const card = document.getElementById('strikeSummaryCard');
+        const textEl = document.getElementById('strikeSummaryText');
+        if (!card || !textEl) return;
+
+        const week = this.getCurrentWeek();
+        const result = this.generateStrikeSummary(week);
+
+        if (!result) {
+            // Check if any tracking exists at all
+            const hasData = week && Object.values(week.entries).some(e => e.tracking.some(v => v !== ''));
+            if (hasData) {
+                card.style.display = 'flex';
+                card.classList.add('strike-summary-clean');
+                textEl.textContent = 'Clean week — no strikes recorded. Keep it up!';
+            } else {
+                card.style.display = 'none';
+            }
+            return;
+        }
+
+        card.style.display = 'flex';
+        card.classList.remove('strike-summary-clean');
+        textEl.textContent = result.summary;
     }
 
     renderReviewScores() {
