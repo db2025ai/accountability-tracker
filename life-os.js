@@ -2135,9 +2135,11 @@ class LifeOS {
 
         card.style.display = 'flex';
         card.classList.remove('strike-summary-clean');
-        textEl.textContent = isLastWeek
+        const weekDateStr = targetWeek.startDate ? new Date(targetWeek.startDate).toLocaleDateString() : '?';
+        const baseSummary = isLastWeek
             ? result.summary.replace(/^This week/, 'Last week')
             : result.summary;
+        textEl.textContent = `[Week of ${weekDateStr} | ${result.totalStrikes} strikes found] ${baseSummary}`;
     }
 
     renderReviewScores() {
