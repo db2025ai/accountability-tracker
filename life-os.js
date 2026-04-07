@@ -2085,46 +2085,21 @@ class LifeOS {
         const textEl = document.getElementById('strikeSummaryText');
         if (!card || !textEl) return;
 
-        // Prefer the most recently completed week (not current week)
-        // Fall back to current week only if it's the only week with data
-        const currentWeekKey = this.weekKey(new Date());
-        const weeks = (this.data.weeks || []).slice().reverse();
-        let targetWeek = null;
-        let isLastWeek = false;
-
-        // First pass: find most recent non-current week with strike data
-        for (const w of weeks) {
-            const wKey = this.weekKey(new Date(w.startDate));
-            if (wKey === currentWeekKey) continue;
-            const hasStrikes = Object.values(w.entries).some(e => e.tracking.some(v => v === '1'));
-            if (hasStrikes) { targetWeek = w; isLastWeek = true; break; }
-        }
-
-        // Second pass: any non-current week with tracking data
-        if (!targetWeek) {
-            for (const w of weeks) {
-                const wKey = this.weekKey(new Date(w.startDate));
-                if (wKey === currentWeekKey) continue;
-                const hasData = Object.values(w.entries).some(e => e.tracking.some(v => v !== ''));
-                if (hasData) { targetWeek = w; isLastWeek = true; break; }
-            }
-        }
-
-        // Last resort: current week
-        if (!targetWeek) {
-            const cur = weeks.find(w => this.weekKey(new Date(w.startDate)) === currentWeekKey);
-            if (cur && Object.values(cur.entries).some(e => e.tracking.some(v => v !== ''))) {
-                targetWeek = cur; isLastWeek = false;
-            }
-        }
-
+        // Use the same week that the review scores show (the currently viewed week)
+        const targetWeek = this.getCurrentWeek();
         if (!targetWeek) {
             card.style.display = 'none';
             return;
         }
 
+        const hasData = Object.values(targetWeek.entries).some(e => e.tracking.some(v => v !== ''));
+        if (!hasData) {
+            card.style.display = 'none';
+            return;
+        }
+
         const result = this.generateStrikeSummary(targetWeek);
-        const weekLabel = isLastWeek ? 'Last week' : 'This week';
+        const weekLabel = 'This week';
 
         if (!result) {
             card.style.display = 'flex';
@@ -2142,6 +2117,26 @@ class LifeOS {
         textEl.textContent = `[Week of ${weekDateStr} | ${result.totalStrikes} strikes found] ${baseSummary}`;
     }
 
+    // Calculate expected completions for a goal through a given day index
+    getExpectedCount(target, throughDayIdx) {
+        const freq = this.classifyFrequency(target);
+        if (freq.group === 'daily') {
+            if (target === 'weekdays' || target === 'weeknights') {
+                // Count weekdays (Mon=1 through Fri=5) up to throughDayIdx
+                let count = 0;
+                for (let i = 0; i <= throughDayIdx; i++) {
+                    if (i >= 1 && i <= 5) count++;
+                }
+                return count;
+            }
+            // Regular daily: every day through today
+            return throughDayIdx + 1;
+        }
+        if (freq.isLimit) return freq.perWeek; // limits: compare usage vs max
+        // Weekly, fewPerWeek, monthly: target is for the whole week/month
+        return freq.perWeek;
+    }
+
     renderReviewScores() {
         const container = document.getElementById('reviewScores');
         const week = this.getCurrentWeek();
@@ -2150,19 +2145,28 @@ class LifeOS {
             return;
         }
 
+        const todayDayIdx = new Date().getDay();
+        // If viewing a past week, count all 7 days
+        const isCurrentWeek = this.currentWeekIndex === -1 || this.currentWeekIndex === this.data.weeks.length - 1;
+        const throughDay = isCurrentWeek ? todayDayIdx : 6;
+
         const catStats = {};
         Object.values(week.entries).forEach(entry => {
             const cat = entry.goal.category;
-            if (!catStats[cat]) catStats[cat] = { completed: 0, total: 0, strikes: 0 };
-            entry.tracking.forEach(v => {
-                if (v !== '') catStats[cat].total++;
-                if (v === 'X' || v === 'x') catStats[cat].completed++;
-                if (v === '1') catStats[cat].strikes++;
-            });
+            if (!catStats[cat]) catStats[cat] = { completed: 0, expected: 0, strikes: 0 };
+            const freq = this.classifyFrequency(entry.goal.target);
+
+            const completed = entry.tracking.filter(v => v === 'X' || v === 'x').length;
+            const strikes = entry.tracking.filter(v => v === '1').length;
+            const expected = this.getExpectedCount(entry.goal.target, throughDay);
+
+            catStats[cat].completed += completed;
+            catStats[cat].expected += expected;
+            catStats[cat].strikes += strikes;
         });
 
         container.innerHTML = Object.entries(catStats).map(([cat, s]) => {
-            const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
+            const pct = s.expected > 0 ? Math.min(100, Math.round((s.completed / s.expected) * 100)) : 0;
             return `<div class="review-score-card">
                 <div class="score-value">${pct}%</div>
                 <div class="score-label">${cat}</div>
