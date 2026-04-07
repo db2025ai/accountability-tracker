@@ -5359,8 +5359,20 @@ class LifeOS {
             const strikes = entry.tracking.filter(v => v === '1').length;
             const expected = this.getExpectedCount(entry.goal.target, throughDay);
 
-            catStats[cat].completed += completed;
-            catStats[cat].expected += expected;
+            // Limits and Budgeting: success = staying at or under the max
+            // Checking off means you "used" one (bought lunch, had a drink, etc.)
+            // NOT checking = you stayed on budget = success
+            const isLimitStyle = freq.isLimit || cat === 'Budgeting';
+            if (isLimitStyle) {
+                const limit = freq.perWeek;
+                const used = completed;
+                // Score: if you stayed at or under limit, full marks. Otherwise proportionally less.
+                catStats[cat].completed += used <= limit ? limit : Math.max(0, 2 * limit - used);
+                catStats[cat].expected += limit;
+            } else {
+                catStats[cat].completed += completed;
+                catStats[cat].expected += expected;
+            }
             catStats[cat].strikes += strikes;
         });
 
