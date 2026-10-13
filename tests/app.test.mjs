@@ -523,15 +523,25 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     // Stub the speech engine: record what's said, finish each utterance right away
     const speechStub = () => {
         window.__spoken = [];
+        window.__speechCalls = [];   // 'speak' / 'cancel' in order
+        window.__spokenInTap = [];   // was speak() called while a click was being handled?
+        window.__mute = false;       // simulate a voice that never starts
+        navigator.audioSession = { type: 'auto' };
         window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
         Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: {
-            cancel() {}, addEventListener() {},
+            speaking: false, pending: false, paused: false,
+            cancel() { window.__speechCalls.push('cancel'); }, addEventListener() {}, resume() {},
             getVoices: () => [
                 { name: 'Fred', lang: 'en-US', voiceURI: 'fred' },
                 { name: 'Amélie', lang: 'fr-CA', voiceURI: 'amelie' },
                 { name: 'Ava (Premium)', lang: 'en-US', voiceURI: 'ava-premium' }
             ],
-            speak(u) { window.__spoken.push(u.text); setTimeout(() => u.onend && u.onend(), 5); }
+            speak(u) {
+                window.__spoken.push(u.text);
+                window.__speechCalls.push('speak');
+                window.__spokenInTap.push(window.event?.type === 'click');
+                setTimeout(() => { if (!window.__mute) u.onstart?.(); u.onend?.(); }, 5);
+            }
         } });
     };
     const { context, page, errors } = await newPage({ width: 390, init: speechStub });
@@ -544,22 +554,43 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         document.querySelector('.med-length.active').textContent
     ]), [['Breathe', 'Reflect', 'Body', 'Sleep'], '3 min']);
     check('English voices only, Premium first', await page.$$eval('#medVoice option', os => os.map(o => o.textContent)), ['Ava (Premium) (en-US)', 'Fred (en-US)']);
+    await page.click('#medVoiceTest');
+    await page.waitForFunction(() => document.getElementById('medVoiceStatus').textContent.startsWith('✓'));
+    check('Test button reports the voice works', [await page.textContent('#medVoiceStatus'), await page.evaluate(() => window.__spokenInTap.at(-1))],
+        ['✓ The voice is working.', true]);
+    await page.evaluate(() => { window.__spoken = []; window.__speechCalls = []; window.__spokenInTap = []; });
 
     // A 3-minute Breathe session, 60x faster
     await page.evaluate(() => { lifeOS._medTimeScale = 60; });
     await page.click('[data-med="breathe"]');
     check('player opens full screen', await page.isVisible('#medPlayer'), true);
+    check('first line is spoken inside the tap (iOS needs that)', await page.evaluate(() => [window.__spoken[0], window.__spokenInTap[0]]),
+        ["Welcome. Let's take a moment to slow down.", true]);
+    check('audio session set to media playback', await page.evaluate(() => navigator.audioSession.type), 'playback');
     await page.waitForSelector('#medDone:not([hidden])', { timeout: 20000 });
     const run = await page.evaluate(() => ({ elapsed: lifeOS._med.endedAt, spoken: window.__spoken, log: lifeOS.data.meditationLog }));
     check('session lasts its length (180s)', run.elapsed >= 179 && run.elapsed < 186, true);
     check('guidance is spoken, with breath cues', [run.spoken.includes("Welcome. Let's take a moment to slow down."), run.spoken.includes('Breathe in'),
         run.spoken.at(-1)], [true, true, 'Notice how you feel now, compared with a few minutes ago. Take that calm with you.']);
     check('session logged', run.log.map(l => [l.kind, l.minutes, l.date]), [['breathe', 3, '2026-10-13']]);
+    check('speech is never cancelled and restarted back to back', await page.evaluate(() =>
+        window.__speechCalls.some((c, i) => c === 'cancel' && window.__speechCalls[i + 1] === 'speak')), false);
+    check('no "can\'t hear" hint when the voice plays', await page.isHidden('#medHint'), true);
     check('3-min session checks off Meditate for today', await page.evaluate(() =>
         Object.values(lifeOS.data.weeks[1].entries).find(e => /Meditate/.test(e.goal.name)).tracking[2]), 'X');
     check('completion note', await page.textContent('#medDoneDetail'), 'Breathe · 3 min. Meditate is checked off for today ✓');
     await page.click('#medDoneBtn');
     check('Done closes the player', await page.isHidden('#medPlayer'), true);
+    check('audio handed back after the session', await page.evaluate(() => navigator.audioSession.type), 'auto');
+
+    // A voice that never starts → the player says how to fix it
+    await page.evaluate(() => { window.__mute = true; });
+    await page.click('[data-med="body"]');
+    await page.waitForSelector('#medHint:not([hidden])', { timeout: 5000 });
+    check('silent voice shows the volume hint', (await page.textContent('#medHint')).startsWith("Can't hear the voice?"), true);
+    await page.click('#medEndBtn');
+    await page.waitForSelector('#medPlayer', { state: 'hidden' });
+    await page.evaluate(() => { window.__mute = false; });
 
     // A 1-minute session is logged but doesn't check anything off
     await page.evaluate(() => Object.values(lifeOS.data.weeks[1].entries).find(e => /Meditate/.test(e.goal.name)).tracking[2] = '');

@@ -125,7 +125,12 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 ## Meditate (guided sessions)
 - Four sessions × 1 / 3 / 5 minutes: **Breathe** (sigh, long exhales, box), **Reflect** (Stoic prompts: what's in my control, view from above, gratitude, impermanence…), **Body** (scan + seated stretches), **Sleep** (4-7-8, letting the day go). Scripts are data in `MEDITATIONS` (top of life-os.js); breathing patterns in `BREATH_PATTERNS`.
 - Script steps: `{ say, pause }`, `{ breathe, cycles, cues }`, `{ breathe, fill: true }` (breathes until the closing), `{ closing: true }`. Steps that don't fit are skipped and the closing is always played, so a session ends on its length whatever the voice speed.
-- Spoken with the device's voice (`speechSynthesis`, rate 0.88; English voices, Premium/Enhanced first). Captions always show; chimes are generated with Web Audio. Voice, voice on/off and last length are per-device localStorage (`lifeOS_medVoice`, `lifeOS_medVoiceOn`, `lifeOS_medLength`). Start must come from a tap (iOS audio/speech unlock). Locking the phone pauses; a screen wake lock is requested while playing.
+- Spoken with the device's voice (`speechSynthesis`, rate 0.88; English voices, Premium/Enhanced first). Captions always show; chimes are generated with Web Audio. Voice, voice on/off and last length are per-device localStorage (`lifeOS_medVoice`, `lifeOS_medVoiceOn`, `lifeOS_medLength`). Locking the phone pauses; a screen wake lock is requested while playing.
+- **iPhone audio rules** (break these and it's silent on iOS while every desktop test passes):
+  - Speech only starts from a tap: `startMeditation` speaks the first line synchronously, before any `await`.
+  - Never `cancel()` then immediately `speak()` — WebKit drops the new utterance. Cues are skipped if speech is still playing.
+  - Web Audio follows the silent switch: `medPrimeAudio()` (from the tap) sets `navigator.audioSession.type = 'playback'` and loops a generated silent WAV so chimes and voice play like media; `medReleaseAudio()` undoes it.
+  - Test button (`medSoundCheck`) and the in-player hint report when the voice never starts.
 - Finished sessions go in `data.meditationLog` (`{ date, ts, kind, minutes }`); 3- and 5-minute sessions also check off the goal whose name matches /meditat/i for today. Ending early (<90%) logs nothing.
 - The session clock is pause-aware (`medElapsed`, `medSleepUntil`); tests speed it up with `lifeOS._medTimeScale`.
 

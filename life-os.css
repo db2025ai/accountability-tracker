@@ -3457,6 +3457,20 @@ body.med-open {
     color: var(--text);
 }
 
+.med-hint {
+    max-width: 26em;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    background: var(--warning-tint);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+}
+
+.med-hint[hidden] {
+    display: none;
+}
+
 .med-controls {
     display: flex;
     justify-content: center;

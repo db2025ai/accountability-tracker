@@ -414,8 +414,10 @@
                     <select id="medVoice"></select>
                     <button class="btn btn-secondary btn-sm" id="medVoiceTest">Test</button>
                 </div>
+                <div id="medVoiceStatus" class="setting-status"></div>
                 <label class="med-toggle"><input type="checkbox" id="medVoiceOn" checked> Speak the guidance (captions always show)</label>
-                <p class="setting-desc">For a calmer, more natural voice on iPhone: Settings &rarr; Accessibility &rarr; Spoken Content &rarr; Voices &rarr; English &rarr; download a <b>Premium</b> voice (Ava or Zoe sound good), then pick it here. Hear nothing? Check the silent switch.</p>
+                <p class="setting-desc"><b>No sound?</b> Tap Test and turn the volume up with the side buttons while it speaks — the voice uses your media volume, which can be at zero even when the ringer is loud.</p>
+                <p class="setting-desc"><b>Nicer voice:</b> iPhone Settings &rarr; Accessibility &rarr; Spoken Content &rarr; Voices &rarr; English &rarr; download a <b>Premium</b> voice (Ava or Zoe), then pick it here.</p>
             </div>
         </section>
 
@@ -652,6 +654,7 @@
                 <div class="med-phase" id="medPhase"></div>
             </div>
             <p class="med-caption" id="medCaption"></p>
+            <p class="med-hint" id="medHint" hidden>Can't hear the voice? Turn the volume up with the side buttons. If it stays quiet, end the session and tap Test on the Meditate page. The captions keep going either way.</p>
         </div>
         <div class="med-done" id="medDone" hidden>
             <h2>Session complete</h2>
