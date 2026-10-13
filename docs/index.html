@@ -3923,8 +3923,8 @@ body.med-open {
                 </div>
                 <div id="medVoiceStatus" class="setting-status"></div>
                 <label class="med-toggle"><input type="checkbox" id="medVoiceOn" checked> Speak the guidance (captions always show)</label>
-                <p class="setting-desc"><b>No sound?</b> Tap Test and turn the volume up with the side buttons while it speaks — the voice uses your media volume, which can be at zero even when the ringer is loud.</p>
-                <p class="setting-desc"><b>Nicer voice:</b> iPhone Settings &rarr; Accessibility &rarr; Spoken Content &rarr; Voices &rarr; English &rarr; download a <b>Premium</b> voice (Ava or Zoe), then pick it here.</p>
+                <p class="setting-desc"><b>No sound?</b> Tap Test and turn the volume up with the side buttons while it plays — sessions use your media volume, which can be at zero even when the ringer is loud.</p>
+                <p class="setting-desc">Cori is a recorded voice made for these sessions, so it works in the Home Screen app. Device voices are listed too, but iPhones only let them speak in a Safari tab.</p>
             </div>
         </section>
 
@@ -4161,7 +4161,7 @@ body.med-open {
                 <div class="med-phase" id="medPhase"></div>
             </div>
             <p class="med-caption" id="medCaption"></p>
-            <p class="med-hint" id="medHint" hidden>Can't hear the voice? Turn the volume up with the side buttons. If it stays quiet, end the session and tap Test on the Meditate page. The captions keep going either way.</p>
+            <p class="med-hint" id="medHint" hidden>Can't hear the voice? Turn the volume up with the side buttons. The captions keep going either way.</p>
         </div>
         <div class="med-done" id="medDone" hidden>
             <h2>Session complete</h2>
@@ -4363,10 +4363,15 @@ const PLAY_ICON = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><pat
 // ========================================
 // Guided meditation scripts
 // ========================================
+// Spoken by the Test button on the Meditate page
+const MED_TEST_LINE = 'Take a slow breath in, and let it go.';
+// Recordings of every line (tools/meditation_audio.py); manifest.json maps text → file
+const MED_AUDIO_BASE = 'audio/med/';
+
 // Breathing patterns: phases of { label, seconds, scale (orb size), cue (spoken) }
 const BREATH_PATTERNS = {
     calm: [{ label: 'Breathe in', seconds: 4, scale: 1, cue: 'Breathe in' }, { label: 'Slowly out', seconds: 6, scale: 0.55, cue: 'And slowly out' }],
-    sigh: [{ label: 'Breathe in', seconds: 2, scale: 0.9, cue: 'In' }, { label: 'A little more', seconds: 1, scale: 1, cue: 'more' }, { label: 'Long sigh out', seconds: 6, scale: 0.55, cue: 'Long sigh out' }],
+    sigh: [{ label: 'Breathe in', seconds: 2, scale: 0.9, cue: 'In' }, { label: 'A little more', seconds: 1, scale: 1, cue: 'A little more' }, { label: 'Long sigh out', seconds: 6, scale: 0.55, cue: 'Long sigh out' }],
     box: [{ label: 'Breathe in', seconds: 4, scale: 1, cue: 'In' }, { label: 'Hold', seconds: 4, scale: 1, cue: 'Hold' }, { label: 'Breathe out', seconds: 4, scale: 0.55, cue: 'Out' }, { label: 'Hold', seconds: 4, scale: 0.55, cue: 'Hold' }],
     sleep: [{ label: 'Breathe in', seconds: 4, scale: 1, cue: 'Breathe in' }, { label: 'Hold', seconds: 7, scale: 1, cue: 'Hold' }, { label: 'Out, slowly', seconds: 8, scale: 0.55, cue: 'And out, slowly' }],
     easy: [{ label: 'Breathe in', seconds: 4, scale: 1 }, { label: 'Breathe out', seconds: 6, scale: 0.55 }]
@@ -7247,7 +7252,7 @@ class LifeOS {
             const card = e.target.closest('[data-med]');
             if (card) this.startMeditation(card.dataset.med, this.getMedLength());
         });
-        document.getElementById('medVoice').addEventListener('change', (e) => this.setLocal('lifeOS_medVoice', e.target.value));
+        document.getElementById('medVoice').addEventListener('change', (e) => this.setLocal('lifeOS_medVoiceChoice', e.target.value));
         document.getElementById('medVoiceOn').addEventListener('change', (e) => this.setLocal('lifeOS_medVoiceOn', e.target.checked ? '1' : '0'));
         document.getElementById('medVoiceTest').addEventListener('click', () => this.medSoundCheck());
         document.getElementById('medPauseBtn').addEventListener('click', () => this._med?.paused ? this.medResume() : this.medPause());
@@ -7298,6 +7303,7 @@ class LifeOS {
 
         document.getElementById('medVoiceOn').checked = this.getLocal('lifeOS_medVoiceOn') !== '0';
         this.renderMedVoices();
+        this.loadMedManifest();
     }
 
     // English voices, nicest first (Premium / Enhanced, then well-known calm voices)
@@ -7309,20 +7315,83 @@ class LifeOS {
         return speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)).sort((a, b) => rank(a) - rank(b));
     }
 
+    // 'recorded' = Cori's bundled recordings (the default; plays like the chimes, so it works
+    // in the iPhone Home Screen app). Anything else is a device voice's voiceURI, which only
+    // works where speechSynthesis does (desktop browsers, Safari tabs).
+    medVoiceChoice() {
+        return this.getLocal('lifeOS_medVoiceChoice') || 'recorded';
+    }
+
+    medUsesRecordings() {
+        return this.medVoiceChoice() === 'recorded';
+    }
+
     medVoice() {
         const voices = this.getMedVoices();
-        const saved = this.getLocal('lifeOS_medVoice');
-        return voices.find(v => v.voiceURI === saved) || voices[0] || null;
+        const choice = this.medVoiceChoice();
+        return voices.find(v => v.voiceURI === choice) || voices[0] || null;
     }
 
     renderMedVoices() {
         const select = document.getElementById('medVoice');
-        const voices = this.getMedVoices();
-        const current = this.medVoice();
-        select.innerHTML = voices.length
-            ? voices.map(v => `<option value="${this.escapeHtml(v.voiceURI)}">${this.escapeHtml(v.name)} (${v.lang})</option>`).join('')
-            : '<option value="">Default voice</option>';
-        if (current) select.value = current.voiceURI;
+        const device = this.getMedVoices();
+        select.innerHTML = '<option value="recorded">Cori — calm recorded voice (recommended)</option>' + (device.length
+            ? `<optgroup label="Device voices (may be silent in the Home Screen app)">${device.map(v =>
+                `<option value="${this.escapeHtml(v.voiceURI)}">${this.escapeHtml(v.name)} (${v.lang})</option>`).join('')}</optgroup>`
+            : '');
+        const choice = this.medVoiceChoice();
+        select.value = [...select.options].some(o => o.value === choice) ? choice : 'recorded';
+    }
+
+    // ---- Recorded voice ----
+    loadMedManifest() {
+        if (!this._medManifestPromise) {
+            this._medManifestPromise = fetch(MED_AUDIO_BASE + 'manifest.json')
+                .then(r => (r.ok ? r.json() : null))
+                .then(m => (this._medManifest = m?.lines || null))
+                .catch(() => (this._medManifest = null));
+        }
+        return this._medManifestPromise;
+    }
+
+    medAudioContext() {
+        if (!this._medAudio) this._medAudio = new (window.AudioContext || window.webkitAudioContext)();
+        return this._medAudio;
+    }
+
+    // Decoded recording of a line (fetched once), or null if there isn't one
+    medClip(text) {
+        this._medClips ||= new Map();
+        this._medClipReady ||= new Map();
+        if (!this._medClips.has(text)) {
+            const clip = this.loadMedManifest().then(async lines => {
+                const file = lines?.[text];
+                if (!file) return null;
+                const resp = await fetch(MED_AUDIO_BASE + file);
+                if (!resp.ok) return null;
+                const buffer = await this.medAudioContext().decodeAudioData(await resp.arrayBuffer());
+                this._medClipReady.set(text, buffer);
+                return buffer;
+            }).catch(() => null);
+            this._medClips.set(text, clip);
+            clip.then(b => { if (!b) this._medClips.delete(text); }); // retry next time
+        }
+        return this._medClips.get(text);
+    }
+
+    medPlayBuffer(buffer, offset = 0, delay = 0) {
+        const ctx = this.medAudioContext();
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(ctx.currentTime + delay, offset);
+        return source;
+    }
+
+    medStopVoice() {
+        const m = this._med;
+        [m?.source, m?.cueSource].forEach(src => { try { src?.stop(); } catch (e) { /* already stopped */ } });
+        if (window.speechSynthesis) speechSynthesis.cancel();
     }
 
     medUtterance(text) {
@@ -7377,7 +7446,7 @@ class LifeOS {
             if (playing && playing.catch) playing.catch(() => {});
         } catch (e) { /* no media playback */ }
         try {
-            const ctx = this._medAudio || (this._medAudio = new (window.AudioContext || window.webkitAudioContext)());
+            const ctx = this.medAudioContext();
             if (ctx.state !== 'running') ctx.resume();
         } catch (e) { /* no Web Audio */ }
         if (window.speechSynthesis && speechSynthesis.paused) speechSynthesis.resume();
@@ -7405,10 +7474,25 @@ class LifeOS {
     }
 
     // "Test" button: chime + a spoken line, and say what actually happened
-    medSoundCheck() {
+    async medSoundCheck() {
         const status = document.getElementById('medVoiceStatus');
         this.medPrimeAudio();
         this.medChime();
+        if (this.medUsesRecordings()) {
+            status.textContent = 'Testing…';
+            const buffer = await this.medClip(MED_TEST_LINE);
+            if (!buffer) {
+                status.textContent = "Couldn't load the voice recordings. Check your connection and tap Test again.";
+                return;
+            }
+            this.medPlayBuffer(buffer, 0, 0.6);
+            status.textContent = 'Playing…';
+            setTimeout(() => {
+                status.textContent = '✓ Voice played. Heard nothing? Turn the volume up with the side buttons and tap Test again.';
+                this.medReleaseAudio();
+            }, (buffer.duration + 0.9) * 1000);
+            return;
+        }
         if (!window.speechSynthesis) {
             status.textContent = "This browser can't speak. Sessions will show captions only.";
             return;
@@ -7429,9 +7513,23 @@ class LifeOS {
         }, 4000);
     }
 
-    medSpeak(text) {
+    async medSpeak(text) {
+        const m = this._med;
         document.getElementById('medCaption').textContent = text;
-        if (!this._med.voiceOn || !window.speechSynthesis) return this.medSleep(this.medSpeechSeconds(text));
+        if (!m.voiceOn) return this.medSleep(this.medSpeechSeconds(text));
+        if (this.medUsesRecordings()) {
+            const buffer = await this.medClip(text);
+            if (!buffer || m.cancelled) return this.medSleep(this.medSpeechSeconds(text)); // captions only
+            (m.played ||= []).push(text);
+            m.heardVoice = true;
+            // Timed on the session clock, so Pause/Resume can pick the line up where it stopped
+            m.line = { buffer, startedAt: this.medElapsed() };
+            m.source = this.medPlayBuffer(buffer);
+            await this.medSleepUntil(m.line.startedAt + buffer.duration);
+            m.line = null;
+            return;
+        }
+        if (!window.speechSynthesis) return this.medSleep(this.medSpeechSeconds(text));
         return new Promise(resolve => {
             const u = this.medUtterance(text);
             let finished = false;
@@ -7446,7 +7544,17 @@ class LifeOS {
     }
 
     medCue(text) {
-        if (!text || !this._med.voiceOn || !window.speechSynthesis) return;
+        const m = this._med;
+        if (!text || !m.voiceOn) return;
+        if (this.medUsesRecordings()) {
+            const buffer = this._medClipReady?.get(text); // preloaded at start; skip if not ready
+            if (buffer) {
+                (m.played ||= []).push(text);
+                m.cueSource = this.medPlayBuffer(buffer);
+            }
+            return;
+        }
+        if (!window.speechSynthesis) return;
         // Skip a cue rather than cut speech off: on iPhone, cancel() then speak() drops the new line
         if (speechSynthesis.speaking || speechSynthesis.pending) return;
         speechSynthesis.speak(this.medUtterance(text));
@@ -7544,9 +7652,14 @@ class LifeOS {
         const closingTime = closing.reduce((t, s) => t + this.medEstimate(s), 0);
         const timeLeft = () => total - this.medElapsed() - closingTime;
 
-        // Speak the first line now, before any await: iOS only lets speech start from the tap itself
-        if (window.speechSynthesis?.speaking) speechSynthesis.cancel();
-        const opening = main[0]?.say ? this.medRunStep(main.shift()) : null;
+        const recorded = voiceOn && this.medUsesRecordings();
+        if (recorded) {
+            steps.forEach(st => st.say && this.medClip(st.say));
+            Object.values(BREATH_PATTERNS).flat().forEach(p => p.cue && this.medClip(p.cue));
+        }
+        // A device voice must start inside the tap (iOS rule), so speak its first line now
+        if (!recorded && window.speechSynthesis?.speaking) speechSynthesis.cancel();
+        const opening = !recorded && main[0]?.say ? this.medRunStep(main.shift()) : null;
         if (voiceOn && window.speechSynthesis) {
             setTimeout(() => {
                 if (m.running && !m.cancelled && !m.heardVoice) document.getElementById('medHint').hidden = false;
@@ -7554,6 +7667,7 @@ class LifeOS {
         }
         try { m.wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) { /* not supported */ }
         if (opening) await opening;
+        else await this.medSleep(1.2); // let the opening chime ring
 
         for (const step of main) {
             if (m.cancelled) break;
@@ -7576,8 +7690,8 @@ class LifeOS {
         m.accumulated += performance.now() - m.resumedAt;
         m.paused = true;
         m.tick?.();
+        this.medStopVoice();
         this.medReleaseAudio();
-        if (window.speechSynthesis) speechSynthesis.cancel();
         document.getElementById('medPauseBtn').textContent = 'Resume';
         document.getElementById('medPhase').textContent = 'Paused';
     }
@@ -7588,6 +7702,11 @@ class LifeOS {
         m.resumedAt = performance.now();
         m.paused = false;
         this.medPrimeAudio(); // Resume is a tap, so audio can restart
+        // Pick up the recorded line where it stopped
+        if (m.line && m.voiceOn) {
+            const offset = this.medElapsed() - m.line.startedAt;
+            if (offset < m.line.buffer.duration - 0.2) m.source = this.medPlayBuffer(m.line.buffer, offset);
+        }
         document.getElementById('medPauseBtn').textContent = 'Pause';
         document.getElementById('medPhase').textContent = '';
     }
@@ -7597,7 +7716,7 @@ class LifeOS {
         if (!m?.running) return this.closeMedPlayer();
         if (m.paused) this.medResume();
         m.cancelled = true;
-        if (window.speechSynthesis) speechSynthesis.cancel();
+        this.medStopVoice();
     }
 
     // Log the session; 3+ minute sessions check off the Meditate goal for today
@@ -7608,7 +7727,7 @@ class LifeOS {
         m.endedAt = this.medElapsed();
         clearInterval(m.ticker);
         m.wakeLock?.release?.().catch(() => {});
-        if (window.speechSynthesis) speechSynthesis.cancel();
+        this.medStopVoice();
         if (!completed) return this.closeMedPlayer();
 
         const session = MEDITATIONS[m.kind];
