@@ -119,6 +119,7 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 
 ## Reflection (journal)
 - Evening reflection fields: went well, fell short, **3 highlights / things to remember** (`reflection.highlights[]`; older entries have `gratitude`, still displayed), values rating, intention. Reflections are dated with the local date.
+- Saving a reflection checks off today's cell for the goal whose name matches /evening reflection/i (`checkOffGoal(pattern, date)` — the same helper finished 3/5-minute meditations use for /meditat/i).
 - **Journal streak** (`getJournalStreak()`): consecutive local days with a saved reflection or an imported entry; today not done yet doesn't break it. Shows current, best, days journaled and the last 14 days.
 - **Import** (Settings → Import Journal Entries): PDF (pdf.js loaded from the CDN only when needed) or .txt/.md. `parseJournalEntries(pages)` drops lines repeated on most pages (headers/footers) and page numbers, then starts a new entry at each line that is just a date (+ optional time) — see `parseDateHeading`. Preview, then import: text goes to Convex `journalArchive` (or localStorage `lifeOS_journalArchive` without Convex); only the dates go in `data.journalImportDates` (for the streak). Shown read-only and searchable under "Journal archive" on the Reflection tab.
 

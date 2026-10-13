@@ -746,6 +746,16 @@ class LifeOS {
         return this.getGoalDays(entry.goal).includes(dayIdx);
     }
 
+    // Tick the day's cell for the goal whose name matches `pattern` (guided sessions and the
+    // evening reflection check themselves off); false if this week has no such goal
+    checkOffGoal(pattern, date = new Date()) {
+        const week = this.getWeekForDate(date);
+        const entry = week && Object.values(week.entries).find(e => pattern.test(e.goal.name));
+        if (!entry) return false;
+        entry.tracking[date.getDay()] = 'X';
+        return true;
+    }
+
     setGoalDays(goalIdx, days) {
         const goal = this.data.goals[goalIdx];
         if (goal) goal.days = [...days].sort();
@@ -2531,6 +2541,7 @@ class LifeOS {
         };
 
         this.data.eveningReflections.unshift(reflection);
+        const checked = this.checkOffGoal(/evening reflection/i, now);
 
         // Also save as a journal entry for unified history
         const highlightText = highlights.map((h, i) => `${i + 1}. ${h}`).join('\n') || '-';
@@ -2553,8 +2564,10 @@ class LifeOS {
         document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
 
         this.renderJournal();
+        if (checked) this.updateAppBadge();
         const streak = this.getJournalStreak().current;
-        alert(streak > 1 ? `Evening reflection saved — ${streak} days in a row!` : 'Evening reflection saved!');
+        alert((streak > 1 ? `Evening reflection saved — ${streak} days in a row!` : 'Evening reflection saved!')
+            + (checked ? ' Checked off for today ✓' : ''));
     }
 
     // ---- Journal streak ----
@@ -3482,14 +3495,7 @@ class LifeOS {
         (this.data.meditationLog ||= []).push({ date: this.localDateKey(now), ts: now.toISOString(), kind: m.kind, minutes: m.minutes });
 
         let note = m.minutes >= 3 ? '' : 'Short sessions are logged but don’t check off Meditate (your goal is 3–5 minutes).';
-        if (m.minutes >= 3) {
-            const week = this.getWeekForDate(now);
-            const entry = week && Object.values(week.entries).find(e => /meditat/i.test(e.goal.name));
-            if (entry) {
-                entry.tracking[now.getDay()] = 'X';
-                note = 'Meditate is checked off for today ✓';
-            }
-        }
+        if (m.minutes >= 3 && this.checkOffGoal(/meditat/i, now)) note = 'Meditate is checked off for today ✓';
         this.saveData();
         this.logActivity(`Meditated: ${session.title}, ${m.minutes} min`);
 

@@ -443,13 +443,25 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.waitForFunction(() => !document.querySelector('#journalImportModal.active'));
     check('re-import skips duplicates', await page.textContent('#journalImportStatus'), "Imported 0 entries (5 already there). They're under Journal archive on the Reflection tab.");
 
-    // Tonight's reflection with highlights
+    // Tonight's reflection with highlights (and a goal it checks off)
+    await page.evaluate(() => {
+        const week = lifeOS.getWeekForDate(new Date());
+        week.entries[Object.keys(week.entries).length] = {
+            goal: { category: 'Evening Protocol', name: 'Evening reflection (3 highlights)', target: 'daily' },
+            tracking: ['', '', '', '', '', '', '']
+        };
+    });
+    const alerts = [];
+    page.on('dialog', d => alerts.push(d.message()));
     await page.fill('#stoicWentWell', 'Good focus block');
     await page.fill('#stoicHighlight1', 'Long walk with Chelsey');
     await page.fill('#stoicHighlight3', 'Remember: book the dentist');
     await page.click('#saveEveningReflectionBtn');
     check('highlights saved (blanks dropped)', await page.evaluate(() => lifeOS.data.eveningReflections[0].highlights), ['Long walk with Chelsey', 'Remember: book the dentist']);
     check('saved under the local date', await page.evaluate(() => lifeOS.data.eveningReflections[0].date), '2026-10-13');
+    check('saving checks off the Evening reflection goal for today', [await page.evaluate(() =>
+        Object.values(lifeOS.getWeekForDate(new Date()).entries).find(e => /Evening reflection/.test(e.goal.name)).tracking[2]),
+        alerts.at(-1)?.endsWith('Checked off for today ✓')], ['X', true]);
     check('past reflection shows highlights', await page.$$eval('#journalEntriesList .journal-entry-card:first-child .highlight-list li', els => els.map(e => e.textContent)),
         ['Long walk with Chelsey', 'Remember: book the dentist']);
     check('streak counts today', await page.evaluate(() => [lifeOS.getJournalStreak().current, document.querySelector('.journal-streak-note').textContent]), [6, 'Done for today.']);
