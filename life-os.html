@@ -23,6 +23,7 @@
             <li><a href="#" class="nav-link active" data-section="dashboard"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-6h-5v6H5A1.5 1.5 0 0 1 3.5 19z"/></svg> Dashboard</a></li>
             <li><a href="#" class="nav-link" data-section="goals"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg> Goals</a></li>
             <li><a href="#" class="nav-link" data-section="health"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-8.9-9.4C2.2 7.4 4.3 4.5 7.4 4.5c1.9 0 3.3 1 4.6 2.7 1.3-1.7 2.7-2.7 4.6-2.7 3.1 0 5.2 2.9 4.3 6.1C19.5 15.4 12 20 12 20z"/></svg> Health</a></li>
+            <li><a href="#" class="nav-link" data-section="meditate"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5h10.5a3 3 0 1 0-3-3M3 12.5h15a3 3 0 1 1-3 3M3 16.5h7"/></svg> Meditate</a></li>
             <li><a href="#" class="nav-link" data-section="habits"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="m8 12.3 2.8 2.8L16.2 9"/></svg> Today</a></li>
             <li><a href="#" class="nav-link" data-section="journal"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h11.5a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M8.5 8h6M8.5 11.5h6"/></svg> Reflection</a></li>
             <li><a href="#" class="nav-link" data-section="review"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg> Weekly Review</a></li>
@@ -188,6 +189,12 @@
             <div class="section-header">
                 <h1>Health & Wellness</h1>
             </div>
+
+            <button class="med-shortcut" data-goto="meditate">
+                <span class="med-shortcut-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5h10.5a3 3 0 1 0-3-3M3 12.5h15a3 3 0 1 1-3 3M3 16.5h7"/></svg></span>
+                <span class="med-shortcut-text"><b>Meditate</b><small>Breathe · Reflect · Body · Sleep — 1, 3 or 5 minutes</small></span>
+                <span class="med-shortcut-arrow">&rsaquo;</span>
+            </button>
 
             <!-- Health Metrics -->
             <div class="health-metrics">
@@ -383,6 +390,33 @@
                 <div id="archiveList" class="archive-list"></div>
                 <button class="btn btn-secondary archive-more" id="archiveMoreBtn" style="display:none;">Show more</button>
             </details>
+        </section>
+
+        <!-- ===== MEDITATE SECTION ===== -->
+        <section class="section" id="section-meditate">
+            <div class="section-header">
+                <h1>Meditate</h1>
+                <p class="section-subtitle">Short guided sessions. Pick a length, then a session.</p>
+            </div>
+
+            <div class="med-lengths" id="medLengths" role="radiogroup" aria-label="Session length">
+                <button class="med-length" data-min="1" role="radio">1 min</button>
+                <button class="med-length" data-min="3" role="radio">3 min</button>
+                <button class="med-length" data-min="5" role="radio">5 min</button>
+            </div>
+
+            <div class="med-sessions" id="medSessions"></div>
+            <p class="med-stats" id="medStats"></p>
+
+            <div class="med-voice">
+                <label for="medVoice">Voice</label>
+                <div class="med-voice-row">
+                    <select id="medVoice"></select>
+                    <button class="btn btn-secondary btn-sm" id="medVoiceTest">Test</button>
+                </div>
+                <label class="med-toggle"><input type="checkbox" id="medVoiceOn" checked> Speak the guidance (captions always show)</label>
+                <p class="setting-desc">For a calmer, more natural voice on iPhone: Settings &rarr; Accessibility &rarr; Spoken Content &rarr; Voices &rarr; English &rarr; download a <b>Premium</b> voice (Ava or Zoe sound good), then pick it here. Hear nothing? Check the silent switch.</p>
+            </div>
         </section>
 
         <!-- ===== WEEKLY REVIEW SECTION ===== -->
@@ -606,6 +640,30 @@
         </div>
     </div>
 
+    <!-- Meditation player -->
+    <div class="med-player" id="medPlayer" hidden>
+        <div class="med-player-top">
+            <span class="med-title" id="medTitle"></span>
+            <span class="med-remaining" id="medRemaining">0:00</span>
+        </div>
+        <div class="med-stage" id="medStage">
+            <div class="med-orb-wrap">
+                <div class="med-orb" id="medOrb"></div>
+                <div class="med-phase" id="medPhase"></div>
+            </div>
+            <p class="med-caption" id="medCaption"></p>
+        </div>
+        <div class="med-done" id="medDone" hidden>
+            <h2>Session complete</h2>
+            <p id="medDoneDetail"></p>
+            <button class="btn btn-primary" id="medDoneBtn">Done</button>
+        </div>
+        <div class="med-controls" id="medControls">
+            <button class="btn btn-secondary" id="medPauseBtn">Pause</button>
+            <button class="btn btn-secondary" id="medEndBtn">End</button>
+        </div>
+    </div>
+
     <!-- Journal import preview -->
     <div class="modal" id="journalImportModal">
         <div class="modal-content">
@@ -645,9 +703,9 @@
             <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h11.5a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M8.5 8h6M8.5 11.5h6"/></svg>
             <span class="mobile-nav-label">Journal</span>
         </button>
-        <button class="mobile-nav-btn" data-section="review">
-            <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
-            <span class="mobile-nav-label">Review</span>
+        <button class="mobile-nav-btn" data-section="meditate">
+            <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5h10.5a3 3 0 1 0-3-3M3 12.5h15a3 3 0 1 1-3 3M3 16.5h7"/></svg>
+            <span class="mobile-nav-label">Meditate</span>
         </button>
     </nav>
 

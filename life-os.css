@@ -1270,8 +1270,10 @@ tr:hover .strike-dec { opacity: 1; }
     border-bottom: none;
 }
 
-.habit-check-item:hover {
-    background: var(--surface);
+@media (hover: hover) {
+    .habit-check-item:hover {
+        background: var(--surface);
+    }
 }
 
 .habit-check-item.item-done {
@@ -1602,6 +1604,163 @@ tr:hover .strike-dec { opacity: 1; }
     padding: 8px 16px 12px;
     font-size: 0.72rem;
     color: var(--text-light);
+}
+
+/* ---- Today: shrinking list ---- */
+button.habit-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--card-bg);
+    padding: 0;
+    font: inherit;
+    font-size: 0.8rem;
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pending-item .habit-checkbox {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border-color: #cfcabd;
+}
+
+.pending-item .habit-checkbox:active {
+    background: var(--primary-tint);
+    border-color: var(--primary);
+}
+
+.pending-item .habit-name {
+    color: var(--text);
+}
+
+.habit-miss-btn,
+.habit-play-btn {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-light);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.habit-miss-btn:hover,
+.habit-miss-btn:active {
+    color: var(--danger);
+    border-color: var(--danger-light);
+    background: var(--danger-tint);
+}
+
+.habit-play-btn {
+    color: var(--primary);
+    background: var(--primary-tint);
+    border-color: transparent;
+    font-size: 1rem;
+}
+
+.habit-play-btn .icon {
+    fill: currentColor;
+    stroke-width: 1.2;
+}
+
+/* Row fades out before moving to Done / Missed */
+.habit-check-item.leaving {
+    opacity: 0;
+    transform: translateX(12px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.item-missed .habit-name {
+    color: var(--text-muted);
+}
+
+.miss-mark {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: var(--danger);
+    font-size: 0.8rem;
+}
+
+.missed-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.missed-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.missed-actions button {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+}
+
+/* Today rows use round checks */
+.item-done .habit-checkbox,
+.off-item .habit-checkbox {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+}
+
+.off-today-count.done-count {
+    background: var(--primary-tint);
+    color: var(--primary);
+}
+
+.off-today-count.missed-count {
+    background: var(--danger-tint);
+    color: var(--danger);
+}
+
+.freq-group-count.all-done {
+    background: var(--primary);
+    color: #fff;
+}
+
+.freq-group-count.over {
+    background: var(--danger-tint);
+    color: var(--danger);
+}
+
+.today-all-done {
+    padding: 14px 16px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+/* Limits start folded: the header is the summary */
+.limits-group > summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.limits-group > summary::-webkit-details-marker {
+    display: none;
+}
+
+.limits-group > summary .freq-group-count::after {
+    content: ' \203A';
+}
+
+.limits-group:not([open]) .freq-group-header {
+    border-bottom: none;
 }
 
 /* ========================================
@@ -3050,4 +3209,283 @@ tr:hover .strike-dec { opacity: 1; }
 /* Serif quote under Evening Reflection */
 #section-journal .section-subtitle {
     font-family: var(--font-serif);
+}
+
+/* ========================================
+   Meditate
+   ======================================== */
+.med-shortcut,
+.med-card {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+    background: var(--card-bg);
+    border: none;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    font: inherit;
+    color: var(--text);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.med-shortcut {
+    margin-bottom: 20px;
+}
+
+.med-shortcut:active,
+.med-card:active {
+    background: var(--surface);
+}
+
+.med-shortcut-icon,
+.med-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: var(--primary);
+    background: var(--primary-tint);
+}
+
+.med-shortcut-text,
+.med-card-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.med-shortcut-text b,
+.med-card-text b {
+    font-family: var(--font-serif);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.med-shortcut-text small,
+.med-card-text small {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.med-shortcut-arrow {
+    font-size: 1.5rem;
+    color: var(--text-light);
+}
+
+.med-lengths {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--card-bg);
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+}
+
+.med-length {
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 8px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.med-length.active {
+    background: var(--primary);
+    color: #fff;
+}
+
+.med-sessions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.med-card-len {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-tint);
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.med-stats {
+    margin: 14px 2px 20px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.med-voice {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+}
+
+.med-voice > label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.med-voice-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.med-voice-row select {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    color: var(--text);
+    font: inherit;
+}
+
+.med-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+/* ---- Full-screen player ---- */
+.med-player {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    padding: calc(20px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+}
+
+.med-player[hidden] {
+    display: none;
+}
+
+body.med-open {
+    overflow: hidden;
+}
+
+.med-player-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.med-title {
+    font-family: var(--font-serif);
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.med-remaining {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+.med-stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 36px;
+}
+
+.med-stage[hidden],
+.med-done[hidden],
+.med-controls[hidden] {
+    display: none;
+}
+
+.med-orb-wrap {
+    position: relative;
+    width: min(64vw, 280px);
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.med-orb {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #c9d8e8;
+    box-shadow: 0 0 0 12px rgba(47, 93, 140, 0.06), 0 0 0 28px rgba(47, 93, 140, 0.03);
+    transform: scale(0.75);
+    transition: transform 4s ease-in-out;
+}
+
+.med-phase {
+    position: relative;
+    font-family: var(--font-serif);
+    font-size: 1.35rem;
+    color: var(--primary-dark);
+    text-align: center;
+}
+
+.med-caption {
+    max-width: 30em;
+    min-height: 4.8em;
+    text-align: center;
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    line-height: 1.6;
+    color: var(--text);
+}
+
+.med-controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.med-controls .btn {
+    min-width: 120px;
+    padding: 12px 20px;
+    font-size: 1rem;
+}
+
+.med-done {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+}
+
+.med-done p {
+    color: var(--text-muted);
+    max-width: 26em;
+}
+
+.med-done .btn {
+    min-width: 160px;
+    padding: 12px 20px;
+    font-size: 1rem;
 }

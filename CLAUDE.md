@@ -8,9 +8,9 @@ Single-page web app (PWA) for personal goal tracking, health monitoring, and dai
 ## File Structure
 
 ### Core Source Files (edit these)
-- `life-os.html` — HTML structure with 6 sections (Dashboard, Goals, Health, Today, Reflection, Weekly Review)
-- `life-os.js` — Single `LifeOS` class with all application logic (~3,600 lines)
-- `life-os.css` — All styles including responsive design (~3,050 lines)
+- `life-os.html` — HTML structure with 7 sections (Dashboard, Goals, Health, Today, Reflection, Meditate, Weekly Review)
+- `life-os.js` — Single `LifeOS` class with all application logic (~4,100 lines)
+- `life-os.css` — All styles including responsive design (~3,500 lines)
 - `convex-client.js` — Optional Convex sync layer (HTTP-based, falls back silently)
 
 ### Generated Files (do NOT edit directly)
@@ -63,6 +63,8 @@ All goals are grouped by frequency in the Today tab, displayed in this order:
 5. **Monthly Goals** — `monthly` targets
 
 Grouping follows `scoringKind(goal)` so the Today tab matches how a goal is scored.
+
+**Shrinking list:** only what's left today is listed. Daily rows have ○ (done → `'X'`) and ✗ (missed → `'1'`); both fold the row into collapsed **Done** / **Missed** groups at the bottom (Missed rows offer Undo and "Doesn't apply" → `'-'`, which moves them to **Doesn't apply today**). Untouched items still become misses after midnight (scoring rule). N×/week and monthly rows have ○ only; Limits are a folded group where ○ logs a use today. Buttons carry `data-action` (`done` / `miss` / `skip` / `undo` / `toggle` / `meditate`), handled by one delegated listener in `bindHabits()`; open/closed folds are remembered in `this._todayFolds`. The Meditate goal row has a ▶ that opens the Meditate section.
 
 Within each frequency group, items are sub-labeled by category (Morning Protocol, Midday Protocol, Evening Protocol first, then alphabetical).
 
@@ -120,15 +122,22 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 - **Journal streak** (`getJournalStreak()`): consecutive local days with a saved reflection or an imported entry; today not done yet doesn't break it. Shows current, best, days journaled and the last 14 days.
 - **Import** (Settings → Import Journal Entries): PDF (pdf.js loaded from the CDN only when needed) or .txt/.md. `parseJournalEntries(pages)` drops lines repeated on most pages (headers/footers) and page numbers, then starts a new entry at each line that is just a date (+ optional time) — see `parseDateHeading`. Preview, then import: text goes to Convex `journalArchive` (or localStorage `lifeOS_journalArchive` without Convex); only the dates go in `data.journalImportDates` (for the streak). Shown read-only and searchable under "Journal archive" on the Reflection tab.
 
+## Meditate (guided sessions)
+- Four sessions × 1 / 3 / 5 minutes: **Breathe** (sigh, long exhales, box), **Reflect** (Stoic prompts: what's in my control, view from above, gratitude, impermanence…), **Body** (scan + seated stretches), **Sleep** (4-7-8, letting the day go). Scripts are data in `MEDITATIONS` (top of life-os.js); breathing patterns in `BREATH_PATTERNS`.
+- Script steps: `{ say, pause }`, `{ breathe, cycles, cues }`, `{ breathe, fill: true }` (breathes until the closing), `{ closing: true }`. Steps that don't fit are skipped and the closing is always played, so a session ends on its length whatever the voice speed.
+- Spoken with the device's voice (`speechSynthesis`, rate 0.88; English voices, Premium/Enhanced first). Captions always show; chimes are generated with Web Audio. Voice, voice on/off and last length are per-device localStorage (`lifeOS_medVoice`, `lifeOS_medVoiceOn`, `lifeOS_medLength`). Start must come from a tap (iOS audio/speech unlock). Locking the phone pauses; a screen wake lock is requested while playing.
+- Finished sessions go in `data.meditationLog` (`{ date, ts, kind, minutes }`); 3- and 5-minute sessions also check off the goal whose name matches /meditat/i for today. Ending early (<90%) logs nothing.
+- The session clock is pause-aware (`medElapsed`, `medSleepUntil`); tests speed it up with `lifeOS._medTimeScale`.
+
 ## Architecture Notes
 
 - **Single LifeOS class** contains all logic — no separate modules
-- **No test framework** — `tests/app.test.mjs` is a Playwright script (seeded data, stubbed Chart.js, fixed clock) covering scoring before/after the cutover, catch-up, badge, reminders settings and the service worker. Also covers highlights, journal streak and PDF import (generates a PDF, serves pdf.js from the `pdfjs-dist` dev dependency). Run `npm ci && python3 build_docs.py && node tests/app.test.mjs`
+- **No test framework** — `tests/app.test.mjs` is a Playwright script (seeded data, stubbed Chart.js, fixed clock) covering scoring before/after the cutover, catch-up, badge, reminders settings and the service worker. Also covers highlights, journal streak, PDF import (generates a PDF, serves pdf.js from the `pdfjs-dist` dev dependency), the Today shrinking list, and every meditation session (stubbed speech, sped-up clock). Run `npm ci && python3 build_docs.py && node tests/app.test.mjs`
 - **No build tools** beyond the Python inliner (no bundler, no transpiler)
 - **Chart.js 4.4** loaded from CDN for all charts
-- **CSS variables** in `:root` control theming (primary: `#6366f1` indigo)
+- **CSS variables** in `:root` control theming (see Look & feel)
 - **Responsive at 768px** — sidebar collapses, mobile bottom nav appears
-- **Mobile chrome** — light header with menu + settings buttons and a 6-tab bottom bar (12px labels, ~26px icons, full-width tap targets). `viewport-fit=cover` + `env(safe-area-inset-*)` keep both clear of the notch and home indicator; status bar style is `default` (dark text on the paper background)
+- **Mobile chrome** — light header with menu + settings buttons and a 6-tab bottom bar — Home, Goals, Health, Today, Journal, Meditate (Weekly Review lives in the ☰ menu) — with 12px labels, ~26px icons, full-width tap targets. `viewport-fit=cover` + `env(safe-area-inset-*)` keep both clear of the notch and home indicator; status bar style is `default` (dark text on the paper background)
 - **Phones down to 320px** — iPhone Display Zoom ("Larger Text") or page zoom leaves ~320 CSS px. Flex/grid children that hold wide content need `min-width: 0` (so tables/charts scroll inside their box, not the page), and fields are 16px on phones so iOS doesn't zoom in when one is tapped. The iOS Text Size slider doesn't affect this app (it uses `-apple-system`, not `-apple-system-body`)
 
 ## Key Methods in life-os.js
@@ -141,4 +150,5 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 - `scoreEntry(week, entry)` / `scoreWeek` / `scoreByCategory` / `scoringKind(goal)` — The scoring rule
 - `maybeShowCatchUp()` / `updateAppBadge()` / `toggleReminders()` — Catch-up prompt, badge, push reminders
 - `getJournalStreak()` / `previewJournalImport(file)` / `parseJournalEntries(pages)` / `renderArchive()` — Journal streak, import and archive
+- `renderMeditation()` / `startMeditation(kind, minutes)` / `finishMeditation()` — Guided sessions
 - `saveData()` — Persists to localStorage (and Convex if connected)

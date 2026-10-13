@@ -95,8 +95,9 @@ const CHART_STUB = `window.Chart = class { constructor(canvas, cfg) { (window.__
 
 const browser = await chromium.launch({ channel: 'chromium' }); // new headless: supports notifications
 
-async function newPage({ width = 1280, seedData = seed, time = '2026-10-13T15:00:00-05:00', notifications = false } = {}) {
+async function newPage({ width = 1280, seedData = seed, time = '2026-10-13T15:00:00-05:00', notifications = false, init = null } = {}) {
     const context = await browser.newContext({ timezoneId: TZ, viewport: { width, height: 900 } });
+    if (init) await context.addInitScript(init);
     if (notifications) await context.grantPermissions(['notifications'], { origin: ORIGIN });
     await context.route('**/chart.umd.min.js', r => r.fulfill({ contentType: 'application/javascript', body: CHART_STUB }));
     await context.addInitScript(([data]) => {
@@ -462,6 +463,146 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     check('no page errors', errors, []);
     await context.close();
     fs.unlinkSync(pdfPath);
+}
+
+// ================= Scenario 7: Today — shrinking list =================
+{
+    const { context, page, errors } = await newPage({ width: 390 });
+    console.log('\n— Today: shrinking list —');
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
+    const cell = n => page.evaluate(name => Object.values(lifeOS.data.weeks[1].entries).find(e => e.goal.name === name).tracking[2], n);
+    const pendingNames = () => page.$$eval('.freq-group:not(.limits-group) .pending-item .habit-name', els => els.map(e => e.textContent));
+    const foldNames = key => page.$$eval(`[data-fold="${key}"] .habit-name`, els => els.map(e => e.textContent));
+    const row = name => page.locator('.pending-item', { hasText: name });
+
+    // Tue: Up by 7:15AM already ✓; Skincare AM, In bed, Meditate still to do; Journaling (Wed/Sat) not today
+    check('daily list shows only what is left', (await pendingNames()).filter(n => !/Strength|Cardio|Cold|Review fin/.test(n)),
+        ['Skincare AM', 'In bed by 11:15PM', 'Meditate (3-5 min, long exhales)']);
+    check('header counts what is left', await page.textContent('.freq-group .freq-group-count'), '3 left');
+    check('done today folded away', await foldNames('done'), ['Up by 7:15AM']);
+    check('limits start folded, with a summary', await page.evaluate(() => {
+        const d = document.querySelector('.limits-group');
+        return [d.open, d.querySelector('.freq-group-count').textContent];
+    }), [false, '1 over']);
+    check('only daily items get ✗; Meditate gets ▶', await page.evaluate(() => [
+        document.querySelectorAll('.freq-group:first-child .habit-miss-btn').length,
+        [...document.querySelectorAll('.pending-item')].filter(r => r.querySelector('.habit-play-btn')).map(r => r.querySelector('.habit-name').textContent)
+    ]), [3, ['Meditate (3-5 min, long exhales)']]);
+
+    await row('Skincare AM').locator('.habit-miss-btn').click();
+    await page.waitForFunction(() => document.querySelector('[data-fold="missed"]'));
+    check('✗ marks a strike and moves it to Missed', [await cell('Skincare AM'), await foldNames('missed')], ['1', ['Skincare AM']]);
+    check('missed items drop out of the badge', await page.evaluate(() => window.__badge.at(-1)), 2);
+    await page.click('[data-fold="missed"] > summary');
+    await page.click('[data-fold="missed"] [data-action="undo"]');
+    check('Undo puts it back', [await cell('Skincare AM'), (await pendingNames()).includes('Skincare AM')], ['', true]);
+
+    await row('Skincare AM').locator('.habit-miss-btn').click();
+    await page.waitForFunction(() => document.querySelector('[data-fold="missed"] [data-action="skip"]'));
+    check('Missed stays open across re-renders', await page.evaluate(() => document.querySelector('[data-fold="missed"]').open), true);
+    await page.click('[data-fold="missed"] [data-action="skip"]');
+    check("Doesn't apply → skipped, listed under Doesn't apply today", [await cell('Skincare AM'), (await foldNames('off')).includes('Skincare AM')], ['-', true]);
+
+    await row('In bed by 11:15PM').locator('.habit-checkbox').click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-fold="done"] .habit-name').length === 2);
+    check('○ marks done and moves it to Done', [await cell('In bed by 11:15PM'), await page.textContent('.freq-group .freq-group-count')], ['X', '1 left']);
+    await page.click('[data-fold="done"] > summary');
+    await page.locator('[data-fold="done"] .habit-check-item', { hasText: 'In bed' }).locator('.habit-checkbox').click();
+    check('tapping a check in Done undoes it', await cell('In bed by 11:15PM'), '');
+
+    await row('In bed by 11:15PM').locator('.habit-checkbox').click();
+    await row('Meditate').locator('.habit-checkbox').click();
+    await page.waitForFunction(() => document.querySelector('.freq-group .freq-group-count').textContent.includes('All done'));
+    check('all daily items handled', await page.textContent('.freq-group .today-all-done'), 'Nothing left for today. Nice work.');
+    check('no page errors', errors, []);
+    await context.close();
+}
+
+// ================= Scenario 8: Meditate =================
+{
+    // Stub the speech engine: record what's said, finish each utterance right away
+    const speechStub = () => {
+        window.__spoken = [];
+        window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+        Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: {
+            cancel() {}, addEventListener() {},
+            getVoices: () => [
+                { name: 'Fred', lang: 'en-US', voiceURI: 'fred' },
+                { name: 'Amélie', lang: 'fr-CA', voiceURI: 'amelie' },
+                { name: 'Ava (Premium)', lang: 'en-US', voiceURI: 'ava-premium' }
+            ],
+            speak(u) { window.__spoken.push(u.text); setTimeout(() => u.onend && u.onend(), 5); }
+        } });
+    };
+    const { context, page, errors } = await newPage({ width: 390, init: speechStub });
+    console.log('\n— Meditate —');
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
+    await page.locator('.pending-item .habit-play-btn').click();
+    check('▶ on Meditate opens the Meditate page', await page.isVisible('#section-meditate.active'), true);
+    check('four sessions, 3 min by default', await page.evaluate(() => [
+        [...document.querySelectorAll('.med-card b')].map(b => b.textContent),
+        document.querySelector('.med-length.active').textContent
+    ]), [['Breathe', 'Reflect', 'Body', 'Sleep'], '3 min']);
+    check('English voices only, Premium first', await page.$$eval('#medVoice option', os => os.map(o => o.textContent)), ['Ava (Premium) (en-US)', 'Fred (en-US)']);
+
+    // A 3-minute Breathe session, 60x faster
+    await page.evaluate(() => { lifeOS._medTimeScale = 60; });
+    await page.click('[data-med="breathe"]');
+    check('player opens full screen', await page.isVisible('#medPlayer'), true);
+    await page.waitForSelector('#medDone:not([hidden])', { timeout: 20000 });
+    const run = await page.evaluate(() => ({ elapsed: lifeOS._med.endedAt, spoken: window.__spoken, log: lifeOS.data.meditationLog }));
+    check('session lasts its length (180s)', run.elapsed >= 179 && run.elapsed < 186, true);
+    check('guidance is spoken, with breath cues', [run.spoken.includes("Welcome. Let's take a moment to slow down."), run.spoken.includes('Breathe in'),
+        run.spoken.at(-1)], [true, true, 'Notice how you feel now, compared with a few minutes ago. Take that calm with you.']);
+    check('session logged', run.log.map(l => [l.kind, l.minutes, l.date]), [['breathe', 3, '2026-10-13']]);
+    check('3-min session checks off Meditate for today', await page.evaluate(() =>
+        Object.values(lifeOS.data.weeks[1].entries).find(e => /Meditate/.test(e.goal.name)).tracking[2]), 'X');
+    check('completion note', await page.textContent('#medDoneDetail'), 'Breathe · 3 min. Meditate is checked off for today ✓');
+    await page.click('#medDoneBtn');
+    check('Done closes the player', await page.isHidden('#medPlayer'), true);
+
+    // A 1-minute session is logged but doesn't check anything off
+    await page.evaluate(() => Object.values(lifeOS.data.weeks[1].entries).find(e => /Meditate/.test(e.goal.name)).tracking[2] = '');
+    await page.click('.med-length[data-min="1"]');
+    await page.click('[data-med="reflect"]');
+    await page.waitForSelector('#medDone:not([hidden])', { timeout: 20000 });
+    check('1-min session logged, Meditate not checked', await page.evaluate(() => [
+        lifeOS.data.meditationLog.length,
+        Object.values(lifeOS.data.weeks[1].entries).find(e => /Meditate/.test(e.goal.name)).tracking[2],
+        document.getElementById('medDoneDetail').textContent.includes('Short sessions are logged')
+    ]), [2, '', true]);
+    await page.click('#medDoneBtn');
+
+    // Pause freezes the clock; End early closes without logging
+    await page.click('.med-length[data-min="5"]');
+    await page.click('[data-med="sleep"]');
+    await page.waitForTimeout(400);
+    await page.click('#medPauseBtn');
+    const t1 = await page.textContent('#medRemaining');
+    await page.waitForTimeout(600);
+    check('pause stops the clock', [await page.textContent('#medRemaining'), await page.textContent('#medPauseBtn')], [t1, 'Resume']);
+    await page.click('#medEndBtn');
+    await page.waitForSelector('#medPlayer', { state: 'hidden' });
+    check('ending early logs nothing', await page.evaluate(() => lifeOS.data.meditationLog.length), 2);
+
+    // Every session × length, voice off (captions only): each ends on time
+    const timings = await page.evaluate(async () => {
+        lifeOS._medTimeScale = 150;
+        localStorage.setItem('lifeOS_medVoiceOn', '0');
+        const out = [];
+        for (const kind of Object.keys(MEDITATIONS)) {
+            for (const min of [1, 3, 5]) {
+                await lifeOS.startMeditation(kind, min);
+                out.push(`${kind}/${min}:${Math.abs(lifeOS._med.endedAt - min * 60) <= 5 ? 'ok' : Math.round(lifeOS._med.endedAt)}`);
+                lifeOS.closeMedPlayer();
+            }
+        }
+        return out;
+    });
+    check('all 12 sessions end on time', timings.filter(t => !t.endsWith(':ok')), []);
+    check('stats line', await page.textContent('#medStats'), 'This week: 14 sessions · 40 min. 3- and 5-minute sessions check off Meditate in Today.');
+    check('no page errors', errors, []);
+    await context.close();
 }
 
 await browser.close();

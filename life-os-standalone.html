@@ -1277,8 +1277,10 @@ tr:hover .strike-dec { opacity: 1; }
     border-bottom: none;
 }
 
-.habit-check-item:hover {
-    background: var(--surface);
+@media (hover: hover) {
+    .habit-check-item:hover {
+        background: var(--surface);
+    }
 }
 
 .habit-check-item.item-done {
@@ -1609,6 +1611,163 @@ tr:hover .strike-dec { opacity: 1; }
     padding: 8px 16px 12px;
     font-size: 0.72rem;
     color: var(--text-light);
+}
+
+/* ---- Today: shrinking list ---- */
+button.habit-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--card-bg);
+    padding: 0;
+    font: inherit;
+    font-size: 0.8rem;
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pending-item .habit-checkbox {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border-color: #cfcabd;
+}
+
+.pending-item .habit-checkbox:active {
+    background: var(--primary-tint);
+    border-color: var(--primary);
+}
+
+.pending-item .habit-name {
+    color: var(--text);
+}
+
+.habit-miss-btn,
+.habit-play-btn {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-light);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.habit-miss-btn:hover,
+.habit-miss-btn:active {
+    color: var(--danger);
+    border-color: var(--danger-light);
+    background: var(--danger-tint);
+}
+
+.habit-play-btn {
+    color: var(--primary);
+    background: var(--primary-tint);
+    border-color: transparent;
+    font-size: 1rem;
+}
+
+.habit-play-btn .icon {
+    fill: currentColor;
+    stroke-width: 1.2;
+}
+
+/* Row fades out before moving to Done / Missed */
+.habit-check-item.leaving {
+    opacity: 0;
+    transform: translateX(12px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.item-missed .habit-name {
+    color: var(--text-muted);
+}
+
+.miss-mark {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: var(--danger);
+    font-size: 0.8rem;
+}
+
+.missed-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.missed-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.missed-actions button {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+}
+
+/* Today rows use round checks */
+.item-done .habit-checkbox,
+.off-item .habit-checkbox {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+}
+
+.off-today-count.done-count {
+    background: var(--primary-tint);
+    color: var(--primary);
+}
+
+.off-today-count.missed-count {
+    background: var(--danger-tint);
+    color: var(--danger);
+}
+
+.freq-group-count.all-done {
+    background: var(--primary);
+    color: #fff;
+}
+
+.freq-group-count.over {
+    background: var(--danger-tint);
+    color: var(--danger);
+}
+
+.today-all-done {
+    padding: 14px 16px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+/* Limits start folded: the header is the summary */
+.limits-group > summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.limits-group > summary::-webkit-details-marker {
+    display: none;
+}
+
+.limits-group > summary .freq-group-count::after {
+    content: ' \203A';
+}
+
+.limits-group:not([open]) .freq-group-header {
+    border-bottom: none;
 }
 
 /* ========================================
@@ -3059,6 +3218,285 @@ tr:hover .strike-dec { opacity: 1; }
     font-family: var(--font-serif);
 }
 
+/* ========================================
+   Meditate
+   ======================================== */
+.med-shortcut,
+.med-card {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+    background: var(--card-bg);
+    border: none;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    font: inherit;
+    color: var(--text);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.med-shortcut {
+    margin-bottom: 20px;
+}
+
+.med-shortcut:active,
+.med-card:active {
+    background: var(--surface);
+}
+
+.med-shortcut-icon,
+.med-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: var(--primary);
+    background: var(--primary-tint);
+}
+
+.med-shortcut-text,
+.med-card-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.med-shortcut-text b,
+.med-card-text b {
+    font-family: var(--font-serif);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.med-shortcut-text small,
+.med-card-text small {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.med-shortcut-arrow {
+    font-size: 1.5rem;
+    color: var(--text-light);
+}
+
+.med-lengths {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--card-bg);
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+}
+
+.med-length {
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 8px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.med-length.active {
+    background: var(--primary);
+    color: #fff;
+}
+
+.med-sessions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.med-card-len {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-tint);
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.med-stats {
+    margin: 14px 2px 20px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.med-voice {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+}
+
+.med-voice > label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.med-voice-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.med-voice-row select {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    color: var(--text);
+    font: inherit;
+}
+
+.med-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+/* ---- Full-screen player ---- */
+.med-player {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    padding: calc(20px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+}
+
+.med-player[hidden] {
+    display: none;
+}
+
+body.med-open {
+    overflow: hidden;
+}
+
+.med-player-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.med-title {
+    font-family: var(--font-serif);
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.med-remaining {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+.med-stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 36px;
+}
+
+.med-stage[hidden],
+.med-done[hidden],
+.med-controls[hidden] {
+    display: none;
+}
+
+.med-orb-wrap {
+    position: relative;
+    width: min(64vw, 280px);
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.med-orb {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #c9d8e8;
+    box-shadow: 0 0 0 12px rgba(47, 93, 140, 0.06), 0 0 0 28px rgba(47, 93, 140, 0.03);
+    transform: scale(0.75);
+    transition: transform 4s ease-in-out;
+}
+
+.med-phase {
+    position: relative;
+    font-family: var(--font-serif);
+    font-size: 1.35rem;
+    color: var(--primary-dark);
+    text-align: center;
+}
+
+.med-caption {
+    max-width: 30em;
+    min-height: 4.8em;
+    text-align: center;
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    line-height: 1.6;
+    color: var(--text);
+}
+
+.med-controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.med-controls .btn {
+    min-width: 120px;
+    padding: 12px 20px;
+    font-size: 1rem;
+}
+
+.med-done {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+}
+
+.med-done p {
+    color: var(--text-muted);
+    max-width: 26em;
+}
+
+.med-done .btn {
+    min-width: 160px;
+    padding: 12px 20px;
+    font-size: 1rem;
+}
+
 </style>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#f6f4ef">
@@ -3078,6 +3516,7 @@ tr:hover .strike-dec { opacity: 1; }
             <li><a href="#" class="nav-link active" data-section="dashboard"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-6h-5v6H5A1.5 1.5 0 0 1 3.5 19z"/></svg> Dashboard</a></li>
             <li><a href="#" class="nav-link" data-section="goals"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg> Goals</a></li>
             <li><a href="#" class="nav-link" data-section="health"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-8.9-9.4C2.2 7.4 4.3 4.5 7.4 4.5c1.9 0 3.3 1 4.6 2.7 1.3-1.7 2.7-2.7 4.6-2.7 3.1 0 5.2 2.9 4.3 6.1C19.5 15.4 12 20 12 20z"/></svg> Health</a></li>
+            <li><a href="#" class="nav-link" data-section="meditate"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5h10.5a3 3 0 1 0-3-3M3 12.5h15a3 3 0 1 1-3 3M3 16.5h7"/></svg> Meditate</a></li>
             <li><a href="#" class="nav-link" data-section="habits"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="m8 12.3 2.8 2.8L16.2 9"/></svg> Today</a></li>
             <li><a href="#" class="nav-link" data-section="journal"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h11.5a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M8.5 8h6M8.5 11.5h6"/></svg> Reflection</a></li>
             <li><a href="#" class="nav-link" data-section="review"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg> Weekly Review</a></li>
@@ -3243,6 +3682,12 @@ tr:hover .strike-dec { opacity: 1; }
             <div class="section-header">
                 <h1>Health & Wellness</h1>
             </div>
+
+            <button class="med-shortcut" data-goto="meditate">
+                <span class="med-shortcut-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5h10.5a3 3 0 1 0-3-3M3 12.5h15a3 3 0 1 1-3 3M3 16.5h7"/></svg></span>
+                <span class="med-shortcut-text"><b>Meditate</b><small>Breathe · Reflect · Body · Sleep — 1, 3 or 5 minutes</small></span>
+                <span class="med-shortcut-arrow">&rsaquo;</span>
+            </button>
 
             <!-- Health Metrics -->
             <div class="health-metrics">
@@ -3438,6 +3883,33 @@ tr:hover .strike-dec { opacity: 1; }
                 <div id="archiveList" class="archive-list"></div>
                 <button class="btn btn-secondary archive-more" id="archiveMoreBtn" style="display:none;">Show more</button>
             </details>
+        </section>
+
+        <!-- ===== MEDITATE SECTION ===== -->
+        <section class="section" id="section-meditate">
+            <div class="section-header">
+                <h1>Meditate</h1>
+                <p class="section-subtitle">Short guided sessions. Pick a length, then a session.</p>
+            </div>
+
+            <div class="med-lengths" id="medLengths" role="radiogroup" aria-label="Session length">
+                <button class="med-length" data-min="1" role="radio">1 min</button>
+                <button class="med-length" data-min="3" role="radio">3 min</button>
+                <button class="med-length" data-min="5" role="radio">5 min</button>
+            </div>
+
+            <div class="med-sessions" id="medSessions"></div>
+            <p class="med-stats" id="medStats"></p>
+
+            <div class="med-voice">
+                <label for="medVoice">Voice</label>
+                <div class="med-voice-row">
+                    <select id="medVoice"></select>
+                    <button class="btn btn-secondary btn-sm" id="medVoiceTest">Test</button>
+                </div>
+                <label class="med-toggle"><input type="checkbox" id="medVoiceOn" checked> Speak the guidance (captions always show)</label>
+                <p class="setting-desc">For a calmer, more natural voice on iPhone: Settings &rarr; Accessibility &rarr; Spoken Content &rarr; Voices &rarr; English &rarr; download a <b>Premium</b> voice (Ava or Zoe sound good), then pick it here. Hear nothing? Check the silent switch.</p>
+            </div>
         </section>
 
         <!-- ===== WEEKLY REVIEW SECTION ===== -->
@@ -3661,6 +4133,30 @@ tr:hover .strike-dec { opacity: 1; }
         </div>
     </div>
 
+    <!-- Meditation player -->
+    <div class="med-player" id="medPlayer" hidden>
+        <div class="med-player-top">
+            <span class="med-title" id="medTitle"></span>
+            <span class="med-remaining" id="medRemaining">0:00</span>
+        </div>
+        <div class="med-stage" id="medStage">
+            <div class="med-orb-wrap">
+                <div class="med-orb" id="medOrb"></div>
+                <div class="med-phase" id="medPhase"></div>
+            </div>
+            <p class="med-caption" id="medCaption"></p>
+        </div>
+        <div class="med-done" id="medDone" hidden>
+            <h2>Session complete</h2>
+            <p id="medDoneDetail"></p>
+            <button class="btn btn-primary" id="medDoneBtn">Done</button>
+        </div>
+        <div class="med-controls" id="medControls">
+            <button class="btn btn-secondary" id="medPauseBtn">Pause</button>
+            <button class="btn btn-secondary" id="medEndBtn">End</button>
+        </div>
+    </div>
+
     <!-- Journal import preview -->
     <div class="modal" id="journalImportModal">
         <div class="modal-content">
@@ -3700,9 +4196,9 @@ tr:hover .strike-dec { opacity: 1; }
             <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h11.5a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M8.5 8h6M8.5 11.5h6"/></svg>
             <span class="mobile-nav-label">Journal</span>
         </button>
-        <button class="mobile-nav-btn" data-section="review">
-            <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
-            <span class="mobile-nav-label">Review</span>
+        <button class="mobile-nav-btn" data-section="meditate">
+            <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5h10.5a3 3 0 1 0-3-3M3 12.5h15a3 3 0 1 1-3 3M3 16.5h7"/></svg>
+            <span class="mobile-nav-label">Meditate</span>
         </button>
     </nav>
 
@@ -3845,6 +4341,133 @@ const DEFAULT_REMINDERS = { enabled: false, morning: '08:00', evening: '21:00', 
 const ARCHIVE_STORAGE_KEY = 'lifeOS_journalArchive';
 const ARCHIVE_PAGE = 30;
 const PDFJS_CDN = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build';
+const PLAY_ICON = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
+
+// ========================================
+// Guided meditation scripts
+// ========================================
+// Breathing patterns: phases of { label, seconds, scale (orb size), cue (spoken) }
+const BREATH_PATTERNS = {
+    calm: [{ label: 'Breathe in', seconds: 4, scale: 1, cue: 'Breathe in' }, { label: 'Slowly out', seconds: 6, scale: 0.55, cue: 'And slowly out' }],
+    sigh: [{ label: 'Breathe in', seconds: 2, scale: 0.9, cue: 'In' }, { label: 'A little more', seconds: 1, scale: 1, cue: 'more' }, { label: 'Long sigh out', seconds: 6, scale: 0.55, cue: 'Long sigh out' }],
+    box: [{ label: 'Breathe in', seconds: 4, scale: 1, cue: 'In' }, { label: 'Hold', seconds: 4, scale: 1, cue: 'Hold' }, { label: 'Breathe out', seconds: 4, scale: 0.55, cue: 'Out' }, { label: 'Hold', seconds: 4, scale: 0.55, cue: 'Hold' }],
+    sleep: [{ label: 'Breathe in', seconds: 4, scale: 1, cue: 'Breathe in' }, { label: 'Hold', seconds: 7, scale: 1, cue: 'Hold' }, { label: 'Out, slowly', seconds: 8, scale: 0.55, cue: 'And out, slowly' }],
+    easy: [{ label: 'Breathe in', seconds: 4, scale: 1 }, { label: 'Breathe out', seconds: 6, scale: 0.55 }]
+};
+
+// Each session builds a script for 1, 3 or 5 minutes. Steps:
+//   { say, pause }                  speak (and caption), then rest `pause` seconds
+//   { breathe, cycles, cues }       fixed number of breaths; cues = how many are voiced
+//   { breathe, fill: true }         keep breathing until it's time for the closing
+//   { closing: true }               everything after this is the ending (always played)
+// Steps that won't fit in the remaining time are skipped, so the length stays right.
+const MEDITATIONS = {
+    breathe: {
+        title: 'Breathe',
+        blurb: 'Calm down with long, slow exhales',
+        icon: '<path d="M3 8.5h10.5a3 3 0 1 0-3-3M3 12.5h15a3 3 0 1 1-3 3M3 16.5h7"/>',
+        build: min => [
+            { say: "Welcome. Let's take a moment to slow down.", pause: 1 },
+            ...(min > 1 ? [{ say: 'Sit comfortably, and let your shoulders drop away from your ears.', pause: 2 }] : []),
+            ...(min > 1 ? [
+                { say: 'First, two double breaths. In through the nose, then a little more, then a long sigh out.', pause: 1 },
+                { breathe: 'sigh', cycles: 2, cues: 2 }
+            ] : []),
+            { say: 'Now breathe in through your nose for four, and out slowly for six. Let the out-breath be longer.', pause: 0.5 },
+            { breathe: 'calm', cycles: min > 1 ? 4 : 3, cues: 2 },
+            ...(min >= 5 ? [
+                { say: "Let's steady the rhythm. In for four, hold for four, out for four, hold for four.", pause: 0.5 },
+                { breathe: 'box', cycles: 4, cues: 2 },
+                { say: 'And back to long, easy exhales.', pause: 0.5 }
+            ] : []),
+            ...(min > 1 ? [{ say: "If your mind wanders, that's fine. Just come back to the next breath.", pause: 1 }] : []),
+            { breathe: 'calm', fill: true },
+            { closing: true },
+            { say: 'Let your breathing return to its own pace.', pause: 2 },
+            { say: 'Notice how you feel now, compared with a few minutes ago. Take that calm with you.', pause: 1 }
+        ]
+    },
+    reflect: {
+        title: 'Reflect',
+        blurb: 'A few minutes on yourself and the world',
+        icon: '<path d="M4 18.5h16M7 15a5 5 0 0 1 10 0M12 4.5v3M5.4 8.4l1.6 1.6M18.6 8.4 17 10"/>',
+        build: min => {
+            const prompts = [
+                { say: "Bring to mind something that's been weighing on you. Ask yourself: which part of this is actually up to me? My effort, my words, my attitude. Let the rest go, just for now.", pause: 10 },
+                { say: 'Picture yourself from above, sitting right where you are. Now rise higher. See your street, your city, the curve of the earth. Most of what felt big today is very small from up here.', pause: 10 },
+                { say: 'Think of one person who made your life a little better recently. Picture their face, and silently thank them.', pause: 9 },
+                { say: 'Everything changes. This mood, this difficulty, even this good moment, will pass. Hold today lightly.', pause: 9 },
+                { say: 'Ask yourself: who do I want to be tomorrow? Choose one quality. Patience, courage, kindness. Picture yourself acting with it.', pause: 10 },
+                { say: 'Right now, millions of people are also breathing, also trying their best. You are part of something much larger than today.', pause: 9 }
+            ];
+            const count = min >= 5 ? 6 : min >= 3 ? 3 : 1;
+            return [
+                { say: 'Welcome. Find a comfortable position, and close your eyes if you like.', pause: 1 },
+                { say: 'Take a few slow breaths to arrive.', pause: 0.5 },
+                { breathe: 'calm', cycles: min > 1 ? 3 : 2, cues: 1 },
+                ...prompts.slice(0, count).map(p => min > 1 ? p : { ...p, pause: 6 }),
+                { breathe: 'easy', fill: true },
+                { closing: true },
+                { say: 'Come back to your breath, and to the room around you.', pause: 2 },
+                { say: 'When you are ready, carry one of these thoughts into the rest of your day.', pause: 1 }
+            ];
+        }
+    },
+    body: {
+        title: 'Body',
+        blurb: 'Release tension with a scan and gentle stretches',
+        icon: '<circle cx="12" cy="4.5" r="2"/><path d="M4 9.5 12 8l8 1.5M12 8v6.5l-3.5 6M12 14.5l3.5 6"/>',
+        build: min => [
+            { say: 'Welcome. Sit tall, feet flat on the floor, hands resting on your thighs.', pause: 1 },
+            { say: 'Take a slow breath in, and let it out.', pause: 3 },
+            { say: 'Lift your shoulders up toward your ears. Hold for a moment.', pause: 3 },
+            { say: 'And let them fall.', pause: 3 },
+            ...(min > 1 ? [
+                { say: 'Gently drop your right ear toward your right shoulder. Breathe into the left side of your neck.', pause: 8 },
+                { say: 'Slowly bring your head through the middle, and over to the left.', pause: 8 },
+                { say: 'And back to center.', pause: 2 },
+                { say: 'Reach your right arm overhead and lean gently to the left. Feel the stretch along your side.', pause: 8 },
+                { say: 'Come back up, and reach the other arm over to the right.', pause: 8 }
+            ] : []),
+            ...(min >= 5 ? [
+                { say: 'Place your left hand on your right knee and twist gently to the right. Look over your shoulder.', pause: 8 },
+                { say: 'Come back to center, and twist to the other side.', pause: 8 },
+                { say: 'Now fold forward slowly, letting your arms and head hang heavy.', pause: 10 },
+                { say: 'Roll up one vertebra at a time, head last.', pause: 4 }
+            ] : []),
+            { say: 'Now close your eyes and scan down from the top of your head. Your forehead, your jaw. Let them soften.', pause: min > 1 ? 6 : 3 },
+            { say: 'Your shoulders, your chest, your belly. Let them soften.', pause: min > 1 ? 6 : 3 },
+            { say: 'Your hips, your legs, all the way down to your feet.', pause: min > 1 ? 6 : 3 },
+            { breathe: 'easy', fill: true },
+            { closing: true },
+            { say: 'Take one more deep breath in, and let it all go.', pause: 3 },
+            { say: 'Notice how your body feels now.', pause: 1 }
+        ]
+    },
+    sleep: {
+        title: 'Sleep',
+        blurb: 'Slow down and let the day go before bed',
+        icon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+        gentle: true,
+        build: min => [
+            { say: 'Welcome. Get comfortable, and let your body be heavy.', pause: 2 },
+            { say: "There's nothing left to do today.", pause: 3 },
+            { say: "We'll breathe in for four, hold for seven, and breathe out slowly for eight.", pause: 1 },
+            { breathe: 'sleep', cycles: min > 1 ? 4 : 2, cues: 2 },
+            ...(min > 1 ? [
+                { say: 'Let your jaw loosen. Let your eyes soften.', pause: 6 },
+                { say: "Feel the bed holding you up. You don't have to hold anything.", pause: 8 }
+            ] : []),
+            ...(min >= 5 ? [
+                { say: "If thoughts about today come up, picture setting each one down on a shelf. They'll be there tomorrow.", pause: 10 },
+                { say: 'Now just breathe naturally, and count each out-breath, from ten down to one.', pause: 2 }
+            ] : []),
+            { breathe: 'easy', fill: true },
+            { closing: true },
+            { say: 'Keep breathing slowly. Drift off whenever you are ready.', pause: 2 }
+        ]
+    }
+};
 
 class LifeOS {
     constructor() {
@@ -3884,6 +4507,7 @@ class LifeOS {
             eveningReflections: [], // { date, timestamp, wentWell, fellShort, highlights[], valuesRating, intention } (older ones: gratitude)
             journalImportDates: [], // local dates of entries imported from another journal app (text is in the archive)
             activityLog: [],
+            meditationLog: [],  // { date, ts, kind, minutes } — finished guided sessions
             settings: {
                 scoringCutover: DEFAULT_SCORING_CUTOVER,
                 defaultBudgets: {
@@ -4051,6 +4675,7 @@ class LifeOS {
         this.bindMobileMenu();
         this.bindCatchUp();
         this.bindAppLifecycle();
+        this.bindMeditation();
 
         // Ensure at least one week exists
         if (this.data.weeks.length === 0) {
@@ -4265,6 +4890,7 @@ class LifeOS {
             case 'habits': this.renderHabits(); break;
             case 'journal': this.renderJournal(); break;
             case 'review': this.renderReview(); break;
+            case 'meditate': this.renderMeditation(); break;
         }
     }
 
@@ -5695,30 +6321,38 @@ class LifeOS {
 
         // Delegated: habit checkbox clicks — bound once, survives re-renders
         document.getElementById('habitsChecklist').addEventListener('click', (e) => {
-            // Remember whether the "Doesn't apply today" section is open across re-renders
-            const summary = e.target.closest('.off-today summary');
+            // Remember which folded sections (Done, Missed, Limits…) are open across re-renders
+            const summary = e.target.closest('details[data-fold] > summary');
             if (summary) {
-                this._offTodayOpen = !summary.parentElement.open;
+                const details = summary.parentElement;
+                this._todayFolds = { ...this._todayFolds, [details.dataset.fold]: !details.open };
                 return;
             }
-            const btn = e.target.closest('.habit-checkbox, .habit-skip-btn, .habit-unskip-btn');
+            const btn = e.target.closest('[data-action]');
             if (!btn) return;
+            if (btn.dataset.action === 'meditate') {
+                this.navigateTo('meditate');
+                return;
+            }
             const week = this.getTodayWeek();
             if (!week) return;
             const entryIdx = btn.dataset.entryIdx;
             const dayIdx = parseInt(btn.dataset.day);
             const entry = week.entries[entryIdx] ?? week.entries[parseInt(entryIdx)];
             if (!entry) return;
-            const current = entry.tracking[dayIdx];
-            if (btn.classList.contains('habit-skip-btn')) {
-                entry.tracking[dayIdx] = '-';
-            } else if (btn.classList.contains('habit-unskip-btn')) {
-                entry.tracking[dayIdx] = '';
-            } else {
-                entry.tracking[dayIdx] = (current === 'X' || current === 'x') ? '' : 'X';
-            }
+            // done → ✓, miss → ✗ (strike), skip → doesn't apply, undo → blank, toggle → ✓/blank
+            const next = { done: 'X', miss: '1', skip: '-', undo: '', toggle: this.isDone(entry.tracking[dayIdx]) ? '' : 'X' }[btn.dataset.action];
+            if (next === undefined) return;
+            entry.tracking[dayIdx] = next;
             this.saveData();
-            this.renderHabits();
+            // Let a row fade out of the list before it moves to Done / Missed
+            const row = btn.closest('.pending-item');
+            if (row) {
+                row.classList.add('leaving');
+                setTimeout(() => this.renderHabits(), 180);
+            } else {
+                this.renderHabits();
+            }
         });
 
         document.getElementById('vacationDayBtn').addEventListener('click', () => {
@@ -5903,118 +6537,150 @@ class LifeOS {
             });
         });
 
-        // Define frequency groups in display order
+        // Shrinking list: what's left today stays on top; done / missed / not-today items
+        // fold away at the bottom. Limits are logged uses, so they stay in their own group.
         const groups = [
-            { key: 'daily', title: 'Daily Essentials', desc: 'Do these every day' },
-            { key: 'fewPerWeek', title: 'A Few Times This Week', desc: 'Hit your target this week' },
-            { key: 'weekly', title: 'Weekly Goals', desc: 'Complete once this week' },
-            { key: 'limit', title: 'Limits & Boundaries', desc: 'Stay within these limits' },
-            { key: 'monthly', title: 'Monthly Goals', desc: 'Once this month' }
+            { key: 'daily', title: 'Daily Essentials' },
+            { key: 'fewPerWeek', title: 'A Few Times This Week' },
+            { key: 'weekly', title: 'Weekly Goals' },
+            { key: 'limit', title: 'Limits & Boundaries' },
+            { key: 'monthly', title: 'Monthly Goals' }
         ];
+        const folds = this._todayFolds || {};
+        const isLimit = e => e.freq.group === 'limit';
+        const doneToday = allEntries.filter(e => e.todayDone && !isLimit(e));
+        const missedToday = allEntries.filter(e => e.todayStrike && !isLimit(e));
+        const pending = allEntries.filter(e => !e.offToday && (isLimit(e) || (!e.todayDone && !e.todayStrike)));
+        const attrs = e => `data-entry-idx="${e.idx}" data-day="${todayDayIdx}"`;
+        const name = e => this.escapeHtml(e.goal.name);
+
+        const streakBadge = e => {
+            const streak = streakMap[e.goal.name] || 0;
+            const tier = streak >= 30 ? ['crown', '👑'] : streak >= 14 ? ['diamond', '💎'] : streak >= 7 ? ['star', '⭐'] : streak >= 3 ? ['fire', '🔥'] : null;
+            return tier ? `<span class="streak-badge ${tier[0]}" title="${streak}-day streak">${tier[1]} ${streak}</span>` : '';
+        };
+        // Weekly / monthly / limit progress chip
+        const progress = e => {
+            const target = e.freq.perWeek;
+            if (isLimit(e)) {
+                const used = e.weekDone + e.weekStrikes;
+                return `<span class="freq-progress ${used > target ? 'over-limit' : 'under-limit'}">${used}/${target} used</span>`;
+            }
+            if (e.freq.group === 'monthly') {
+                return `<span class="freq-progress ${e.monthDone ? 'on-track' : ''}">${e.monthDone ? 'Done this month' : 'Not yet'}</span>`;
+            }
+            if (e.freq.group === 'daily') return '';
+            const met = e.weekDone >= target;
+            const pct = Math.min(100, Math.round((e.weekDone / target) * 100));
+            return `<span class="freq-progress ${met ? 'on-track' : ''}">${e.weekDone}/${target}</span>
+                <div class="freq-progress-bar"><div class="freq-progress-fill ${met ? 'met' : ''}" style="width:${pct}%"></div></div>`;
+        };
+        const playBtn = e => /meditat/i.test(e.goal.name)
+            ? `<button class="habit-play-btn" data-action="meditate" aria-label="Start a guided session">${PLAY_ICON}</button>` : '';
+
+        const pendingRow = e => {
+            if (isLimit(e)) {
+                // Tap logs a use today; tap again to remove it
+                return `<div class="habit-check-item ${e.todayDone ? 'item-used' : ''}">
+                    <button class="habit-checkbox ${e.todayDone ? 'checked' : ''}" data-action="toggle" ${attrs(e)} aria-label="Used one today">${e.todayDone ? '✓' : ''}</button>
+                    <div class="habit-item-content"><span class="habit-name">${name(e)}</span>${progress(e)}</div>
+                </div>`;
+            }
+            const canMiss = e.freq.group === 'daily';
+            return `<div class="habit-check-item pending-item">
+                <button class="habit-checkbox" data-action="done" ${attrs(e)} aria-label="Done"></button>
+                <div class="habit-item-content">
+                    <div class="habit-name-row"><span class="habit-name">${name(e)}</span>${streakBadge(e)}</div>
+                    ${progress(e)}
+                </div>
+                ${playBtn(e)}
+                ${canMiss ? `<button class="habit-miss-btn" data-action="miss" ${attrs(e)} aria-label="Missed today">✗</button>` : ''}
+            </div>`;
+        };
 
         let html = '';
         groups.forEach(group => {
-            const entries = allEntries.filter(e => e.freq.group === group.key && !e.offToday);
-            if (entries.length === 0) return;
+            const all = allEntries.filter(e => e.freq.group === group.key && !e.offToday);
+            const entries = pending.filter(e => e.freq.group === group.key);
+            if (all.length === 0) return;
+            if (entries.length === 0 && group.key !== 'daily') return;
 
-            // Calculate group-level progress
-            const todayChecked = entries.filter(e => e.todayDone || e.todayStrike).length;
-            const groupTotal = entries.length;
+            let count, countCls = '';
+            if (group.key === 'daily') {
+                count = entries.length ? `${entries.length} left` : 'All done ✓';
+                if (!entries.length) countCls = 'all-done';
+            } else if (group.key === 'limit') {
+                const over = all.filter(e => e.weekDone + e.weekStrikes > e.freq.perWeek).length;
+                count = over ? `${over} over` : 'All within';
+                if (over) countCls = 'over';
+            } else if (group.key === 'monthly') {
+                count = `${all.filter(e => e.monthDone).length}/${all.length} done`;
+            } else {
+                count = `${all.filter(e => e.weekDone >= e.freq.perWeek).length}/${all.length} met`;
+            }
+            const header = `<span class="freq-label">${group.title}</span><span class="freq-group-count ${countCls}">${count}</span>`;
 
-            html += `<div class="freq-group">
-                <div class="freq-group-header">
-                    <div class="freq-group-title">
-                        <span class="freq-label">${group.title}</span>
-                    </div>
-                    <span class="freq-group-count">${todayChecked}/${groupTotal}</span>
-                </div>`;
-
-            // Sub-group by category within each frequency group
+            // Sub-group by category: protocols first, then alphabetical
             const byCat = {};
-            entries.forEach(e => {
-                const cat = e.goal.category;
-                if (!byCat[cat]) byCat[cat] = [];
-                byCat[cat].push(e);
-            });
-
-            // Protocol categories first, then alphabetical
+            entries.forEach(e => (byCat[e.goal.category] ||= []).push(e));
             const protocolOrder = ['Morning Protocol', 'Midday Protocol', 'Evening Protocol'];
             const catKeys = [...protocolOrder.filter(c => byCat[c]), ...Object.keys(byCat).filter(c => !protocolOrder.includes(c)).sort()];
-
+            let rows = '';
             catKeys.forEach(cat => {
-                const catEntries = byCat[cat];
-                if (catEntries.length > 1 || Object.keys(byCat).length > 1) {
-                    html += `<div class="freq-cat-label">${cat}</div>`;
-                }
-                catEntries.forEach(entry => {
-                    const done = entry.todayDone;
-                    const isLimit = entry.freq.isLimit;
-
-                    // Streak badge
-                    const streak = streakMap[entry.goal.name] || 0;
-                    let badgeHtml = '';
-                    if (streak >= 30) badgeHtml = `<span class="streak-badge crown" title="${streak}-day streak">👑 ${streak}</span>`;
-                    else if (streak >= 14) badgeHtml = `<span class="streak-badge diamond" title="${streak}-day streak">💎 ${streak}</span>`;
-                    else if (streak >= 7) badgeHtml = `<span class="streak-badge star" title="${streak}-day streak">⭐ ${streak}</span>`;
-                    else if (streak >= 3) badgeHtml = `<span class="streak-badge fire" title="${streak}-day streak">🔥 ${streak}</span>`;
-
-                    // Weekly progress bar
-                    let progressHtml = '';
-                    if (group.key !== 'daily') {
-                        const target = entry.freq.perWeek;
-                        if (isLimit) {
-                            // For limits: show usage vs max (red when over)
-                            const used = entry.weekDone + entry.weekStrikes;
-                            const over = used > target;
-                            progressHtml = `<span class="freq-progress ${over ? 'over-limit' : 'under-limit'}">${used}/${target} used</span>`;
-                        } else if (group.key === 'monthly') {
-                            progressHtml = `<span class="freq-progress ${entry.monthDone ? 'on-track' : ''}">${entry.monthDone ? 'Done' : 'Not yet'}</span>`;
-                        } else {
-                            const pct = Math.min(100, Math.round((entry.weekDone / target) * 100));
-                            const met = entry.weekDone >= target;
-                            progressHtml = `<span class="freq-progress ${met ? 'on-track' : ''}">${entry.weekDone}/${target}</span>
-                                <div class="freq-progress-bar"><div class="freq-progress-fill ${met ? 'met' : ''}" style="width:${pct}%"></div></div>`;
-                        }
-                    }
-
-                    html += `<div class="habit-check-item ${done ? 'item-done' : ''}">
-                        <div class="habit-checkbox ${done ? 'checked' : ''}" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}">${done ? '\u2713' : ''}</div>
-                        <div class="habit-item-content">
-                            <div class="habit-name-row">
-                                <span class="habit-name ${done ? 'completed' : ''}">${this.escapeHtml(entry.goal.name)}</span>
-                                ${badgeHtml}
-                            </div>
-                            ${progressHtml}
-                        </div>
-                        <button class="habit-skip-btn" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}" title="Doesn't apply today">Skip</button>
-                    </div>`;
-                });
+                if (byCat[cat].length > 1 || catKeys.length > 1) rows += `<div class="freq-cat-label">${this.escapeHtml(cat)}</div>`;
+                rows += byCat[cat].map(pendingRow).join('');
             });
+            if (!entries.length) rows = '<p class="today-all-done">Nothing left for today. Nice work.</p>';
 
-            html += '</div>';
+            if (group.key === 'limit') {
+                // Limits only need a tap when you use one, so they start folded
+                html += `<details class="freq-group limits-group" data-fold="limits"${folds.limits ? ' open' : ''}>
+                    <summary><div class="freq-group-header">${header}</div></summary>${rows}</details>`;
+            } else {
+                html += `<div class="freq-group"><div class="freq-group-header">${header}</div>${rows}</div>`;
+            }
         });
 
-        // Items skipped today or not scheduled today, collapsed at the bottom
-        const offEntries = allEntries.filter(e => e.offToday);
-        if (offEntries.length > 0) {
-            const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-            html += `<details class="off-today"${this._offTodayOpen ? ' open' : ''}>
-                <summary>Doesn't apply today <span class="off-today-count">${offEntries.length}</span></summary>`;
-            offEntries.forEach(entry => {
-                const reason = entry.todaySkipped ? 'Skipped' : `Not on ${dayName}s`;
-                const action = entry.todaySkipped
-                    ? `<button class="habit-unskip-btn" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}">Undo</button>`
-                    : '';
-                html += `<div class="habit-check-item off-item">
-                    <div class="habit-checkbox" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}" title="Did it anyway"></div>
-                    <div class="habit-item-content">
-                        <span class="habit-name">${this.escapeHtml(entry.goal.name)}</span>
-                        <span class="off-reason">${reason}</span>
+        const fold = (key, title, count, countCls, body, hint = '') => `
+            <details class="off-today today-fold" data-fold="${key}"${folds[key] ? ' open' : ''}>
+                <summary>${title} <span class="off-today-count ${countCls}">${count}</span></summary>
+                ${body}${hint ? `<p class="off-today-hint">${hint}</p>` : ''}
+            </details>`;
+
+        if (doneToday.length) {
+            html += fold('done', 'Done', doneToday.length, 'done-count', doneToday.map(e => `
+                <div class="habit-check-item item-done">
+                    <button class="habit-checkbox checked" data-action="undo" ${attrs(e)} aria-label="Undo">✓</button>
+                    <div class="habit-item-content"><span class="habit-name completed">${name(e)}</span>${e.freq.group === 'daily' ? '' : progress(e)}</div>
+                </div>`).join(''), 'Tap a check to undo it.');
+        }
+        if (missedToday.length) {
+            html += fold('missed', 'Missed', missedToday.length, 'missed-count', missedToday.map(e => `
+                <div class="habit-check-item item-missed">
+                    <span class="miss-mark" aria-hidden="true">✗</span>
+                    <div class="habit-item-content missed-content">
+                        <span class="habit-name">${name(e)}</span>
+                        <div class="missed-actions">
+                            <button class="habit-unskip-btn" data-action="undo" ${attrs(e)}>Undo</button>
+                            <button class="habit-skip-btn" data-action="skip" ${attrs(e)}>Doesn't apply</button>
+                        </div>
                     </div>
-                    ${action}
-                </div>`;
-            });
-            html += `<p class="off-today-hint">Set recurring days for a goal under Goals &rarr; Manage Goals.</p></details>`;
+                </div>`).join(''), 'Missed items count as strikes. "Doesn\'t apply" takes it off today instead.');
+        }
+
+        // Items skipped today or not scheduled today
+        const offEntries = allEntries.filter(e => e.offToday);
+        if (offEntries.length) {
+            const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+            html += fold('off', "Doesn't apply today", offEntries.length, '', offEntries.map(e => `
+                <div class="habit-check-item off-item">
+                    <button class="habit-checkbox" data-action="done" ${attrs(e)} title="Did it anyway" aria-label="Did it anyway"></button>
+                    <div class="habit-item-content">
+                        <span class="habit-name">${name(e)}</span>
+                        <span class="off-reason">${e.todaySkipped ? 'Skipped' : `Not on ${dayName}s`}</span>
+                    </div>
+                    ${e.todaySkipped ? `<button class="habit-unskip-btn" data-action="undo" ${attrs(e)}>Undo</button>` : ''}
+                </div>`).join(''), 'Set recurring days for a goal under Goals &rarr; Manage Goals.');
         }
 
         checklist.innerHTML = html;
@@ -6546,6 +7212,345 @@ class LifeOS {
             return { date: this.localDateKey(date), rest: '' };
         }
         return null;
+    }
+
+    // ========================================
+    // Meditate (guided sessions, spoken with the device's voice)
+    // ========================================
+    bindMeditation() {
+        document.querySelectorAll('[data-goto]').forEach(el =>
+            el.addEventListener('click', () => this.navigateTo(el.dataset.goto)));
+        document.getElementById('medLengths').addEventListener('click', (e) => {
+            const btn = e.target.closest('.med-length');
+            if (!btn) return;
+            this.setLocal('lifeOS_medLength', btn.dataset.min);
+            this.renderMeditation();
+        });
+        document.getElementById('medSessions').addEventListener('click', (e) => {
+            const card = e.target.closest('[data-med]');
+            if (card) this.startMeditation(card.dataset.med, this.getMedLength());
+        });
+        document.getElementById('medVoice').addEventListener('change', (e) => this.setLocal('lifeOS_medVoice', e.target.value));
+        document.getElementById('medVoiceOn').addEventListener('change', (e) => this.setLocal('lifeOS_medVoiceOn', e.target.checked ? '1' : '0'));
+        document.getElementById('medVoiceTest').addEventListener('click', () => {
+            if (!window.speechSynthesis) return;
+            speechSynthesis.cancel();
+            speechSynthesis.speak(this.medUtterance('Take a slow breath in, and let it go.'));
+        });
+        document.getElementById('medPauseBtn').addEventListener('click', () => this._med?.paused ? this.medResume() : this.medPause());
+        document.getElementById('medEndBtn').addEventListener('click', () => this.medStop());
+        document.getElementById('medDoneBtn').addEventListener('click', () => this.closeMedPlayer());
+        if (window.speechSynthesis) speechSynthesis.addEventListener?.('voiceschanged', () => this.renderMedVoices());
+        // Locking the phone or switching apps pauses the session
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && this._med?.running && !this._med.paused) this.medPause();
+        });
+    }
+
+    getLocal(key) {
+        try { return localStorage.getItem(key); } catch (e) { return null; }
+    }
+
+    setLocal(key, value) {
+        try { localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
+    }
+
+    getMedLength() {
+        const min = parseInt(this.getLocal('lifeOS_medLength'));
+        return [1, 3, 5].includes(min) ? min : 3;
+    }
+
+    renderMeditation() {
+        const min = this.getMedLength();
+        document.querySelectorAll('.med-length').forEach(b => {
+            const on = parseInt(b.dataset.min) === min;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-checked', on);
+        });
+        document.getElementById('medSessions').innerHTML = Object.entries(MEDITATIONS).map(([key, m]) => `
+            <button class="med-card" data-med="${key}">
+                <span class="med-card-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${m.icon}</svg></span>
+                <span class="med-card-text"><b>${m.title}</b><small>${m.blurb}</small></span>
+                <span class="med-card-len">${min} min</span>
+            </button>`).join('');
+
+        // This week's sessions
+        const weekStart = this.localDateKey(this.getWeekStartDate(new Date()));
+        const log = this.data.meditationLog || [];
+        const thisWeek = log.filter(s => s.date >= weekStart);
+        const minutes = thisWeek.reduce((n, s) => n + s.minutes, 0);
+        document.getElementById('medStats').textContent = log.length
+            ? `This week: ${thisWeek.length} session${thisWeek.length === 1 ? '' : 's'} · ${minutes} min. 3- and 5-minute sessions check off Meditate in Today.`
+            : '3- and 5-minute sessions check off Meditate in Today.';
+
+        document.getElementById('medVoiceOn').checked = this.getLocal('lifeOS_medVoiceOn') !== '0';
+        this.renderMedVoices();
+    }
+
+    // English voices, nicest first (Premium / Enhanced, then well-known calm voices)
+    getMedVoices() {
+        if (!window.speechSynthesis) return [];
+        const preferred = ['Ava', 'Zoe', 'Samantha', 'Allison', 'Susan', 'Serena', 'Karen', 'Moira', 'Daniel'];
+        const rank = v => (/premium/i.test(v.name) ? 0 : /enhanced/i.test(v.name) ? 1 : 2) * 100
+            + (preferred.findIndex(p => v.name.includes(p)) + 1 || 50) + (v.lang === 'en-US' ? 0 : 0.5);
+        return speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)).sort((a, b) => rank(a) - rank(b));
+    }
+
+    medVoice() {
+        const voices = this.getMedVoices();
+        const saved = this.getLocal('lifeOS_medVoice');
+        return voices.find(v => v.voiceURI === saved) || voices[0] || null;
+    }
+
+    renderMedVoices() {
+        const select = document.getElementById('medVoice');
+        const voices = this.getMedVoices();
+        const current = this.medVoice();
+        select.innerHTML = voices.length
+            ? voices.map(v => `<option value="${this.escapeHtml(v.voiceURI)}">${this.escapeHtml(v.name)} (${v.lang})</option>`).join('')
+            : '<option value="">Default voice</option>';
+        if (current) select.value = current.voiceURI;
+    }
+
+    medUtterance(text) {
+        const u = new SpeechSynthesisUtterance(text);
+        const voice = this.medVoice();
+        if (voice) { u.voice = voice; u.lang = voice.lang; }
+        u.rate = 0.88;
+        return u;
+    }
+
+    // Rough speaking time at the calm rate we use
+    medSpeechSeconds(text) {
+        return text.split(/\s+/).length / 2.3 + 0.4;
+    }
+
+    medEstimate(step) {
+        if (step.say) return this.medSpeechSeconds(step.say) + (step.pause ?? 1);
+        if (step.breathe && step.cycles) return step.cycles * BREATH_PATTERNS[step.breathe].reduce((t, p) => t + p.seconds, 0);
+        return 0;
+    }
+
+    // ---- Session clock (pause-aware; _medTimeScale > 1 only in tests) ----
+    medElapsed() {
+        const m = this._med;
+        const running = m.paused ? 0 : performance.now() - m.resumedAt;
+        return (m.accumulated + running) / 1000 * (this._medTimeScale || 1);
+    }
+
+    medSleep(seconds) {
+        return this.medSleepUntil(this.medElapsed() + seconds);
+    }
+
+    // Wait until the session clock reaches `until` (seconds), holding while paused
+    async medSleepUntil(until) {
+        const m = this._med;
+        while (!m.cancelled && (m.paused || this.medElapsed() < until)) {
+            await new Promise(r => setTimeout(r, m.paused ? 200 : Math.min(100, Math.max(1, (until - this.medElapsed()) * 1000 / (this._medTimeScale || 1)))));
+        }
+    }
+
+    medSpeak(text) {
+        document.getElementById('medCaption').textContent = text;
+        if (!this._med.voiceOn || !window.speechSynthesis) return this.medSleep(this.medSpeechSeconds(text));
+        return new Promise(resolve => {
+            const u = this.medUtterance(text);
+            let finished = false;
+            const done = () => { if (!finished) { finished = true; clearTimeout(timer); resolve(); } };
+            // iOS sometimes skips onend — never wait forever
+            const timer = setTimeout(done, (this.medSpeechSeconds(text) * 2 + 4) * 1000);
+            u.onend = done;
+            u.onerror = done;
+            speechSynthesis.speak(u);
+        });
+    }
+
+    medCue(text) {
+        if (!text || !this._med.voiceOn || !window.speechSynthesis) return;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(this.medUtterance(text));
+    }
+
+    async medBreathe(step, maxSeconds = Infinity) {
+        const m = this._med;
+        const phases = BREATH_PATTERNS[step.breathe];
+        const cycleLength = phases.reduce((t, p) => t + p.seconds, 0);
+        const orb = document.getElementById('medOrb');
+        const label = document.getElementById('medPhase');
+        // Phases are scheduled against fixed times so small timer delays never add up
+        const start = this.medElapsed();
+        let t = start;
+        for (let cycle = 0; !m.cancelled; cycle++) {
+            if (step.cycles ? cycle >= step.cycles : t - start + cycleLength > maxSeconds) break;
+            for (const phase of phases) {
+                if (m.cancelled) return;
+                orb.style.transitionDuration = `${phase.seconds / (this._medTimeScale || 1)}s`;
+                orb.style.transform = `scale(${phase.scale})`;
+                label.textContent = phase.label;
+                if (cycle < (step.cues || 0)) this.medCue(phase.cue);
+                t += phase.seconds;
+                await this.medSleepUntil(t);
+            }
+        }
+        label.textContent = '';
+    }
+
+    async medRunStep(step) {
+        if (step.say) {
+            await this.medSpeak(step.say);
+            await this.medSleep(step.pause ?? 1);
+        } else if (step.breathe) {
+            await this.medBreathe(step);
+        }
+    }
+
+    medChime(soft = false) {
+        try {
+            const ctx = this._medAudio || (this._medAudio = new (window.AudioContext || window.webkitAudioContext)());
+            if (ctx.state === 'suspended') ctx.resume();
+            const now = ctx.currentTime;
+            [[528, 0.22], [792, 0.08], [1056, 0.05]].forEach(([freq, level]) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.0001, now);
+                gain.gain.exponentialRampToValueAtTime(level * (soft ? 0.5 : 1), now + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 3.2);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 3.3);
+            });
+        } catch (e) { /* no audio */ }
+    }
+
+    // Called straight from the tap, so iOS allows audio and speech
+    async startMeditation(kind, minutes) {
+        const session = MEDITATIONS[kind];
+        if (!session || this._med?.running) return;
+        const voiceOn = this.getLocal('lifeOS_medVoiceOn') !== '0';
+        this._med = { kind, minutes, voiceOn, running: true, paused: false, cancelled: false, accumulated: 0, resumedAt: performance.now() };
+        const m = this._med;
+
+        document.getElementById('medTitle').textContent = `${session.title} · ${minutes} min`;
+        document.getElementById('medCaption').textContent = '';
+        document.getElementById('medPhase').textContent = '';
+        document.getElementById('medOrb').style.transform = 'scale(0.75)';
+        document.getElementById('medStage').hidden = false;
+        document.getElementById('medDone').hidden = true;
+        document.getElementById('medControls').hidden = false;
+        document.getElementById('medPauseBtn').textContent = 'Pause';
+        document.getElementById('medPlayer').hidden = false;
+        document.body.classList.add('med-open');
+
+        if (window.speechSynthesis) {
+            speechSynthesis.cancel();
+            if (voiceOn) speechSynthesis.speak(this.medUtterance(' ')); // unlock speech within the tap
+        }
+        this.medChime(session.gentle);
+        try { m.wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) { /* not supported */ }
+
+        const total = minutes * 60;
+        const tick = () => {
+            const left = Math.max(0, Math.ceil(total - this.medElapsed()));
+            document.getElementById('medRemaining').textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+        };
+        tick();
+        m.tick = tick;
+        m.ticker = setInterval(tick, 250);
+
+        const steps = session.build(minutes);
+        const closingAt = steps.findIndex(s => s.closing);
+        const main = steps.slice(0, closingAt);
+        const closing = steps.slice(closingAt + 1);
+        const closingTime = closing.reduce((t, s) => t + this.medEstimate(s), 0);
+        const timeLeft = () => total - this.medElapsed() - closingTime;
+
+        await this.medSleep(1.5);
+        for (const step of main) {
+            if (m.cancelled) break;
+            if (step.fill) await this.medBreathe(step, timeLeft());
+            else if (this.medEstimate(step) <= timeLeft() + 1) await this.medRunStep(step);
+        }
+        // Quiet breathing for any time left before the ending
+        if (!m.cancelled && timeLeft() > 3) await this.medBreathe({ breathe: 'easy' }, timeLeft());
+        for (const step of closing) {
+            if (m.cancelled) break;
+            await this.medRunStep(step);
+        }
+        if (!m.cancelled && total - this.medElapsed() > 0.5) await this.medSleep(total - this.medElapsed());
+        this.finishMeditation(!m.cancelled || this.medElapsed() >= total * 0.9);
+    }
+
+    medPause() {
+        const m = this._med;
+        if (!m?.running || m.paused) return;
+        m.accumulated += performance.now() - m.resumedAt;
+        m.paused = true;
+        m.tick?.();
+        if (window.speechSynthesis) speechSynthesis.cancel();
+        document.getElementById('medPauseBtn').textContent = 'Resume';
+        document.getElementById('medPhase').textContent = 'Paused';
+    }
+
+    medResume() {
+        const m = this._med;
+        if (!m?.running || !m.paused) return;
+        m.resumedAt = performance.now();
+        m.paused = false;
+        document.getElementById('medPauseBtn').textContent = 'Pause';
+        document.getElementById('medPhase').textContent = '';
+    }
+
+    medStop() {
+        const m = this._med;
+        if (!m?.running) return this.closeMedPlayer();
+        if (m.paused) this.medResume();
+        m.cancelled = true;
+        if (window.speechSynthesis) speechSynthesis.cancel();
+    }
+
+    // Log the session; 3+ minute sessions check off the Meditate goal for today
+    finishMeditation(completed) {
+        const m = this._med;
+        if (!m || !m.running) return;
+        m.running = false;
+        m.endedAt = this.medElapsed();
+        clearInterval(m.ticker);
+        m.wakeLock?.release?.().catch(() => {});
+        if (window.speechSynthesis) speechSynthesis.cancel();
+        if (!completed) return this.closeMedPlayer();
+
+        const session = MEDITATIONS[m.kind];
+        this.medChime(session.gentle);
+        const now = new Date();
+        (this.data.meditationLog ||= []).push({ date: this.localDateKey(now), ts: now.toISOString(), kind: m.kind, minutes: m.minutes });
+
+        let note = m.minutes >= 3 ? '' : 'Short sessions are logged but don’t check off Meditate (your goal is 3–5 minutes).';
+        if (m.minutes >= 3) {
+            const week = this.getWeekForDate(now);
+            const entry = week && Object.values(week.entries).find(e => /meditat/i.test(e.goal.name));
+            if (entry) {
+                entry.tracking[now.getDay()] = 'X';
+                note = 'Meditate is checked off for today ✓';
+            }
+        }
+        this.saveData();
+        this.logActivity(`Meditated: ${session.title}, ${m.minutes} min`);
+
+        document.getElementById('medStage').hidden = true;
+        document.getElementById('medControls').hidden = true;
+        document.getElementById('medDone').hidden = false;
+        document.getElementById('medDoneDetail').textContent = `${session.title} · ${m.minutes} min. ${note}`;
+        document.getElementById('medRemaining').textContent = '0:00';
+    }
+
+    closeMedPlayer() {
+        document.getElementById('medPlayer').hidden = true;
+        document.body.classList.remove('med-open');
+        this.renderMeditation();
+        this.renderHabits();
+        this.renderHealth();
     }
 
     // ========================================
