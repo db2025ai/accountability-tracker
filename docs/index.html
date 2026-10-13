@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Life OS - Personal Operating System</title>
     <style>
 /* ========================================
@@ -11,38 +11,50 @@
 
 :root {
     --sidebar-width: 240px;
-    --sidebar-bg: #1a1d23;
-    --sidebar-hover: #2a2d35;
-    --sidebar-active: #3a3d45;
-    --sidebar-text: #a0a4b0;
-    --sidebar-text-active: #ffffff;
 
-    --primary: #6366f1;
-    --primary-light: #818cf8;
-    --primary-dark: #4f46e5;
-    --secondary: #8b5cf6;
-
-    --success: #22c55e;
-    --success-light: #4ade80;
-    --danger: #ef4444;
-    --danger-light: #f87171;
-    --warning: #f59e0b;
-    --warning-light: #fbbf24;
-    --info: #3b82f6;
-
-    --bg: #f8fafc;
+    /* Paper + ink blue. Blue = action / done / on track, terracotta = miss,
+       ochre = warning. Keep blue for things you tap or finish. */
+    --bg: #f6f4ef;            /* warm paper */
     --card-bg: #ffffff;
-    --text: #1e293b;
-    --text-muted: #64748b;
-    --text-light: #94a3b8;
-    --border: #e2e8f0;
-    --border-light: #f1f5f9;
+    --surface: #faf8f4;       /* table headers, insets */
+    --text: #1f2328;          /* charcoal */
+    --text-muted: #5f6368;
+    --text-light: #9a9893;
+    --border: #e3dfd6;
+    --border-light: #eeebe4;
+
+    --primary: #2f5d8c;       /* ink blue */
+    --primary-dark: #244a70;
+    --primary-light: #6b8fb5;
+    --primary-tint: #e8eef5;
+    --secondary: #2f5d8c;
+
+    --success: #2f5d8c;       /* done / on track uses the accent, not green */
+    --success-light: #6b8fb5;
+    --success-tint: #e8eef5;
+    --danger: #b5543c;        /* terracotta */
+    --danger-light: #d08a78;
+    --danger-tint: #f6e9e4;
+    --warning: #b7862c;       /* ochre */
+    --warning-light: #d4aa5c;
+    --warning-tint: #f6efdf;
+    --info: #2f5d8c;
+
+    --sidebar-bg: #fbfaf7;
+    --sidebar-hover: #f1eee8;
+    --sidebar-active: #e8eef5;
+    --sidebar-text: #5f6368;
+    --sidebar-text-active: #1f2328;
+
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-serif: ui-serif, 'New York', 'Iowan Old Style', Georgia, serif;
 
     --radius: 12px;
     --radius-sm: 8px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-    --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
-    --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+    /* Hairline outline instead of floaty shadows */
+    --shadow: 0 0 0 1px rgba(31, 35, 40, 0.07), 0 1px 2px rgba(31, 35, 40, 0.04);
+    --shadow-md: 0 0 0 1px rgba(31, 35, 40, 0.09), 0 4px 10px rgba(31, 35, 40, 0.06);
+    --shadow-lg: 0 0 0 1px rgba(31, 35, 40, 0.08), 0 16px 40px rgba(31, 35, 40, 0.14);
 
     --transition: 0.2s ease;
 }
@@ -54,7 +66,7 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+    font-family: var(--font-sans);
     background: var(--bg);
     color: var(--text);
     line-height: 1.6;
@@ -68,6 +80,7 @@ body {
 .sidebar {
     width: var(--sidebar-width);
     background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
     height: 100vh;
     position: fixed;
     top: 0;
@@ -80,18 +93,16 @@ body {
 
 .sidebar-header {
     padding: 24px 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding-top: calc(24px + env(safe-area-inset-top));
+    border-bottom: 1px solid var(--border-light);
 }
 
 .logo {
-    color: #fff;
+    color: var(--text);
+    font-family: var(--font-serif);
     font-size: 1.5rem;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    background: linear-gradient(135deg, var(--primary-light), var(--secondary));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-weight: 600;
+    letter-spacing: -0.01em;
 }
 
 .logo-sub {
@@ -132,14 +143,30 @@ body {
 }
 
 .nav-icon {
-    font-size: 1.1rem;
-    width: 24px;
-    text-align: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.nav-link.active .nav-icon {
+    color: var(--primary);
+}
+
+/* Line icons (inline SVG, stroke = currentColor) */
+.icon {
+    width: 1em;
+    height: 1em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
 }
 
 .sidebar-footer {
     padding: 16px;
-    border-top: 1px solid rgba(255,255,255,0.08);
+    border-top: 1px solid var(--border-light);
 }
 
 .btn-settings {
@@ -147,7 +174,7 @@ body {
     padding: 8px;
     background: var(--sidebar-hover);
     color: var(--sidebar-text);
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     cursor: pointer;
     font-size: 0.85rem;
@@ -168,22 +195,41 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: 56px;
-    background: var(--sidebar-bg);
-    color: #fff;
+    height: calc(56px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 8px 0;
+    background: rgba(246, 244, 239, 0.94);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
     align-items: center;
-    padding: 0 16px;
-    gap: 12px;
+    gap: 4px;
     z-index: 99;
+}
+
+.mobile-header h2 {
+    flex: 1;
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    font-weight: 600;
 }
 
 .hamburger {
     background: none;
     border: none;
-    color: #fff;
+    color: var(--text);
     font-size: 1.5rem;
     cursor: pointer;
-    padding: 4px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+}
+
+.hamburger:active {
+    background: var(--sidebar-hover);
 }
 
 /* ========================================
@@ -215,9 +261,17 @@ body {
 }
 
 .section-header h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    letter-spacing: -0.5px;
+    font-size: 1.85rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* Serif display type for titles — the paper-planner feel */
+h1, h2,
+.modal-header h2 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.01em;
 }
 
 .section-subtitle {
@@ -245,13 +299,8 @@ body {
     line-height: 1.5;
 }
 
-.btn:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
-}
-
 .btn:active {
-    transform: translateY(0);
+    transform: scale(0.98);
 }
 
 .btn-primary {
@@ -264,12 +313,13 @@ body {
 }
 
 .btn-secondary {
-    background: var(--border);
+    background: var(--card-bg);
     color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .btn-secondary:hover {
-    background: #d1d5db;
+    background: var(--sidebar-hover);
 }
 
 .btn-danger {
@@ -319,9 +369,10 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: var(--primary);
+    font-family: var(--font-serif);
+    font-size: 2.75rem;
+    font-weight: 600;
+    color: var(--text);
 }
 
 .life-score-card h3 {
@@ -349,10 +400,7 @@ body {
     transition: transform var(--transition), box-shadow var(--transition);
 }
 
-.stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
+
 
 .stat-icon {
     width: 48px;
@@ -362,14 +410,10 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 1.4rem;
-    font-weight: 700;
     flex-shrink: 0;
+    background: var(--primary-tint);
+    color: var(--primary);
 }
-
-.stat-goals .stat-icon { background: #eef2ff; color: var(--primary); }
-.stat-finance .stat-icon { background: #ecfdf5; color: var(--success); }
-.stat-health .stat-icon { background: #fef2f2; color: var(--danger); }
-.stat-habits .stat-icon { background: #fffbeb; color: var(--warning); }
 
 .stat-info h4 {
     font-size: 0.8rem;
@@ -380,8 +424,10 @@ body {
 }
 
 .stat-number {
-    font-size: 1.5rem;
-    font-weight: 700;
+    font-family: var(--font-serif);
+    font-size: 1.6rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
 }
 
 .stat-detail {
@@ -469,6 +515,7 @@ body {
 
 .category-bar-fill {
     height: 100%;
+    background: var(--primary);
     border-radius: 4px;
     transition: width 0.5s ease;
 }
@@ -560,8 +607,8 @@ body {
 }
 
 .goals-grid th {
-    background: var(--primary);
-    color: white;
+    background: var(--surface);
+    color: var(--text-muted);
     font-weight: 600;
     text-transform: uppercase;
     font-size: 0.75rem;
@@ -569,11 +616,12 @@ body {
 }
 
 .goals-grid .cat-header {
-    background: var(--secondary);
-    color: white;
+    background: var(--bg);
+    color: var(--text);
     text-align: left;
-    font-weight: 700;
-    font-size: 0.85rem;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 0.95rem;
 }
 
 .goals-grid .goal-name-cell {
@@ -609,13 +657,13 @@ body {
 /* Greyed-out cells: skipped for that day, or outside the goal's schedule */
 .goals-grid .day-cell.skipped,
 .goals-grid .day-cell.off-day {
-    background: repeating-linear-gradient(135deg, var(--border-light), var(--border-light) 4px, #e5e9f0 4px, #e5e9f0 8px);
+    background: repeating-linear-gradient(135deg, var(--surface), var(--surface) 4px, var(--border-light) 4px, var(--border-light) 8px);
     color: var(--text-light);
 }
 
 /* Blank on a scheduled day that has passed — counts as a miss (cutover weeks) */
 .goals-grid .day-cell.inferred-miss {
-    background: rgba(239, 68, 68, 0.07);
+    background: var(--danger-tint);
     color: var(--danger-light);
     opacity: 0.7;
 }
@@ -636,7 +684,7 @@ body {
     height: 12px;
     vertical-align: middle;
     border: 1px solid var(--border);
-    background: repeating-linear-gradient(135deg, var(--border-light), var(--border-light) 3px, #e5e9f0 3px, #e5e9f0 6px);
+    background: repeating-linear-gradient(135deg, var(--surface), var(--surface) 3px, var(--border-light) 3px, var(--border-light) 6px);
 }
 
 .goals-grid .strike-count {
@@ -1063,6 +1111,12 @@ tr:hover .strike-dec { opacity: 1; }
     margin: 0 auto;
 }
 
+/* Chart.js sizes the ring canvas in pixels; let it follow the box instead */
+.health-ring canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
 .ring-label {
     position: absolute;
     top: 50%;
@@ -1164,9 +1218,10 @@ tr:hover .strike-dec { opacity: 1; }
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark, #4f46e5));
-    color: #fff;
+    padding: 14px 16px 10px;
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text);
 }
 
 .freq-group-title {
@@ -1180,18 +1235,19 @@ tr:hover .strike-dec { opacity: 1; }
 }
 
 .freq-label {
-    font-weight: 700;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 1.1rem;
 }
 
 .freq-group-count {
     font-size: 0.85rem;
     font-weight: 600;
-    background: rgba(255,255,255,0.2);
+    color: var(--primary);
+    background: var(--primary-tint);
     padding: 2px 10px;
     border-radius: 12px;
+    font-variant-numeric: tabular-nums;
 }
 
 .freq-cat-label {
@@ -1222,11 +1278,11 @@ tr:hover .strike-dec { opacity: 1; }
 }
 
 .habit-check-item:hover {
-    background: rgba(99, 102, 241, 0.04);
+    background: var(--surface);
 }
 
 .habit-check-item.item-done {
-    background: rgba(34, 197, 94, 0.05);
+    background: var(--surface);
 }
 
 .habit-item-content {
@@ -1249,19 +1305,15 @@ tr:hover .strike-dec { opacity: 1; }
     background: var(--border-light);
 }
 
-.freq-progress.on-track {
-    color: #16a34a;
-    background: rgba(34, 197, 94, 0.12);
+.freq-progress.on-track,
+.freq-progress.under-limit {
+    color: var(--primary);
+    background: var(--primary-tint);
 }
 
 .freq-progress.over-limit {
-    color: #dc2626;
-    background: rgba(220, 38, 38, 0.12);
-}
-
-.freq-progress.under-limit {
-    color: #16a34a;
-    background: rgba(34, 197, 94, 0.12);
+    color: var(--danger);
+    background: var(--danger-tint);
 }
 
 .freq-progress-bar {
@@ -1281,7 +1333,7 @@ tr:hover .strike-dec { opacity: 1; }
 }
 
 .freq-progress-fill.met {
-    background: #22c55e;
+    background: var(--primary-dark);
 }
 
 /* Ad-Hoc Tasks */
@@ -1344,7 +1396,7 @@ tr:hover .strike-dec { opacity: 1; }
 
 .adhoc-delete:hover {
     color: var(--danger);
-    background: rgba(239, 68, 68, 0.1);
+    background: var(--danger-tint);
 }
 
 .habit-checkbox {
@@ -1657,7 +1709,6 @@ tr:hover .strike-dec { opacity: 1; }
     padding: 16px 20px;
     margin-bottom: 12px;
     box-shadow: var(--shadow);
-    border-left: 4px solid var(--primary);
 }
 
 .journal-entry-header {
@@ -1668,8 +1719,9 @@ tr:hover .strike-dec { opacity: 1; }
 }
 
 .journal-entry-date {
+    font-family: var(--font-serif);
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 1rem;
 }
 
 .journal-entry-mood {
@@ -1689,7 +1741,197 @@ tr:hover .strike-dec { opacity: 1; }
     font-size: 0.9rem;
     line-height: 1.6;
     color: var(--text);
+}
+
+.journal-entry-text p {
     white-space: pre-wrap;
+    margin-bottom: 6px;
+}
+
+.highlight-list {
+    margin: 0 0 6px 1.4em;
+}
+
+/* ---- Journal streak ---- */
+.journal-streak {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+
+.journal-streak-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.journal-streak-count {
+    font-family: var(--font-serif);
+    font-size: 2.6rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.journal-streak-label {
+    font-weight: 600;
+}
+
+.journal-streak-note {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.journal-streak-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.journal-streak-meta b {
+    color: var(--text);
+}
+
+.streak-dots {
+    display: grid;
+    grid-template-columns: repeat(14, 1fr);
+    gap: 4px;
+    margin-top: 14px;
+}
+
+.streak-dot {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--border-light);
+    color: var(--text-light);
+    font-size: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.streak-dot.on {
+    background: var(--primary);
+    color: #fff;
+}
+
+.streak-dot.today {
+    box-shadow: inset 0 0 0 1.5px var(--primary);
+    color: var(--primary);
+}
+
+/* ---- Journal archive (imported, read-only) ---- */
+.journal-archive {
+    margin-top: 28px;
+}
+
+.journal-archive summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    cursor: pointer;
+    list-style: none;
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    padding: 4px 0 12px;
+}
+
+.journal-archive summary::-webkit-details-marker {
+    display: none;
+}
+
+.journal-archive summary::after {
+    content: '›';
+    color: var(--text-muted);
+    transition: transform var(--transition);
+}
+
+.journal-archive[open] summary::after {
+    transform: rotate(90deg);
+}
+
+.archive-count {
+    margin-left: auto;
+    margin-right: 10px;
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.archive-search {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    font: inherit;
+    margin-bottom: 12px;
+}
+
+.archive-entry {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.archive-date {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.archive-text {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.archive-entry.expanded .archive-text {
+    display: block;
+}
+
+.archive-more {
+    width: 100%;
+}
+
+/* ---- Journal import preview ---- */
+.import-summary {
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.import-preview .archive-entry {
+    cursor: default;
+    background: var(--surface);
+    box-shadow: none;
+    border: 1px solid var(--border-light);
+}
+
+.import-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.setting-status {
+    font-size: 0.8rem;
+    margin-top: 8px;
 }
 
 /* ========================================
@@ -1711,27 +1953,16 @@ tr:hover .strike-dec { opacity: 1; }
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    background: rgba(239, 68, 68, 0.08);
-    border: 1px solid rgba(239, 68, 68, 0.25);
+    background: var(--danger-tint);
+    border: 1px solid #ecd2c9;
     border-radius: var(--radius-sm);
     padding: 14px 16px;
     margin-bottom: 20px;
 }
 
 .strike-summary-card.strike-summary-clean {
-    background: rgba(34, 197, 94, 0.08);
-    border-color: rgba(34, 197, 94, 0.25);
-}
-
-.strike-summary-icon {
-    font-size: 1.3rem;
-    line-height: 1;
-    flex-shrink: 0;
-    margin-top: 1px;
-}
-
-.strike-summary-clean .strike-summary-icon {
-    content: '✓';
+    background: var(--primary-tint);
+    border-color: #cddbe9;
 }
 
 .strike-summary-text {
@@ -1756,9 +1987,10 @@ tr:hover .strike-dec { opacity: 1; }
 }
 
 .review-score-card .score-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--primary);
+    font-family: var(--font-serif);
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--text);
 }
 
 .review-score-card .score-label {
@@ -1945,6 +2177,11 @@ tr:hover .strike-dec { opacity: 1; }
     color: var(--text);
 }
 
+.modal-content select {
+    background: var(--card-bg);
+    color: var(--text);
+}
+
 .modal-content input,
 .modal-content select {
     padding: 8px 12px;
@@ -2096,7 +2333,14 @@ tr:hover .strike-dec { opacity: 1; }
     color: var(--text);
 }
 
-.stoic-form-group textarea {
+.highlight-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.stoic-form-group textarea,
+.highlight-input {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid var(--border);
@@ -2108,16 +2352,26 @@ tr:hover .strike-dec { opacity: 1; }
     line-height: 1.5;
 }
 
-.stoic-form-group textarea:focus {
+.stoic-form-group textarea:focus,
+.highlight-input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    box-shadow: 0 0 0 3px var(--primary-tint);
 }
 
 .stoic-rating {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(10, 40px);
     gap: 6px;
-    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .stoic-rating {
+        grid-template-columns: repeat(5, 1fr);
+    }
+    .stoic-rating .rating-btn {
+        width: auto;
+    }
 }
 
 .stoic-rating .rating-btn {
@@ -2135,7 +2389,7 @@ tr:hover .strike-dec { opacity: 1; }
 
 .stoic-rating .rating-btn:hover {
     border-color: var(--primary-light);
-    background: rgba(99, 102, 241, 0.05);
+    background: var(--primary-tint);
 }
 
 .stoic-rating .rating-btn.active {
@@ -2171,7 +2425,10 @@ tr:hover .strike-dec { opacity: 1; }
 
     .main-content {
         margin-left: 0;
-        padding: 64px 12px 80px; /* Bottom padding for mobile nav */
+        /* clear the fixed header and bottom nav (plus notch / home indicator) */
+        padding: 72px 14px 92px;
+        padding-top: calc(72px + env(safe-area-inset-top));
+        padding-bottom: calc(92px + env(safe-area-inset-bottom));
     }
 
     .section-header {
@@ -2332,20 +2589,23 @@ tr:hover .strike-dec { opacity: 1; }
     }
 }
 
-/* Mobile bottom navigation bar */
+/* Mobile bottom navigation bar — sits above the iPhone home indicator */
 .mobile-bottom-nav {
     display: none;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--sidebar-bg);
-    height: 64px;
-    z-index: 99;
-    justify-content: space-around;
-    align-items: center;
+    height: 68px;
+    height: calc(68px + env(safe-area-inset-bottom));
     padding: 0 4px;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: rgba(255, 255, 255, 0.96);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    z-index: 99;
+    align-items: stretch;
 }
 
 @media (max-width: 768px) {
@@ -2355,58 +2615,74 @@ tr:hover .strike-dec { opacity: 1; }
 }
 
 .mobile-nav-btn {
+    flex: 1;
+    min-width: 0;
     background: none;
     border: none;
-    color: var(--sidebar-text);
+    color: var(--text-muted);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    justify-content: center;
+    gap: 4px;
     cursor: pointer;
-    padding: 8px 6px;
-    border-radius: 8px;
-    transition: all var(--transition);
-    font-size: 0.65rem;
-    min-width: 48px;
+    padding: 6px 0;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .mobile-nav-btn .mobile-nav-icon {
-    font-size: 1.3rem;
+    font-size: 1.6rem;
+    transition: transform 0.15s;
 }
 
 .mobile-nav-btn.active {
-    color: var(--primary-light);
+    color: var(--primary);
+    font-weight: 600;
 }
 
-.mobile-nav-btn:active {
-    background: var(--sidebar-hover);
+.mobile-nav-btn.active .mobile-nav-icon {
+    stroke-width: 2.1;
 }
 
-/* PWA safe areas */
-@supports (padding: env(safe-area-inset-bottom)) {
-    .mobile-bottom-nav {
-        padding-bottom: env(safe-area-inset-bottom);
-        height: calc(64px + env(safe-area-inset-bottom));
-    }
-
-    .main-content {
-        padding-bottom: calc(80px + env(safe-area-inset-bottom));
-    }
-
-    .mobile-header {
-        padding-top: env(safe-area-inset-top);
-    }
+.mobile-nav-btn:active .mobile-nav-icon {
+    transform: scale(0.9);
 }
 
 @media (max-width: 480px) {
-    .stats-grid,
-    .finance-overview,
-    .health-metrics {
+    .finance-overview {
         grid-template-columns: 1fr;
     }
 
-    .mobile-nav-btn {
-        font-size: 0.6rem;
+    /* Compact 2×2 tiles on phones */
+    .stats-grid,
+    .health-metrics {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .stat-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px;
+    }
+
+    .stat-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        font-size: 1.05rem;
+    }
+
+    .stat-info h4 {
+        font-size: 0.7rem;
+    }
+
+    .health-card {
+        padding: 14px 10px;
     }
 }
 
@@ -2535,10 +2811,11 @@ tr:hover .strike-dec { opacity: 1; }
     white-space: nowrap;
     flex-shrink: 0;
 }
-.streak-badge.fire   { background: rgba(249,115,22,0.12); color: #ea580c; }
-.streak-badge.star   { background: rgba(234,179,8,0.15);  color: #b45309; }
-.streak-badge.diamond{ background: rgba(139,92,246,0.15); color: #7c3aed; }
-.streak-badge.crown  { background: rgba(234,179,8,0.2);   color: #92400e; }
+/* One quiet style for every tier; the emoji carries the level */
+.streak-badge.fire,
+.streak-badge.star,
+.streak-badge.diamond,
+.streak-badge.crown { background: var(--primary-tint); color: var(--primary-dark); }
 
 /* ========================================
    Weekly Trend
@@ -2551,8 +2828,8 @@ tr:hover .strike-dec { opacity: 1; }
     border-radius: 10px;
     display: inline-block;
 }
-.weekly-trend.up      { color: var(--success); background: rgba(34,197,94,0.1); }
-.weekly-trend.down    { color: var(--danger);  background: rgba(239,68,68,0.1); }
+.weekly-trend.up      { color: var(--success); background: var(--success-tint); }
+.weekly-trend.down    { color: var(--danger);  background: var(--danger-tint); }
 .weekly-trend.neutral { color: var(--text-muted); background: var(--border-light); }
 
 /* ========================================
@@ -2611,13 +2888,14 @@ tr:hover .strike-dec { opacity: 1; }
     gap: 8px;
 }
 .alltime-cat-card {
+    background: var(--surface);
     border-radius: var(--radius-sm);
     padding: 10px 12px;
     border-left: 3px solid var(--border);
 }
-.alltime-cat-card.good       { border-color: var(--success); background: rgba(34,197,94,0.06); }
-.alltime-cat-card.okay       { border-color: var(--warning); background: rgba(245,158,11,0.06); }
-.alltime-cat-card.needs-work { border-color: var(--danger);  background: rgba(239,68,68,0.06); }
+.alltime-cat-card.good       { border-left: 3px solid var(--success); }
+.alltime-cat-card.okay       { border-left: 3px solid var(--warning); }
+.alltime-cat-card.needs-work { border-left: 3px solid var(--danger); }
 .alltime-cat-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
 .alltime-cat-name { font-size: 0.8rem; font-weight: 600; }
 .alltime-cat-pct  { font-size: 1.1rem; font-weight: 700; }
@@ -2631,10 +2909,34 @@ tr:hover .strike-dec { opacity: 1; }
    Vacation Week
    ======================================== */
 .week-nav {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto auto auto auto;
+    justify-content: center;
     align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 8px 12px;
+}
+
+.week-arrow {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+@media (max-width: 768px) {
+    /* ‹ week › on one line, the vacation toggle under it */
+    .week-nav {
+        grid-template-columns: 44px 1fr 44px;
+        justify-content: stretch;
+    }
+    .week-nav .week-label {
+        min-width: 0;
+    }
+    #vacationWeekBtn {
+        grid-column: 1 / -1;
+        justify-self: center;
+    }
 }
 
 /* ========================================
@@ -2645,8 +2947,8 @@ tr:hover .strike-dec { opacity: 1; }
     user-select: none;
     transition: var(--transition);
 }
-.day-header:hover { background: rgba(99,102,241,0.1); color: var(--primary); }
-.day-header.vac-header { background: rgba(99,102,241,0.08); color: var(--primary); }
+.day-header:hover { background: var(--primary-tint); color: var(--primary); }
+.day-header.vac-header { background: var(--primary-tint); color: var(--primary); }
 
 .today-header-row {
     display: flex;
@@ -2667,15 +2969,15 @@ tr:hover .strike-dec { opacity: 1; }
 }
 .vacation-day-btn:hover { border-color: var(--primary); color: var(--primary); }
 .vacation-day-btn.active {
-    background: rgba(99,102,241,0.1);
+    background: var(--primary-tint);
     border-color: var(--primary);
     color: var(--primary);
     font-weight: 600;
 }
 
 .travel-day-notice {
-    background: rgba(99,102,241,0.08);
-    border: 1.5px solid rgba(99,102,241,0.2);
+    background: var(--primary-tint);
+    border: 1px solid #cddbe9;
     border-radius: var(--radius-sm);
     padding: 16px;
     text-align: center;
@@ -2684,7 +2986,7 @@ tr:hover .strike-dec { opacity: 1; }
 }
 
 .day-cell.vacation-day {
-    background: rgba(99,102,241,0.06);
+    background: var(--primary-tint);
     color: var(--text-light);
     font-size: 0.7rem;
     cursor: default;
@@ -2752,11 +3054,16 @@ tr:hover .strike-dec { opacity: 1; }
 .alltime-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .alltime-header h3 { margin-bottom: 0; }
 
+/* Serif quote under Evening Reflection */
+#section-journal .section-subtitle {
+    font-family: var(--font-serif);
+}
+
 </style>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="theme-color" content="#f6f4ef">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Life OS">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
@@ -2768,12 +3075,12 @@ tr:hover .strike-dec { opacity: 1; }
             <span class="logo-sub">Personal Operating System</span>
         </div>
         <ul class="nav-links">
-            <li><a href="#" class="nav-link active" data-section="dashboard"><span class="nav-icon">&#9673;</span> Dashboard</a></li>
-            <li><a href="#" class="nav-link" data-section="goals"><span class="nav-icon">&#9889;</span> Goals</a></li>
-            <li><a href="#" class="nav-link" data-section="health"><span class="nav-icon">&#9829;</span> Health</a></li>
-            <li><a href="#" class="nav-link" data-section="habits"><span class="nav-icon">&#10003;</span> Today</a></li>
-            <li><a href="#" class="nav-link" data-section="journal"><span class="nav-icon">&#9998;</span> Reflection</a></li>
-            <li><a href="#" class="nav-link" data-section="review"><span class="nav-icon">&#9733;</span> Weekly Review</a></li>
+            <li><a href="#" class="nav-link active" data-section="dashboard"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-6h-5v6H5A1.5 1.5 0 0 1 3.5 19z"/></svg> Dashboard</a></li>
+            <li><a href="#" class="nav-link" data-section="goals"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg> Goals</a></li>
+            <li><a href="#" class="nav-link" data-section="health"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-8.9-9.4C2.2 7.4 4.3 4.5 7.4 4.5c1.9 0 3.3 1 4.6 2.7 1.3-1.7 2.7-2.7 4.6-2.7 3.1 0 5.2 2.9 4.3 6.1C19.5 15.4 12 20 12 20z"/></svg> Health</a></li>
+            <li><a href="#" class="nav-link" data-section="habits"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="m8 12.3 2.8 2.8L16.2 9"/></svg> Today</a></li>
+            <li><a href="#" class="nav-link" data-section="journal"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h11.5a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M8.5 8h6M8.5 11.5h6"/></svg> Reflection</a></li>
+            <li><a href="#" class="nav-link" data-section="review"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg> Weekly Review</a></li>
         </ul>
         <div class="sidebar-footer">
             <button class="btn-settings" id="settingsBtn">Settings</button>
@@ -2782,8 +3089,9 @@ tr:hover .strike-dec { opacity: 1; }
 
     <!-- Mobile Header -->
     <div class="mobile-header">
-        <button class="hamburger" id="menuToggle">&#9776;</button>
+        <button class="hamburger" id="menuToggle" aria-label="Menu"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
         <h2>Life OS</h2>
+        <button class="hamburger" id="mobileSettingsBtn" aria-label="Settings"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
     </div>
 
     <!-- Main Content -->
@@ -2812,7 +3120,7 @@ tr:hover .strike-dec { opacity: 1; }
             <!-- Quick Stats -->
             <div class="stats-grid">
                 <div class="stat-card stat-goals">
-                    <div class="stat-icon">&#9889;</div>
+                    <div class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></div>
                     <div class="stat-info">
                         <h4>Goals On Track</h4>
                         <div class="stat-number" id="dashGoalsOnTrack">--</div>
@@ -2820,7 +3128,7 @@ tr:hover .strike-dec { opacity: 1; }
                     </div>
                 </div>
                 <div class="stat-card stat-finance">
-                    <div class="stat-icon">&#10003;</div>
+                    <div class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="m8 12.3 2.8 2.8L16.2 9"/></svg></div>
                     <div class="stat-info">
                         <h4>Today's Progress</h4>
                         <div class="stat-number" id="dashTodayProgress">--</div>
@@ -2828,7 +3136,7 @@ tr:hover .strike-dec { opacity: 1; }
                     </div>
                 </div>
                 <div class="stat-card stat-health">
-                    <div class="stat-icon">&#9829;</div>
+                    <div class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-8.9-9.4C2.2 7.4 4.3 4.5 7.4 4.5c1.9 0 3.3 1 4.6 2.7 1.3-1.7 2.7-2.7 4.6-2.7 3.1 0 5.2 2.9 4.3 6.1C19.5 15.4 12 20 12 20z"/></svg></div>
                     <div class="stat-info">
                         <h4>Health Score</h4>
                         <div class="stat-number" id="dashHealthScore">--</div>
@@ -2836,7 +3144,7 @@ tr:hover .strike-dec { opacity: 1; }
                     </div>
                 </div>
                 <div class="stat-card stat-habits">
-                    <div class="stat-icon">&#10003;</div>
+                    <div class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.4 2.6-5.4 3.9-8.3.4 1.8 1.5 3 2.6 3.6C12 7.5 13 5 15 3c.3 3.1 3.5 5.6 3.5 10.2 0 4.6-2.8 7.8-6.5 7.8z"/></svg></div>
                     <div class="stat-info">
                         <h4>Habit Streak</h4>
                         <div class="stat-number" id="dashHabitStreak">--</div>
@@ -2894,9 +3202,9 @@ tr:hover .strike-dec { opacity: 1; }
 
             <!-- Week Navigation -->
             <div class="week-nav">
-                <button class="btn btn-nav" id="prevWeekBtn">&larr; Previous</button>
+                <button class="btn btn-nav week-arrow" id="prevWeekBtn" aria-label="Previous week">&lsaquo;</button>
                 <span class="week-label" id="currentWeekLabel">Current Week</span>
-                <button class="btn btn-nav" id="nextWeekBtn">Next &rarr;</button>
+                <button class="btn btn-nav week-arrow" id="nextWeekBtn" aria-label="Next week">&rsaquo;</button>
                 <button class="btn btn-secondary btn-sm" id="vacationWeekBtn">🏖️ Vacation</button>
             </div>
 
@@ -3017,7 +3325,7 @@ tr:hover .strike-dec { opacity: 1; }
             <div class="section-header">
                 <h1>Today's Actions</h1>
                 <div class="section-actions">
-                    <button class="btn btn-primary" id="addHabitBtn">+ Add Goal</button>
+                    <button class="btn btn-secondary" id="addHabitBtn">+ Add Goal</button>
                 </div>
             </div>
 
@@ -3069,6 +3377,9 @@ tr:hover .strike-dec { opacity: 1; }
                 <p class="section-subtitle" style="font-style:italic;color:var(--text-muted);margin-top:4px;">"Every night before going to sleep, we must ask ourselves: what weakness did I overcome today? What virtue did I acquire?" - Seneca</p>
             </div>
 
+            <!-- Journal streak -->
+            <div class="journal-streak" id="journalStreak"></div>
+
             <!-- Stoic Evening Reflection Form -->
             <div class="journal-compose" id="eveningReflectionForm">
                 <div class="stoic-form-group">
@@ -3080,8 +3391,12 @@ tr:hover .strike-dec { opacity: 1; }
                     <textarea id="stoicFellShort" rows="3" placeholder="Be honest but compassionate with yourself..."></textarea>
                 </div>
                 <div class="stoic-form-group">
-                    <label class="stoic-label">What am I grateful for today? (3 things)</label>
-                    <textarea id="stoicGratitude" rows="3" placeholder="1. &#10;2. &#10;3. "></textarea>
+                    <label class="stoic-label" for="stoicHighlight1">Highlights from today / things to remember</label>
+                    <div class="highlight-inputs">
+                        <input type="text" class="highlight-input" id="stoicHighlight1" placeholder="1." autocomplete="off">
+                        <input type="text" class="highlight-input" id="stoicHighlight2" placeholder="2." autocomplete="off">
+                        <input type="text" class="highlight-input" id="stoicHighlight3" placeholder="3." autocomplete="off">
+                    </div>
                 </div>
                 <div class="stoic-form-group">
                     <label class="stoic-label">Did I live according to my values today?</label>
@@ -3112,6 +3427,17 @@ tr:hover .strike-dec { opacity: 1; }
                     <div class="empty-state">Complete your first evening reflection to see your history.</div>
                 </div>
             </div>
+
+            <!-- Imported entries (read-only) -->
+            <details class="journal-archive" id="journalArchive" hidden>
+                <summary>
+                    <span>Journal archive</span>
+                    <span class="archive-count" id="archiveCount"></span>
+                </summary>
+                <input type="search" id="archiveSearch" class="archive-search" placeholder="Search your archive" autocomplete="off">
+                <div id="archiveList" class="archive-list"></div>
+                <button class="btn btn-secondary archive-more" id="archiveMoreBtn" style="display:none;">Show more</button>
+            </details>
         </section>
 
         <!-- ===== WEEKLY REVIEW SECTION ===== -->
@@ -3126,7 +3452,6 @@ tr:hover .strike-dec { opacity: 1; }
 
                 <!-- Strike Summary -->
                 <div id="strikeSummaryCard" class="strike-summary-card" style="display:none;">
-                    <div class="strike-summary-icon">&#9889;</div>
                     <div class="strike-summary-text" id="strikeSummaryText"></div>
                 </div>
 
@@ -3274,6 +3599,16 @@ tr:hover .strike-dec { opacity: 1; }
                     <div id="reminderStatus" style="font-size:0.8rem;color:var(--text-muted);margin-top:8px;"></div>
                 </div>
                 <div class="setting-item">
+                    <label>Import Journal Entries</label>
+                    <p class="setting-desc">Bring in entries from another journal app as a read-only archive on the Reflection tab. Choose the PDF export (or a .txt / .md file); you'll see a preview before anything is saved. Their dates count toward your journal streak.</p>
+                    <input type="file" id="journalImportInput" accept=".pdf,.txt,.md,.text,application/pdf,text/plain" style="display:none;">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-secondary" id="journalImportBtn">Choose file…</button>
+                        <button class="btn btn-secondary" id="journalClearBtn" style="display:none;">Remove imported entries</button>
+                    </div>
+                    <div id="journalImportStatus" class="setting-status"></div>
+                </div>
+                <div class="setting-item">
                     <label>Import Historical Weeks (JSON)</label>
                     <p class="setting-desc">Import the <code>life-os-historical-import.json</code> file generated by the Python parser. Merges historical weeks into your existing data without overwriting goals or settings.</p>
                     <input type="file" id="mergeHistoricalInput" accept=".json" style="display:none;">
@@ -3326,31 +3661,48 @@ tr:hover .strike-dec { opacity: 1; }
         </div>
     </div>
 
+    <!-- Journal import preview -->
+    <div class="modal" id="journalImportModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Import journal entries</h2>
+                <button class="modal-close" data-modal="journalImportModal">&times;</button>
+            </div>
+            <p class="import-summary" id="journalImportSummary"></p>
+            <div class="import-preview" id="journalImportPreview"></div>
+            <p class="setting-desc">Check that each entry starts on the right date. If they don't, cancel and send a sample page so the importer can be tuned.</p>
+            <div class="import-actions">
+                <button class="btn btn-secondary" data-modal-close="journalImportModal" id="journalImportCancel">Cancel</button>
+                <button class="btn btn-primary" id="journalImportConfirm">Import</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Mobile Bottom Navigation -->
     <nav class="mobile-bottom-nav" id="mobileBottomNav">
         <button class="mobile-nav-btn active" data-section="dashboard">
-            <span class="mobile-nav-icon">&#9673;</span>
-            Home
+            <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-6h-5v6H5A1.5 1.5 0 0 1 3.5 19z"/></svg>
+            <span class="mobile-nav-label">Home</span>
         </button>
         <button class="mobile-nav-btn" data-section="goals">
-            <span class="mobile-nav-icon">&#9889;</span>
-            Goals
+            <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>
+            <span class="mobile-nav-label">Goals</span>
         </button>
         <button class="mobile-nav-btn" data-section="health">
-            <span class="mobile-nav-icon">&#9829;</span>
-            Health
+            <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-8.9-9.4C2.2 7.4 4.3 4.5 7.4 4.5c1.9 0 3.3 1 4.6 2.7 1.3-1.7 2.7-2.7 4.6-2.7 3.1 0 5.2 2.9 4.3 6.1C19.5 15.4 12 20 12 20z"/></svg>
+            <span class="mobile-nav-label">Health</span>
         </button>
         <button class="mobile-nav-btn" data-section="habits">
-            <span class="mobile-nav-icon">&#10003;</span>
-            Today
+            <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="m8 12.3 2.8 2.8L16.2 9"/></svg>
+            <span class="mobile-nav-label">Today</span>
         </button>
         <button class="mobile-nav-btn" data-section="journal">
-            <span class="mobile-nav-icon">&#9998;</span>
-            Journal
+            <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h11.5a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M8.5 8h6M8.5 11.5h6"/></svg>
+            <span class="mobile-nav-label">Journal</span>
         </button>
         <button class="mobile-nav-btn" data-section="review">
-            <span class="mobile-nav-icon">&#9733;</span>
-            Review
+            <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+            <span class="mobile-nav-label">Review</span>
         </button>
     </nav>
 
@@ -3489,6 +3841,11 @@ const EXCLUDE_CATS = new Set(['other', 'one-time / other', 'one-time/other', 'ge
 const DEFAULT_SCORING_CUTOVER = '2026-10-11';
 const DEFAULT_REMINDERS = { enabled: false, morning: '08:00', evening: '21:00', timezone: '' };
 
+// Imported journal entries (text) when Convex isn't connected; see loadArchive()
+const ARCHIVE_STORAGE_KEY = 'lifeOS_journalArchive';
+const ARCHIVE_PAGE = 30;
+const PDFJS_CDN = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build';
+
 class LifeOS {
     constructor() {
         this.STORAGE_KEY = 'lifeOSData';
@@ -3524,7 +3881,8 @@ class LifeOS {
             healthLog: [],      // { date, weight, sleep, energy }
             journalEntries: [], // { date, text, mood, type }
             weeklyReviews: [],  // { weekDate, wins, improvements, priorities, rating }
-            eveningReflections: [], // { date, whatWentWell, whatCouldImprove, gratitude, didILiveByValues, tomorrowIntention }
+            eveningReflections: [], // { date, timestamp, wentWell, fellShort, highlights[], valuesRating, intention } (older ones: gratitude)
+            journalImportDates: [], // local dates of entries imported from another journal app (text is in the archive)
             activityLog: [],
             settings: {
                 scoringCutover: DEFAULT_SCORING_CUTOVER,
@@ -3679,6 +4037,7 @@ class LifeOS {
     // Initialization
     // ========================================
     init() {
+        this.applyChartTheme();
         this.bindNavigation();
         this.bindModals();
         this.bindForms();
@@ -4290,6 +4649,19 @@ class LifeOS {
         return week ? this.uncheckedDailyEntries(week, today.getDay()).length : 0;
     }
 
+    // Theme color from life-os.css (charts can't read CSS variables themselves)
+    themeColor(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+    }
+
+    // Quiet chart defaults to match the paper theme
+    applyChartTheme() {
+        if (!window.Chart || !Chart.defaults) return;
+        Chart.defaults.font.family = this.themeColor('font-sans');
+        Chart.defaults.color = this.themeColor('text-muted');
+        Chart.defaults.borderColor = this.themeColor('border-light');
+    }
+
     // ========================================
     // Dashboard
     // ========================================
@@ -4332,7 +4704,7 @@ class LifeOS {
             data: {
                 datasets: [{
                     data: [Math.min(lifeScore, 100), Math.max(100 - lifeScore, 0)],
-                    backgroundColor: ['#6366f1', '#f1f5f9'],
+                    backgroundColor: [this.themeColor('primary'), this.themeColor('border-light')],
                     borderWidth: 0,
                 }]
             },
@@ -4436,16 +4808,6 @@ class LifeOS {
 
         const catStats = this.scoreByCategory(week);
 
-        const colors = {
-            'Physical Health': '#ef4444',
-            'Mental Health': '#8b5cf6',
-            'Budgeting': '#22c55e',
-            'Work': '#3b82f6',
-            'Monthly': '#f59e0b',
-            'Cooking': '#f97316',
-            'Other': '#6b7280'
-        };
-
         let html = '';
         for (const [cat, stats] of Object.entries(catStats)) {
             const pct = this.scorePct(stats);
@@ -4456,7 +4818,7 @@ class LifeOS {
                         <span>${pct}%</span>
                     </div>
                     <div class="category-bar-track">
-                        <div class="category-bar-fill" style="width:${pct}%;background:${colors[cat] || '#6366f1'}"></div>
+                        <div class="category-bar-fill" style="width:${pct}%"></div>
                     </div>
                 </div>`;
         }
@@ -4982,8 +5344,8 @@ class LifeOS {
                 datasets: [{
                     label: 'Strikes',
                     data: strikesData,
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239,68,68,0.1)',
+                    borderColor: this.themeColor('danger'),
+                    backgroundColor: this.themeColor('danger-tint'),
                     fill: true,
                     tension: 0.3
                 }]
@@ -5013,7 +5375,8 @@ class LifeOS {
                 datasets: [{
                     label: 'Completion %',
                     data: catPcts,
-                    backgroundColor: ['#ef4444', '#8b5cf6', '#22c55e', '#3b82f6', '#f59e0b', '#f97316', '#6b7280']
+                    backgroundColor: this.themeColor('primary'),
+                    borderRadius: 4
                 }]
             },
             options: {
@@ -5232,26 +5595,26 @@ class LifeOS {
             workoutTarget += s.target;
         });
         document.getElementById('workoutCount').textContent = `${workouts}/${workoutTarget}`;
-        this.drawRing('workoutRing', workouts / Math.max(workoutTarget, 1), '#ef4444');
+        this.drawRing('workoutRing', workouts / Math.max(workoutTarget, 1));
 
         // Sleep (bedtime) and mindfulness (Meditate): nights done of nights expected so far
-        const ring = (name, countId, ringId, color) => {
+        const ring = (name, countId, ringId) => {
             const s = scored(name)[0] || { done: 0, expected: 0 };
             document.getElementById(countId).textContent = `${s.done}/${s.expected}`;
-            this.drawRing(ringId, s.done / Math.max(s.expected, 1), color);
+            this.drawRing(ringId, s.done / Math.max(s.expected, 1));
         };
-        ring('bed by', 'sleepScore', 'sleepRing', '#3b82f6');
-        ring('Meditate', 'mindfulCount', 'mindfulRing', '#8b5cf6');
+        ring('bed by', 'sleepScore', 'sleepRing');
+        ring('Meditate', 'mindfulCount', 'mindfulRing');
 
         // Substances (Zyns + alcohol) — limits: at/under the max = 100%
         const subst = [...scored('Zyn'), ...scored('drink')].reduce(
             (a, s) => ({ done: a.done + s.done, expected: a.expected + s.expected }), { done: 0, expected: 0 });
         const substPct = this.scorePct(subst);
         document.getElementById('substanceScore').textContent = substPct + '%';
-        this.drawRing('substanceRing', substPct / 100, '#22c55e');
+        this.drawRing('substanceRing', substPct / 100);
     }
 
-    drawRing(canvasId, progress, color) {
+    drawRing(canvasId, progress, color = this.themeColor('primary')) {
         const canvas = document.getElementById(canvasId);
         if (this.charts[canvasId]) this.charts[canvasId].destroy();
         this.charts[canvasId] = new Chart(canvas, {
@@ -5259,7 +5622,7 @@ class LifeOS {
             data: {
                 datasets: [{
                     data: [Math.min(progress, 1) * 100, Math.max((1 - progress), 0) * 100],
-                    backgroundColor: [color, '#f1f5f9'],
+                    backgroundColor: [color, this.themeColor('border-light')],
                     borderWidth: 0
                 }]
             },
@@ -5286,8 +5649,8 @@ class LifeOS {
                     datasets: [{
                         label: 'Weight (lbs)',
                         data: weightLogs.map(l => l.weight),
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99,102,241,0.1)',
+                        borderColor: this.themeColor('primary'),
+                        backgroundColor: this.themeColor('primary-tint'),
                         fill: true,
                         tension: 0.3
                     }]
@@ -5311,7 +5674,7 @@ class LifeOS {
                     datasets: [{
                         label: 'Hours',
                         data: sleepLogs.map(l => l.sleep),
-                        backgroundColor: sleepLogs.map(l => l.sleep >= 7 ? '#22c55e' : l.sleep >= 6 ? '#f59e0b' : '#ef4444'),
+                        backgroundColor: sleepLogs.map(l => this.themeColor(l.sleep >= 7 ? 'primary' : l.sleep >= 6 ? 'warning' : 'danger')),
                         borderRadius: 4
                     }]
                 },
@@ -5542,11 +5905,11 @@ class LifeOS {
 
         // Define frequency groups in display order
         const groups = [
-            { key: 'daily', title: 'Daily Essentials', icon: '&#9788;', desc: 'Do these every day' },
-            { key: 'fewPerWeek', title: 'A Few Times This Week', icon: '&#8635;', desc: 'Hit your target this week' },
-            { key: 'weekly', title: 'Weekly Goals', icon: '&#9733;', desc: 'Complete once this week' },
-            { key: 'limit', title: 'Limits & Boundaries', icon: '&#9888;', desc: 'Stay within these limits' },
-            { key: 'monthly', title: 'Monthly Goals', icon: '&#128197;', desc: 'Once this month' }
+            { key: 'daily', title: 'Daily Essentials', desc: 'Do these every day' },
+            { key: 'fewPerWeek', title: 'A Few Times This Week', desc: 'Hit your target this week' },
+            { key: 'weekly', title: 'Weekly Goals', desc: 'Complete once this week' },
+            { key: 'limit', title: 'Limits & Boundaries', desc: 'Stay within these limits' },
+            { key: 'monthly', title: 'Monthly Goals', desc: 'Once this month' }
         ];
 
         let html = '';
@@ -5561,7 +5924,6 @@ class LifeOS {
             html += `<div class="freq-group">
                 <div class="freq-group-header">
                     <div class="freq-group-title">
-                        <span class="freq-icon">${group.icon}</span>
                         <span class="freq-label">${group.title}</span>
                     </div>
                     <span class="freq-group-count">${todayChecked}/${groupTotal}</span>
@@ -5768,28 +6130,58 @@ class LifeOS {
                 e.target.classList.add('active');
             }
         });
+
+        // Archive: load on first open, filter as you type, page through
+        const archive = document.getElementById('journalArchive');
+        archive.addEventListener('toggle', () => { if (archive.open) this.renderArchive(); });
+        document.getElementById('archiveSearch').addEventListener('input', () => {
+            this._archiveShown = ARCHIVE_PAGE;
+            this.renderArchive();
+        });
+        document.getElementById('archiveMoreBtn').addEventListener('click', () => {
+            this._archiveShown = (this._archiveShown || ARCHIVE_PAGE) + ARCHIVE_PAGE;
+            this.renderArchive();
+        });
+        document.getElementById('archiveList').addEventListener('click', (e) => {
+            const card = e.target.closest('.archive-entry');
+            if (card) card.classList.toggle('expanded');
+        });
+
+        // Import from another journal app (Settings)
+        document.getElementById('journalImportBtn').addEventListener('click', () => document.getElementById('journalImportInput').click());
+        document.getElementById('journalImportInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            e.target.value = '';
+            if (file) this.previewJournalImport(file);
+        });
+        document.getElementById('journalImportConfirm').addEventListener('click', () => this.confirmJournalImport());
+        document.getElementById('journalImportCancel').addEventListener('click', () => this.closeModal('journalImportModal'));
+        document.getElementById('journalClearBtn').addEventListener('click', () => this.clearJournalArchive());
     }
 
     saveEveningReflection() {
         const wentWell = document.getElementById('stoicWentWell')?.value?.trim();
         const fellShort = document.getElementById('stoicFellShort')?.value?.trim();
-        const gratitude = document.getElementById('stoicGratitude')?.value?.trim();
+        const highlights = [1, 2, 3]
+            .map(i => document.getElementById(`stoicHighlight${i}`)?.value?.trim())
+            .filter(Boolean);
         const intention = document.getElementById('stoicIntention')?.value?.trim();
 
         const ratingBtn = document.querySelector('#stoicValuesRating .rating-btn.active');
         const valuesRating = ratingBtn ? parseInt(ratingBtn.dataset.rating) : null;
 
-        if (!wentWell && !fellShort && !gratitude) {
+        if (!wentWell && !fellShort && highlights.length === 0) {
             alert('Please fill in at least one reflection field.');
             return;
         }
 
+        const now = new Date();
         const reflection = {
-            date: this.getTodayStr(),
-            timestamp: new Date().toISOString(),
+            date: this.localDateKey(now),
+            timestamp: now.toISOString(),
             wentWell,
             fellShort,
-            gratitude,
+            highlights,
             valuesRating,
             intention
         };
@@ -5797,10 +6189,11 @@ class LifeOS {
         this.data.eveningReflections.unshift(reflection);
 
         // Also save as a journal entry for unified history
+        const highlightText = highlights.map((h, i) => `${i + 1}. ${h}`).join('\n') || '-';
         this.data.journalEntries.unshift({
-            date: this.getTodayStr(),
-            timestamp: new Date().toISOString(),
-            text: `**What went well:** ${wentWell || '-'}\n\n**Where I fell short:** ${fellShort || '-'}\n\n**Gratitude:** ${gratitude || '-'}\n\n**Values Rating:** ${valuesRating || '-'}/10\n\n**Tomorrow's Intention:** ${intention || '-'}`,
+            date: reflection.date,
+            timestamp: reflection.timestamp,
+            text: `**What went well:** ${wentWell || '-'}\n\n**Where I fell short:** ${fellShort || '-'}\n\n**Highlights / to remember:**\n${highlightText}\n\n**Values Rating:** ${valuesRating || '-'}/10\n\n**Tomorrow's Intention:** ${intention || '-'}`,
             mood: valuesRating >= 7 ? 'good' : valuesRating >= 5 ? 'okay' : 'low',
             type: 'stoic'
         });
@@ -5809,17 +6202,86 @@ class LifeOS {
         this.logActivity('Completed evening reflection');
 
         // Clear form
-        ['stoicWentWell', 'stoicFellShort', 'stoicGratitude', 'stoicIntention'].forEach(id => {
+        ['stoicWentWell', 'stoicFellShort', 'stoicHighlight1', 'stoicHighlight2', 'stoicHighlight3', 'stoicIntention'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
         document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
 
         this.renderJournal();
-        alert('Evening reflection saved!');
+        const streak = this.getJournalStreak().current;
+        alert(streak > 1 ? `Evening reflection saved — ${streak} days in a row!` : 'Evening reflection saved!');
+    }
+
+    // ---- Journal streak ----
+
+    // Local days with a saved reflection or an imported entry
+    getJournalDays() {
+        const days = new Set(this.data.journalImportDates || []);
+        (this.data.eveningReflections || []).forEach(r => {
+            days.add(r.timestamp ? this.localDateKey(new Date(r.timestamp)) : r.date);
+        });
+        days.delete(undefined);
+        return days;
+    }
+
+    shiftDateKey(key, n) {
+        const d = new Date(`${key}T12:00:00`);
+        d.setDate(d.getDate() + n);
+        return this.localDateKey(d);
+    }
+
+    // current: consecutive days up to today (today not done yet doesn't break it)
+    getJournalStreak() {
+        const days = this.getJournalDays();
+        const today = this.localDateKey(new Date());
+        const doneToday = days.has(today);
+        let current = 0;
+        for (let key = doneToday ? today : this.shiftDateKey(today, -1); days.has(key); key = this.shiftDateKey(key, -1)) current++;
+
+        let best = 0, run = 0, prev = null;
+        [...days].sort().forEach(key => {
+            run = prev && this.shiftDateKey(prev, 1) === key ? run + 1 : 1;
+            best = Math.max(best, run);
+            prev = key;
+        });
+        return { current, best, total: days.size, doneToday, days };
+    }
+
+    renderJournalStreak() {
+        const el = document.getElementById('journalStreak');
+        if (!el) return;
+        const s = this.getJournalStreak();
+        const today = this.localDateKey(new Date());
+        const dots = [];
+        for (let i = 13; i >= 0; i--) {
+            const key = this.shiftDateKey(today, -i);
+            const label = new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { weekday: 'narrow' });
+            const cls = s.days.has(key) ? 'on' : i === 0 ? 'today' : '';
+            dots.push(`<span class="streak-dot ${cls}" title="${key}">${label}</span>`);
+        }
+        const note = s.current === 0 ? 'Write tonight to start a streak.'
+            : s.doneToday ? 'Done for today.'
+            : 'Reflect tonight to keep it going.';
+        el.innerHTML = `
+            <div class="journal-streak-main">
+                <div class="journal-streak-count">${s.current}</div>
+                <div>
+                    <div class="journal-streak-label">${s.current === 1 ? 'day' : 'days'} in a row</div>
+                    <div class="journal-streak-note">${note}</div>
+                    <div class="journal-streak-meta">
+                        <span>Best <b>${s.best}</b></span>
+                        <span><b>${s.total}</b> days journaled</span>
+                    </div>
+                </div>
+            </div>
+            <div class="streak-dots">${dots.join('')}</div>`;
     }
 
     renderJournal() {
+        this.renderJournalStreak();
+        this.updateArchiveSummary();
+
         const container = document.getElementById('journalEntriesList');
         const entries = this.data.eveningReflections;
 
@@ -5832,8 +6294,11 @@ class LifeOS {
             const dateStr = entry.timestamp
                 ? new Date(entry.timestamp).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
                 : entry.date;
+            const highlights = entry.highlights?.length
+                ? `<p><strong>Highlights:</strong></p><ol class="highlight-list">${entry.highlights.map(h => `<li>${this.escapeHtml(h)}</li>`).join('')}</ol>`
+                : entry.gratitude ? `<p><strong>Grateful for:</strong> ${this.escapeHtml(entry.gratitude)}</p>` : '';
 
-            return `<div class="journal-entry-card" style="border-left-color:var(--secondary)">
+            return `<div class="journal-entry-card">
                 <div class="journal-entry-header">
                     <span class="journal-entry-date">${dateStr}</span>
                     ${entry.valuesRating ? `<span class="journal-entry-mood">Values: ${entry.valuesRating}/10</span>` : ''}
@@ -5841,11 +6306,246 @@ class LifeOS {
                 <div class="journal-entry-text">
                     ${entry.wentWell ? `<p><strong>Went well:</strong> ${this.escapeHtml(entry.wentWell)}</p>` : ''}
                     ${entry.fellShort ? `<p><strong>Fell short:</strong> ${this.escapeHtml(entry.fellShort)}</p>` : ''}
-                    ${entry.gratitude ? `<p><strong>Grateful for:</strong> ${this.escapeHtml(entry.gratitude)}</p>` : ''}
+                    ${highlights}
                     ${entry.intention ? `<p><strong>Tomorrow:</strong> ${this.escapeHtml(entry.intention)}</p>` : ''}
                 </div>
             </div>`;
         }).join('');
+    }
+
+    // ---- Journal archive (entries imported from another app) ----
+    // Text lives in Convex (journalArchive table) or, without Convex, in localStorage —
+    // never in the main data blob. data.journalImportDates keeps just the dates for the streak.
+
+    async loadArchive(force = false) {
+        if (this._archive && !force) return this._archive;
+        if (this.convex) {
+            this._archive = await this.convex.query('journal:listArchive');
+        } else {
+            try { this._archive = JSON.parse(localStorage.getItem(ARCHIVE_STORAGE_KEY) || '[]'); } catch (e) { this._archive = []; }
+            this._archive.sort((a, b) => b.date.localeCompare(a.date));
+        }
+        return this._archive;
+    }
+
+    updateArchiveSummary() {
+        const n = (this.data.journalImportDates || []).length;
+        const details = document.getElementById('journalArchive');
+        details.hidden = n === 0;
+        document.getElementById('journalClearBtn').style.display = n > 0 ? 'inline-block' : 'none';
+        if (n > 0 && this._archive) document.getElementById('archiveCount').textContent = `${this._archive.length} entries`;
+        else if (n > 0) document.getElementById('archiveCount').textContent = `${n} days`;
+        if (details.open && !details.hidden) this.renderArchive();
+    }
+
+    async renderArchive() {
+        const list = document.getElementById('archiveList');
+        const moreBtn = document.getElementById('archiveMoreBtn');
+        if (!this._archive) list.innerHTML = '<div class="empty-state">Loading…</div>';
+        let entries;
+        try {
+            entries = await this.loadArchive();
+        } catch (e) {
+            list.innerHTML = `<div class="empty-state">Couldn't load the archive (${this.escapeHtml(e.message)}).</div>`;
+            return;
+        }
+        document.getElementById('archiveCount').textContent = `${entries.length} entries`;
+        const q = document.getElementById('archiveSearch').value.trim().toLowerCase();
+        const matches = q ? entries.filter(e => e.text.toLowerCase().includes(q) || e.date.includes(q)) : entries;
+        const shown = matches.slice(0, this._archiveShown || ARCHIVE_PAGE);
+        list.innerHTML = shown.map(e => `
+            <article class="archive-entry">
+                <div class="archive-date">${new Date(`${e.date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                <div class="archive-text">${this.escapeHtml(e.text)}</div>
+            </article>`).join('') || `<div class="empty-state">No entries match "${this.escapeHtml(q)}".</div>`;
+        moreBtn.style.display = matches.length > shown.length ? 'block' : 'none';
+    }
+
+    setJournalImportStatus(text, tone) {
+        const el = document.getElementById('journalImportStatus');
+        el.textContent = text;
+        el.style.color = tone === 'ok' ? 'var(--success)' : tone === 'warn' ? 'var(--danger)' : 'var(--text-muted)';
+    }
+
+    // Read the file, split it into dated entries and show a preview before saving
+    async previewJournalImport(file) {
+        this.setJournalImportStatus(`Reading ${file.name}…`);
+        try {
+            const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+            const pages = isPdf ? await this.pdfToLines(file) : [(await file.text()).split(/\r?\n/)];
+            const entries = this.parseJournalEntries(pages);
+            if (entries.length === 0) {
+                this.setJournalImportStatus('No dated entries found in that file. Send a sample page and the importer can be adjusted.', 'warn');
+                return;
+            }
+            this._pendingImport = { entries, source: 'Journal app' };
+            const fmt = key => new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+            document.getElementById('journalImportSummary').textContent =
+                `Found ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} from ${fmt(sorted[0].date)} to ${fmt(sorted.at(-1).date)}.`;
+            const sample = entries.length > 3 ? [sorted[0], sorted[Math.floor(sorted.length / 2)], sorted.at(-1)] : sorted;
+            document.getElementById('journalImportPreview').innerHTML = sample.map(e => `
+                <div class="archive-entry">
+                    <div class="archive-date">${fmt(e.date)}</div>
+                    <div class="archive-text">${this.escapeHtml(e.text.slice(0, 280))}${e.text.length > 280 ? '…' : ''}</div>
+                </div>`).join('');
+            this.setJournalImportStatus('');
+            this.openModal('journalImportModal');
+        } catch (err) {
+            this.setJournalImportStatus('Could not read that file: ' + err.message, 'warn');
+        }
+    }
+
+    async confirmJournalImport() {
+        const pending = this._pendingImport;
+        if (!pending) return;
+        const btn = document.getElementById('journalImportConfirm');
+        btn.disabled = true;
+        btn.textContent = 'Importing…';
+        try {
+            let added = 0, skipped = 0;
+            if (this.convex) {
+                for (let i = 0; i < pending.entries.length; i += 50) {
+                    const r = await this.convex.mutation('journal:importEntries', {
+                        entries: pending.entries.slice(i, i + 50), source: pending.source
+                    });
+                    added += r.added;
+                    skipped += r.skipped;
+                }
+            } else {
+                const existing = await this.loadArchive(true);
+                const keys = new Set(existing.map(e => `${e.date}:${e.text}`));
+                pending.entries.forEach(e => {
+                    if (keys.has(`${e.date}:${e.text}`)) { skipped++; return; }
+                    existing.push({ ...e, source: pending.source });
+                    keys.add(`${e.date}:${e.text}`);
+                    added++;
+                });
+                localStorage.setItem(ARCHIVE_STORAGE_KEY, JSON.stringify(existing));
+            }
+            const dates = new Set(this.data.journalImportDates || []);
+            pending.entries.forEach(e => dates.add(e.date));
+            this.data.journalImportDates = [...dates].sort();
+            this._archive = null;
+            this._pendingImport = null;
+            this.saveData();
+            this.logActivity(`Imported ${added} journal entr${added === 1 ? 'y' : 'ies'}`);
+            this.closeModal('journalImportModal');
+            this.setJournalImportStatus(`Imported ${added} entr${added === 1 ? 'y' : 'ies'}${skipped ? ` (${skipped} already there)` : ''}. They're under Journal archive on the Reflection tab.`, 'ok');
+            this.renderJournal();
+        } catch (err) {
+            this.setJournalImportStatus('Import failed: ' + err.message, 'warn');
+        }
+        btn.disabled = false;
+        btn.textContent = 'Import';
+    }
+
+    async clearJournalArchive() {
+        if (!confirm('Remove all imported journal entries? Your Life OS reflections are not affected.')) return;
+        try {
+            if (this.convex) {
+                let remaining = 1;
+                while (remaining > 0) ({ remaining } = await this.convex.mutation('journal:clearArchive', {}));
+            } else {
+                localStorage.removeItem(ARCHIVE_STORAGE_KEY);
+            }
+            this.data.journalImportDates = [];
+            this._archive = null;
+            this.saveData();
+            this.logActivity('Removed imported journal entries');
+            this.setJournalImportStatus('Imported entries removed.', 'ok');
+            this.renderJournal();
+        } catch (err) {
+            this.setJournalImportStatus('Could not remove entries: ' + err.message, 'warn');
+        }
+    }
+
+    // ---- Parsing exported journals ----
+
+    // pdf.js is only loaded when a PDF is imported
+    loadPdfJs() {
+        if (!this._pdfjs) {
+            this._pdfjs = import(`${PDFJS_CDN}/pdf.min.mjs`).then(lib => {
+                lib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.mjs`;
+                return lib;
+            });
+            this._pdfjs.catch(() => { this._pdfjs = null; });
+        }
+        return this._pdfjs;
+    }
+
+    // [[line, line, …] per page]
+    async pdfToLines(file) {
+        const lib = await this.loadPdfJs();
+        const pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+        const pages = [];
+        for (let p = 1; p <= pdf.numPages; p++) {
+            const content = await (await pdf.getPage(p)).getTextContent();
+            const lines = [];
+            let line = '';
+            content.items.forEach(item => {
+                line += item.str;
+                if (item.hasEOL) { lines.push(line.trim()); line = ''; }
+            });
+            if (line.trim()) lines.push(line.trim());
+            pages.push(lines);
+        }
+        return pages;
+    }
+
+    // Split exported text into { date: 'YYYY-MM-DD', text } at each line that is a date heading
+    parseJournalEntries(pages) {
+        // Lines repeated on most pages are headers/footers; bare numbers are page numbers
+        const seen = new Map();
+        pages.forEach(lines => new Set(lines).forEach(l => seen.set(l, (seen.get(l) || 0) + 1)));
+        const repeated = pages.length >= 3
+            ? new Set([...seen].filter(([, n]) => n >= Math.max(3, pages.length / 2)).map(([l]) => l))
+            : new Set();
+        const pageNumber = /^(page\s*)?\d{1,4}(\s*(of|\/)\s*\d{1,4})?$/i;
+
+        const entries = [];
+        let current = null;
+        pages.flat().forEach(raw => {
+            const line = (raw || '').trim();
+            if (repeated.has(line) || pageNumber.test(line)) return;
+            const heading = this.parseDateHeading(line);
+            if (heading) {
+                if (current) entries.push(current);
+                current = { date: heading.date, lines: heading.rest ? [heading.rest] : [] };
+            } else if (current) {
+                current.lines.push(line);
+            }
+        });
+        if (current) entries.push(current);
+        return entries
+            .map(e => ({ date: e.date, text: e.lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() }))
+            .filter(e => e.text);
+    }
+
+    // A line that starts with a date and has nothing but a time after it → { date, rest }
+    parseDateHeading(line) {
+        if (!line || line.length > 80) return null;
+        const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        const M = '(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?';
+        const W = '(?:(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\\.?,?\\s+)?';
+        const patterns = [
+            [new RegExp(`^${W}${M}\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})`, 'i'), m => [m[3], months.indexOf(m[1].toLowerCase()) + 1, m[2]]],
+            [new RegExp(`^${W}(\\d{1,2})(?:st|nd|rd|th)?\\s+${M},?\\s+(\\d{4})`, 'i'), m => [m[3], months.indexOf(m[2].toLowerCase()) + 1, m[1]]],
+            [/^(\d{4})-(\d{1,2})-(\d{1,2})/, m => [m[1], m[2], m[3]]],
+            [new RegExp(`^${W}(\\d{1,2})/(\\d{1,2})/(\\d{4}|\\d{2})\\b`, 'i'), m => [m[3].length === 2 ? '20' + m[3] : m[3], m[1], m[2]]]
+        ];
+        for (const [re, pick] of patterns) {
+            const m = line.match(re);
+            if (!m) continue;
+            const [y, mo, d] = pick(m).map(Number);
+            const date = new Date(y, mo - 1, d);
+            if (y < 1990 || y > 2100 || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
+            // Allow a trailing time ("at 9:41 PM", "· 21:41"); anything else means it's prose
+            const rest = line.slice(m[0].length).replace(/^[\s,·•|–—-]*(at\s+)?(\d{1,2}[:.]\d{2}(\s*[ap]\.?m\.?)?)?[\s,·•|–—-]*/i, '');
+            if (rest.length > 0) return null;
+            return { date: this.localDateKey(date), rest: '' };
+        }
+        return null;
     }
 
     // ========================================
@@ -5970,9 +6670,8 @@ class LifeOS {
 
         card.style.display = 'flex';
         card.classList.remove('strike-summary-clean');
-        const weekDateStr = targetWeek.startDate ? new Date(targetWeek.startDate).toLocaleDateString() : '?';
         const baseSummary = result.summary.replace(/^This week/, weekLabel);
-        textEl.textContent = `[Week of ${weekDateStr} | ${result.totalStrikes} strikes found] ${baseSummary}`;
+        textEl.innerHTML = `<strong>${result.totalStrikes} strike${result.totalStrikes === 1 ? '' : 's'}</strong> · ${this.escapeHtml(baseSummary)}`;
     }
 
     renderReviewScores() {
@@ -6117,10 +6816,12 @@ class LifeOS {
     // Settings
     // ========================================
     bindSettings() {
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-            this.openModal('settingsModal');
-            this.updateConvexStatusUI();
-            this.renderReminderSettings();
+        ['settingsBtn', 'mobileSettingsBtn'].forEach(id => {
+            document.getElementById(id).addEventListener('click', () => {
+                this.openModal('settingsModal');
+                this.updateConvexStatusUI();
+                this.renderReminderSettings();
+            });
         });
 
         // Reminders — times and timezone live in data.settings.reminders, which the Convex cron reads

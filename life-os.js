@@ -10,6 +10,11 @@ const EXCLUDE_CATS = new Set(['other', 'one-time / other', 'one-time/other', 'ge
 const DEFAULT_SCORING_CUTOVER = '2026-10-11';
 const DEFAULT_REMINDERS = { enabled: false, morning: '08:00', evening: '21:00', timezone: '' };
 
+// Imported journal entries (text) when Convex isn't connected; see loadArchive()
+const ARCHIVE_STORAGE_KEY = 'lifeOS_journalArchive';
+const ARCHIVE_PAGE = 30;
+const PDFJS_CDN = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build';
+
 class LifeOS {
     constructor() {
         this.STORAGE_KEY = 'lifeOSData';
@@ -45,7 +50,8 @@ class LifeOS {
             healthLog: [],      // { date, weight, sleep, energy }
             journalEntries: [], // { date, text, mood, type }
             weeklyReviews: [],  // { weekDate, wins, improvements, priorities, rating }
-            eveningReflections: [], // { date, whatWentWell, whatCouldImprove, gratitude, didILiveByValues, tomorrowIntention }
+            eveningReflections: [], // { date, timestamp, wentWell, fellShort, highlights[], valuesRating, intention } (older ones: gratitude)
+            journalImportDates: [], // local dates of entries imported from another journal app (text is in the archive)
             activityLog: [],
             settings: {
                 scoringCutover: DEFAULT_SCORING_CUTOVER,
@@ -200,6 +206,7 @@ class LifeOS {
     // Initialization
     // ========================================
     init() {
+        this.applyChartTheme();
         this.bindNavigation();
         this.bindModals();
         this.bindForms();
@@ -811,6 +818,19 @@ class LifeOS {
         return week ? this.uncheckedDailyEntries(week, today.getDay()).length : 0;
     }
 
+    // Theme color from life-os.css (charts can't read CSS variables themselves)
+    themeColor(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+    }
+
+    // Quiet chart defaults to match the paper theme
+    applyChartTheme() {
+        if (!window.Chart || !Chart.defaults) return;
+        Chart.defaults.font.family = this.themeColor('font-sans');
+        Chart.defaults.color = this.themeColor('text-muted');
+        Chart.defaults.borderColor = this.themeColor('border-light');
+    }
+
     // ========================================
     // Dashboard
     // ========================================
@@ -853,7 +873,7 @@ class LifeOS {
             data: {
                 datasets: [{
                     data: [Math.min(lifeScore, 100), Math.max(100 - lifeScore, 0)],
-                    backgroundColor: ['#6366f1', '#f1f5f9'],
+                    backgroundColor: [this.themeColor('primary'), this.themeColor('border-light')],
                     borderWidth: 0,
                 }]
             },
@@ -957,16 +977,6 @@ class LifeOS {
 
         const catStats = this.scoreByCategory(week);
 
-        const colors = {
-            'Physical Health': '#ef4444',
-            'Mental Health': '#8b5cf6',
-            'Budgeting': '#22c55e',
-            'Work': '#3b82f6',
-            'Monthly': '#f59e0b',
-            'Cooking': '#f97316',
-            'Other': '#6b7280'
-        };
-
         let html = '';
         for (const [cat, stats] of Object.entries(catStats)) {
             const pct = this.scorePct(stats);
@@ -977,7 +987,7 @@ class LifeOS {
                         <span>${pct}%</span>
                     </div>
                     <div class="category-bar-track">
-                        <div class="category-bar-fill" style="width:${pct}%;background:${colors[cat] || '#6366f1'}"></div>
+                        <div class="category-bar-fill" style="width:${pct}%"></div>
                     </div>
                 </div>`;
         }
@@ -1503,8 +1513,8 @@ class LifeOS {
                 datasets: [{
                     label: 'Strikes',
                     data: strikesData,
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239,68,68,0.1)',
+                    borderColor: this.themeColor('danger'),
+                    backgroundColor: this.themeColor('danger-tint'),
                     fill: true,
                     tension: 0.3
                 }]
@@ -1534,7 +1544,8 @@ class LifeOS {
                 datasets: [{
                     label: 'Completion %',
                     data: catPcts,
-                    backgroundColor: ['#ef4444', '#8b5cf6', '#22c55e', '#3b82f6', '#f59e0b', '#f97316', '#6b7280']
+                    backgroundColor: this.themeColor('primary'),
+                    borderRadius: 4
                 }]
             },
             options: {
@@ -1753,26 +1764,26 @@ class LifeOS {
             workoutTarget += s.target;
         });
         document.getElementById('workoutCount').textContent = `${workouts}/${workoutTarget}`;
-        this.drawRing('workoutRing', workouts / Math.max(workoutTarget, 1), '#ef4444');
+        this.drawRing('workoutRing', workouts / Math.max(workoutTarget, 1));
 
         // Sleep (bedtime) and mindfulness (Meditate): nights done of nights expected so far
-        const ring = (name, countId, ringId, color) => {
+        const ring = (name, countId, ringId) => {
             const s = scored(name)[0] || { done: 0, expected: 0 };
             document.getElementById(countId).textContent = `${s.done}/${s.expected}`;
-            this.drawRing(ringId, s.done / Math.max(s.expected, 1), color);
+            this.drawRing(ringId, s.done / Math.max(s.expected, 1));
         };
-        ring('bed by', 'sleepScore', 'sleepRing', '#3b82f6');
-        ring('Meditate', 'mindfulCount', 'mindfulRing', '#8b5cf6');
+        ring('bed by', 'sleepScore', 'sleepRing');
+        ring('Meditate', 'mindfulCount', 'mindfulRing');
 
         // Substances (Zyns + alcohol) — limits: at/under the max = 100%
         const subst = [...scored('Zyn'), ...scored('drink')].reduce(
             (a, s) => ({ done: a.done + s.done, expected: a.expected + s.expected }), { done: 0, expected: 0 });
         const substPct = this.scorePct(subst);
         document.getElementById('substanceScore').textContent = substPct + '%';
-        this.drawRing('substanceRing', substPct / 100, '#22c55e');
+        this.drawRing('substanceRing', substPct / 100);
     }
 
-    drawRing(canvasId, progress, color) {
+    drawRing(canvasId, progress, color = this.themeColor('primary')) {
         const canvas = document.getElementById(canvasId);
         if (this.charts[canvasId]) this.charts[canvasId].destroy();
         this.charts[canvasId] = new Chart(canvas, {
@@ -1780,7 +1791,7 @@ class LifeOS {
             data: {
                 datasets: [{
                     data: [Math.min(progress, 1) * 100, Math.max((1 - progress), 0) * 100],
-                    backgroundColor: [color, '#f1f5f9'],
+                    backgroundColor: [color, this.themeColor('border-light')],
                     borderWidth: 0
                 }]
             },
@@ -1807,8 +1818,8 @@ class LifeOS {
                     datasets: [{
                         label: 'Weight (lbs)',
                         data: weightLogs.map(l => l.weight),
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99,102,241,0.1)',
+                        borderColor: this.themeColor('primary'),
+                        backgroundColor: this.themeColor('primary-tint'),
                         fill: true,
                         tension: 0.3
                     }]
@@ -1832,7 +1843,7 @@ class LifeOS {
                     datasets: [{
                         label: 'Hours',
                         data: sleepLogs.map(l => l.sleep),
-                        backgroundColor: sleepLogs.map(l => l.sleep >= 7 ? '#22c55e' : l.sleep >= 6 ? '#f59e0b' : '#ef4444'),
+                        backgroundColor: sleepLogs.map(l => this.themeColor(l.sleep >= 7 ? 'primary' : l.sleep >= 6 ? 'warning' : 'danger')),
                         borderRadius: 4
                     }]
                 },
@@ -2063,11 +2074,11 @@ class LifeOS {
 
         // Define frequency groups in display order
         const groups = [
-            { key: 'daily', title: 'Daily Essentials', icon: '&#9788;', desc: 'Do these every day' },
-            { key: 'fewPerWeek', title: 'A Few Times This Week', icon: '&#8635;', desc: 'Hit your target this week' },
-            { key: 'weekly', title: 'Weekly Goals', icon: '&#9733;', desc: 'Complete once this week' },
-            { key: 'limit', title: 'Limits & Boundaries', icon: '&#9888;', desc: 'Stay within these limits' },
-            { key: 'monthly', title: 'Monthly Goals', icon: '&#128197;', desc: 'Once this month' }
+            { key: 'daily', title: 'Daily Essentials', desc: 'Do these every day' },
+            { key: 'fewPerWeek', title: 'A Few Times This Week', desc: 'Hit your target this week' },
+            { key: 'weekly', title: 'Weekly Goals', desc: 'Complete once this week' },
+            { key: 'limit', title: 'Limits & Boundaries', desc: 'Stay within these limits' },
+            { key: 'monthly', title: 'Monthly Goals', desc: 'Once this month' }
         ];
 
         let html = '';
@@ -2082,7 +2093,6 @@ class LifeOS {
             html += `<div class="freq-group">
                 <div class="freq-group-header">
                     <div class="freq-group-title">
-                        <span class="freq-icon">${group.icon}</span>
                         <span class="freq-label">${group.title}</span>
                     </div>
                     <span class="freq-group-count">${todayChecked}/${groupTotal}</span>
@@ -2289,28 +2299,58 @@ class LifeOS {
                 e.target.classList.add('active');
             }
         });
+
+        // Archive: load on first open, filter as you type, page through
+        const archive = document.getElementById('journalArchive');
+        archive.addEventListener('toggle', () => { if (archive.open) this.renderArchive(); });
+        document.getElementById('archiveSearch').addEventListener('input', () => {
+            this._archiveShown = ARCHIVE_PAGE;
+            this.renderArchive();
+        });
+        document.getElementById('archiveMoreBtn').addEventListener('click', () => {
+            this._archiveShown = (this._archiveShown || ARCHIVE_PAGE) + ARCHIVE_PAGE;
+            this.renderArchive();
+        });
+        document.getElementById('archiveList').addEventListener('click', (e) => {
+            const card = e.target.closest('.archive-entry');
+            if (card) card.classList.toggle('expanded');
+        });
+
+        // Import from another journal app (Settings)
+        document.getElementById('journalImportBtn').addEventListener('click', () => document.getElementById('journalImportInput').click());
+        document.getElementById('journalImportInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            e.target.value = '';
+            if (file) this.previewJournalImport(file);
+        });
+        document.getElementById('journalImportConfirm').addEventListener('click', () => this.confirmJournalImport());
+        document.getElementById('journalImportCancel').addEventListener('click', () => this.closeModal('journalImportModal'));
+        document.getElementById('journalClearBtn').addEventListener('click', () => this.clearJournalArchive());
     }
 
     saveEveningReflection() {
         const wentWell = document.getElementById('stoicWentWell')?.value?.trim();
         const fellShort = document.getElementById('stoicFellShort')?.value?.trim();
-        const gratitude = document.getElementById('stoicGratitude')?.value?.trim();
+        const highlights = [1, 2, 3]
+            .map(i => document.getElementById(`stoicHighlight${i}`)?.value?.trim())
+            .filter(Boolean);
         const intention = document.getElementById('stoicIntention')?.value?.trim();
 
         const ratingBtn = document.querySelector('#stoicValuesRating .rating-btn.active');
         const valuesRating = ratingBtn ? parseInt(ratingBtn.dataset.rating) : null;
 
-        if (!wentWell && !fellShort && !gratitude) {
+        if (!wentWell && !fellShort && highlights.length === 0) {
             alert('Please fill in at least one reflection field.');
             return;
         }
 
+        const now = new Date();
         const reflection = {
-            date: this.getTodayStr(),
-            timestamp: new Date().toISOString(),
+            date: this.localDateKey(now),
+            timestamp: now.toISOString(),
             wentWell,
             fellShort,
-            gratitude,
+            highlights,
             valuesRating,
             intention
         };
@@ -2318,10 +2358,11 @@ class LifeOS {
         this.data.eveningReflections.unshift(reflection);
 
         // Also save as a journal entry for unified history
+        const highlightText = highlights.map((h, i) => `${i + 1}. ${h}`).join('\n') || '-';
         this.data.journalEntries.unshift({
-            date: this.getTodayStr(),
-            timestamp: new Date().toISOString(),
-            text: `**What went well:** ${wentWell || '-'}\n\n**Where I fell short:** ${fellShort || '-'}\n\n**Gratitude:** ${gratitude || '-'}\n\n**Values Rating:** ${valuesRating || '-'}/10\n\n**Tomorrow's Intention:** ${intention || '-'}`,
+            date: reflection.date,
+            timestamp: reflection.timestamp,
+            text: `**What went well:** ${wentWell || '-'}\n\n**Where I fell short:** ${fellShort || '-'}\n\n**Highlights / to remember:**\n${highlightText}\n\n**Values Rating:** ${valuesRating || '-'}/10\n\n**Tomorrow's Intention:** ${intention || '-'}`,
             mood: valuesRating >= 7 ? 'good' : valuesRating >= 5 ? 'okay' : 'low',
             type: 'stoic'
         });
@@ -2330,17 +2371,86 @@ class LifeOS {
         this.logActivity('Completed evening reflection');
 
         // Clear form
-        ['stoicWentWell', 'stoicFellShort', 'stoicGratitude', 'stoicIntention'].forEach(id => {
+        ['stoicWentWell', 'stoicFellShort', 'stoicHighlight1', 'stoicHighlight2', 'stoicHighlight3', 'stoicIntention'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
         document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
 
         this.renderJournal();
-        alert('Evening reflection saved!');
+        const streak = this.getJournalStreak().current;
+        alert(streak > 1 ? `Evening reflection saved — ${streak} days in a row!` : 'Evening reflection saved!');
+    }
+
+    // ---- Journal streak ----
+
+    // Local days with a saved reflection or an imported entry
+    getJournalDays() {
+        const days = new Set(this.data.journalImportDates || []);
+        (this.data.eveningReflections || []).forEach(r => {
+            days.add(r.timestamp ? this.localDateKey(new Date(r.timestamp)) : r.date);
+        });
+        days.delete(undefined);
+        return days;
+    }
+
+    shiftDateKey(key, n) {
+        const d = new Date(`${key}T12:00:00`);
+        d.setDate(d.getDate() + n);
+        return this.localDateKey(d);
+    }
+
+    // current: consecutive days up to today (today not done yet doesn't break it)
+    getJournalStreak() {
+        const days = this.getJournalDays();
+        const today = this.localDateKey(new Date());
+        const doneToday = days.has(today);
+        let current = 0;
+        for (let key = doneToday ? today : this.shiftDateKey(today, -1); days.has(key); key = this.shiftDateKey(key, -1)) current++;
+
+        let best = 0, run = 0, prev = null;
+        [...days].sort().forEach(key => {
+            run = prev && this.shiftDateKey(prev, 1) === key ? run + 1 : 1;
+            best = Math.max(best, run);
+            prev = key;
+        });
+        return { current, best, total: days.size, doneToday, days };
+    }
+
+    renderJournalStreak() {
+        const el = document.getElementById('journalStreak');
+        if (!el) return;
+        const s = this.getJournalStreak();
+        const today = this.localDateKey(new Date());
+        const dots = [];
+        for (let i = 13; i >= 0; i--) {
+            const key = this.shiftDateKey(today, -i);
+            const label = new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { weekday: 'narrow' });
+            const cls = s.days.has(key) ? 'on' : i === 0 ? 'today' : '';
+            dots.push(`<span class="streak-dot ${cls}" title="${key}">${label}</span>`);
+        }
+        const note = s.current === 0 ? 'Write tonight to start a streak.'
+            : s.doneToday ? 'Done for today.'
+            : 'Reflect tonight to keep it going.';
+        el.innerHTML = `
+            <div class="journal-streak-main">
+                <div class="journal-streak-count">${s.current}</div>
+                <div>
+                    <div class="journal-streak-label">${s.current === 1 ? 'day' : 'days'} in a row</div>
+                    <div class="journal-streak-note">${note}</div>
+                    <div class="journal-streak-meta">
+                        <span>Best <b>${s.best}</b></span>
+                        <span><b>${s.total}</b> days journaled</span>
+                    </div>
+                </div>
+            </div>
+            <div class="streak-dots">${dots.join('')}</div>`;
     }
 
     renderJournal() {
+        this.renderJournalStreak();
+        this.updateArchiveSummary();
+
         const container = document.getElementById('journalEntriesList');
         const entries = this.data.eveningReflections;
 
@@ -2353,8 +2463,11 @@ class LifeOS {
             const dateStr = entry.timestamp
                 ? new Date(entry.timestamp).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
                 : entry.date;
+            const highlights = entry.highlights?.length
+                ? `<p><strong>Highlights:</strong></p><ol class="highlight-list">${entry.highlights.map(h => `<li>${this.escapeHtml(h)}</li>`).join('')}</ol>`
+                : entry.gratitude ? `<p><strong>Grateful for:</strong> ${this.escapeHtml(entry.gratitude)}</p>` : '';
 
-            return `<div class="journal-entry-card" style="border-left-color:var(--secondary)">
+            return `<div class="journal-entry-card">
                 <div class="journal-entry-header">
                     <span class="journal-entry-date">${dateStr}</span>
                     ${entry.valuesRating ? `<span class="journal-entry-mood">Values: ${entry.valuesRating}/10</span>` : ''}
@@ -2362,11 +2475,246 @@ class LifeOS {
                 <div class="journal-entry-text">
                     ${entry.wentWell ? `<p><strong>Went well:</strong> ${this.escapeHtml(entry.wentWell)}</p>` : ''}
                     ${entry.fellShort ? `<p><strong>Fell short:</strong> ${this.escapeHtml(entry.fellShort)}</p>` : ''}
-                    ${entry.gratitude ? `<p><strong>Grateful for:</strong> ${this.escapeHtml(entry.gratitude)}</p>` : ''}
+                    ${highlights}
                     ${entry.intention ? `<p><strong>Tomorrow:</strong> ${this.escapeHtml(entry.intention)}</p>` : ''}
                 </div>
             </div>`;
         }).join('');
+    }
+
+    // ---- Journal archive (entries imported from another app) ----
+    // Text lives in Convex (journalArchive table) or, without Convex, in localStorage —
+    // never in the main data blob. data.journalImportDates keeps just the dates for the streak.
+
+    async loadArchive(force = false) {
+        if (this._archive && !force) return this._archive;
+        if (this.convex) {
+            this._archive = await this.convex.query('journal:listArchive');
+        } else {
+            try { this._archive = JSON.parse(localStorage.getItem(ARCHIVE_STORAGE_KEY) || '[]'); } catch (e) { this._archive = []; }
+            this._archive.sort((a, b) => b.date.localeCompare(a.date));
+        }
+        return this._archive;
+    }
+
+    updateArchiveSummary() {
+        const n = (this.data.journalImportDates || []).length;
+        const details = document.getElementById('journalArchive');
+        details.hidden = n === 0;
+        document.getElementById('journalClearBtn').style.display = n > 0 ? 'inline-block' : 'none';
+        if (n > 0 && this._archive) document.getElementById('archiveCount').textContent = `${this._archive.length} entries`;
+        else if (n > 0) document.getElementById('archiveCount').textContent = `${n} days`;
+        if (details.open && !details.hidden) this.renderArchive();
+    }
+
+    async renderArchive() {
+        const list = document.getElementById('archiveList');
+        const moreBtn = document.getElementById('archiveMoreBtn');
+        if (!this._archive) list.innerHTML = '<div class="empty-state">Loading…</div>';
+        let entries;
+        try {
+            entries = await this.loadArchive();
+        } catch (e) {
+            list.innerHTML = `<div class="empty-state">Couldn't load the archive (${this.escapeHtml(e.message)}).</div>`;
+            return;
+        }
+        document.getElementById('archiveCount').textContent = `${entries.length} entries`;
+        const q = document.getElementById('archiveSearch').value.trim().toLowerCase();
+        const matches = q ? entries.filter(e => e.text.toLowerCase().includes(q) || e.date.includes(q)) : entries;
+        const shown = matches.slice(0, this._archiveShown || ARCHIVE_PAGE);
+        list.innerHTML = shown.map(e => `
+            <article class="archive-entry">
+                <div class="archive-date">${new Date(`${e.date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                <div class="archive-text">${this.escapeHtml(e.text)}</div>
+            </article>`).join('') || `<div class="empty-state">No entries match "${this.escapeHtml(q)}".</div>`;
+        moreBtn.style.display = matches.length > shown.length ? 'block' : 'none';
+    }
+
+    setJournalImportStatus(text, tone) {
+        const el = document.getElementById('journalImportStatus');
+        el.textContent = text;
+        el.style.color = tone === 'ok' ? 'var(--success)' : tone === 'warn' ? 'var(--danger)' : 'var(--text-muted)';
+    }
+
+    // Read the file, split it into dated entries and show a preview before saving
+    async previewJournalImport(file) {
+        this.setJournalImportStatus(`Reading ${file.name}…`);
+        try {
+            const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+            const pages = isPdf ? await this.pdfToLines(file) : [(await file.text()).split(/\r?\n/)];
+            const entries = this.parseJournalEntries(pages);
+            if (entries.length === 0) {
+                this.setJournalImportStatus('No dated entries found in that file. Send a sample page and the importer can be adjusted.', 'warn');
+                return;
+            }
+            this._pendingImport = { entries, source: 'Journal app' };
+            const fmt = key => new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+            document.getElementById('journalImportSummary').textContent =
+                `Found ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} from ${fmt(sorted[0].date)} to ${fmt(sorted.at(-1).date)}.`;
+            const sample = entries.length > 3 ? [sorted[0], sorted[Math.floor(sorted.length / 2)], sorted.at(-1)] : sorted;
+            document.getElementById('journalImportPreview').innerHTML = sample.map(e => `
+                <div class="archive-entry">
+                    <div class="archive-date">${fmt(e.date)}</div>
+                    <div class="archive-text">${this.escapeHtml(e.text.slice(0, 280))}${e.text.length > 280 ? '…' : ''}</div>
+                </div>`).join('');
+            this.setJournalImportStatus('');
+            this.openModal('journalImportModal');
+        } catch (err) {
+            this.setJournalImportStatus('Could not read that file: ' + err.message, 'warn');
+        }
+    }
+
+    async confirmJournalImport() {
+        const pending = this._pendingImport;
+        if (!pending) return;
+        const btn = document.getElementById('journalImportConfirm');
+        btn.disabled = true;
+        btn.textContent = 'Importing…';
+        try {
+            let added = 0, skipped = 0;
+            if (this.convex) {
+                for (let i = 0; i < pending.entries.length; i += 50) {
+                    const r = await this.convex.mutation('journal:importEntries', {
+                        entries: pending.entries.slice(i, i + 50), source: pending.source
+                    });
+                    added += r.added;
+                    skipped += r.skipped;
+                }
+            } else {
+                const existing = await this.loadArchive(true);
+                const keys = new Set(existing.map(e => `${e.date}:${e.text}`));
+                pending.entries.forEach(e => {
+                    if (keys.has(`${e.date}:${e.text}`)) { skipped++; return; }
+                    existing.push({ ...e, source: pending.source });
+                    keys.add(`${e.date}:${e.text}`);
+                    added++;
+                });
+                localStorage.setItem(ARCHIVE_STORAGE_KEY, JSON.stringify(existing));
+            }
+            const dates = new Set(this.data.journalImportDates || []);
+            pending.entries.forEach(e => dates.add(e.date));
+            this.data.journalImportDates = [...dates].sort();
+            this._archive = null;
+            this._pendingImport = null;
+            this.saveData();
+            this.logActivity(`Imported ${added} journal entr${added === 1 ? 'y' : 'ies'}`);
+            this.closeModal('journalImportModal');
+            this.setJournalImportStatus(`Imported ${added} entr${added === 1 ? 'y' : 'ies'}${skipped ? ` (${skipped} already there)` : ''}. They're under Journal archive on the Reflection tab.`, 'ok');
+            this.renderJournal();
+        } catch (err) {
+            this.setJournalImportStatus('Import failed: ' + err.message, 'warn');
+        }
+        btn.disabled = false;
+        btn.textContent = 'Import';
+    }
+
+    async clearJournalArchive() {
+        if (!confirm('Remove all imported journal entries? Your Life OS reflections are not affected.')) return;
+        try {
+            if (this.convex) {
+                let remaining = 1;
+                while (remaining > 0) ({ remaining } = await this.convex.mutation('journal:clearArchive', {}));
+            } else {
+                localStorage.removeItem(ARCHIVE_STORAGE_KEY);
+            }
+            this.data.journalImportDates = [];
+            this._archive = null;
+            this.saveData();
+            this.logActivity('Removed imported journal entries');
+            this.setJournalImportStatus('Imported entries removed.', 'ok');
+            this.renderJournal();
+        } catch (err) {
+            this.setJournalImportStatus('Could not remove entries: ' + err.message, 'warn');
+        }
+    }
+
+    // ---- Parsing exported journals ----
+
+    // pdf.js is only loaded when a PDF is imported
+    loadPdfJs() {
+        if (!this._pdfjs) {
+            this._pdfjs = import(`${PDFJS_CDN}/pdf.min.mjs`).then(lib => {
+                lib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.mjs`;
+                return lib;
+            });
+            this._pdfjs.catch(() => { this._pdfjs = null; });
+        }
+        return this._pdfjs;
+    }
+
+    // [[line, line, …] per page]
+    async pdfToLines(file) {
+        const lib = await this.loadPdfJs();
+        const pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+        const pages = [];
+        for (let p = 1; p <= pdf.numPages; p++) {
+            const content = await (await pdf.getPage(p)).getTextContent();
+            const lines = [];
+            let line = '';
+            content.items.forEach(item => {
+                line += item.str;
+                if (item.hasEOL) { lines.push(line.trim()); line = ''; }
+            });
+            if (line.trim()) lines.push(line.trim());
+            pages.push(lines);
+        }
+        return pages;
+    }
+
+    // Split exported text into { date: 'YYYY-MM-DD', text } at each line that is a date heading
+    parseJournalEntries(pages) {
+        // Lines repeated on most pages are headers/footers; bare numbers are page numbers
+        const seen = new Map();
+        pages.forEach(lines => new Set(lines).forEach(l => seen.set(l, (seen.get(l) || 0) + 1)));
+        const repeated = pages.length >= 3
+            ? new Set([...seen].filter(([, n]) => n >= Math.max(3, pages.length / 2)).map(([l]) => l))
+            : new Set();
+        const pageNumber = /^(page\s*)?\d{1,4}(\s*(of|\/)\s*\d{1,4})?$/i;
+
+        const entries = [];
+        let current = null;
+        pages.flat().forEach(raw => {
+            const line = (raw || '').trim();
+            if (repeated.has(line) || pageNumber.test(line)) return;
+            const heading = this.parseDateHeading(line);
+            if (heading) {
+                if (current) entries.push(current);
+                current = { date: heading.date, lines: heading.rest ? [heading.rest] : [] };
+            } else if (current) {
+                current.lines.push(line);
+            }
+        });
+        if (current) entries.push(current);
+        return entries
+            .map(e => ({ date: e.date, text: e.lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() }))
+            .filter(e => e.text);
+    }
+
+    // A line that starts with a date and has nothing but a time after it → { date, rest }
+    parseDateHeading(line) {
+        if (!line || line.length > 80) return null;
+        const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        const M = '(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?';
+        const W = '(?:(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\\.?,?\\s+)?';
+        const patterns = [
+            [new RegExp(`^${W}${M}\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})`, 'i'), m => [m[3], months.indexOf(m[1].toLowerCase()) + 1, m[2]]],
+            [new RegExp(`^${W}(\\d{1,2})(?:st|nd|rd|th)?\\s+${M},?\\s+(\\d{4})`, 'i'), m => [m[3], months.indexOf(m[2].toLowerCase()) + 1, m[1]]],
+            [/^(\d{4})-(\d{1,2})-(\d{1,2})/, m => [m[1], m[2], m[3]]],
+            [new RegExp(`^${W}(\\d{1,2})/(\\d{1,2})/(\\d{4}|\\d{2})\\b`, 'i'), m => [m[3].length === 2 ? '20' + m[3] : m[3], m[1], m[2]]]
+        ];
+        for (const [re, pick] of patterns) {
+            const m = line.match(re);
+            if (!m) continue;
+            const [y, mo, d] = pick(m).map(Number);
+            const date = new Date(y, mo - 1, d);
+            if (y < 1990 || y > 2100 || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
+            // Allow a trailing time ("at 9:41 PM", "· 21:41"); anything else means it's prose
+            const rest = line.slice(m[0].length).replace(/^[\s,·•|–—-]*(at\s+)?(\d{1,2}[:.]\d{2}(\s*[ap]\.?m\.?)?)?[\s,·•|–—-]*/i, '');
+            if (rest.length > 0) return null;
+            return { date: this.localDateKey(date), rest: '' };
+        }
+        return null;
     }
 
     // ========================================
@@ -2491,9 +2839,8 @@ class LifeOS {
 
         card.style.display = 'flex';
         card.classList.remove('strike-summary-clean');
-        const weekDateStr = targetWeek.startDate ? new Date(targetWeek.startDate).toLocaleDateString() : '?';
         const baseSummary = result.summary.replace(/^This week/, weekLabel);
-        textEl.textContent = `[Week of ${weekDateStr} | ${result.totalStrikes} strikes found] ${baseSummary}`;
+        textEl.innerHTML = `<strong>${result.totalStrikes} strike${result.totalStrikes === 1 ? '' : 's'}</strong> · ${this.escapeHtml(baseSummary)}`;
     }
 
     renderReviewScores() {
@@ -2638,10 +2985,12 @@ class LifeOS {
     // Settings
     // ========================================
     bindSettings() {
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-            this.openModal('settingsModal');
-            this.updateConvexStatusUI();
-            this.renderReminderSettings();
+        ['settingsBtn', 'mobileSettingsBtn'].forEach(id => {
+            document.getElementById(id).addEventListener('click', () => {
+                this.openModal('settingsModal');
+                this.updateConvexStatusUI();
+                this.renderReminderSettings();
+            });
         });
 
         // Reminders — times and timezone live in data.settings.reminders, which the Convex cron reads

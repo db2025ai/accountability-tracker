@@ -9,8 +9,8 @@ Single-page web app (PWA) for personal goal tracking, health monitoring, and dai
 
 ### Core Source Files (edit these)
 - `life-os.html` — HTML structure with 6 sections (Dashboard, Goals, Health, Today, Reflection, Weekly Review)
-- `life-os.js` — Single `LifeOS` class with all application logic (~3,200 lines)
-- `life-os.css` — All styles including responsive design (~2,700 lines)
+- `life-os.js` — Single `LifeOS` class with all application logic (~3,600 lines)
+- `life-os.css` — All styles including responsive design (~3,050 lines)
 - `convex-client.js` — Optional Convex sync layer (HTTP-based, falls back silently)
 
 ### Generated Files (do NOT edit directly)
@@ -23,11 +23,12 @@ Single-page web app (PWA) for personal goal tracking, health monitoring, and dai
 - `docs/sw.js` — Service worker for offline caching
 
 ### Optional Backend (Convex, deployment `energetic-fly-308`)
-- `convex/schema.ts` — `userData` (the data blob), `pushSubscriptions`, `reminderSettings`, `pushSends`
+- `convex/schema.ts` — `userData` (the data blob), `pushSubscriptions`, `reminderSettings`, `pushSends`, `journalArchive`
 - `convex/functions.ts` — getData, setData, getUpdatedAt. `setData` also mirrors `data.settings.reminders` into `reminderSettings`
 - `convex/push.ts` — getVapidPublicKey, saveSubscription, removeSubscription + internal helpers for the cron
 - `convex/pushNode.ts` — `"use node"` actions using `web-push`: `sendReminders` (cron) and `sendTest` (Settings button)
 - `convex/crons.ts` — runs `sendReminders` every 15 minutes
+- `convex/journal.ts` — importEntries (dedupes by date + text hash), listArchive, clearArchive for imported journal entries. **Keep large text out of the `userData` blob** — Convex documents max out at 1 MB and the blob is ~0.5 MB
 - `convex/lib/reminders.ts` — "what's left today" + message text. **Mirrors the schedule rules in life-os.js** (classifyFrequency, scoringKind, getGoalDays, isExpected) — change both together
 - Env vars: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (site URL). Never print the private key
 - Deploy: `npx convex deploy` (uses `CONVEX_DEPLOY_KEY`)
@@ -45,6 +46,12 @@ This inlines CSS and JS into `docs/index.html`, copies `sw.js` and `manifest.jso
 Bump `CACHE_NAME` in `sw.js` when the service worker changes.
 
 ## UI Conventions
+
+### Look & feel (paper + ink blue)
+- Colors are CSS variables in `:root`: warm paper `--bg`, white cards with hairline `--shadow`, charcoal `--text`, ink blue `--primary`. **Blue = something you tap, finished or on track** (`--success` is the same blue), terracotta `--danger` = miss / over limit, ochre `--warning` = middling. No gradients, no purple, no per-category rainbow colors. Tints: `--primary-tint`, `--danger-tint`, `--warning-tint`, `--surface`.
+- Titles (h1/h2, card/section names, big numbers) use `--font-serif` (`ui-serif` = New York on Apple devices, no web font); body text uses `--font-sans`.
+- Icons are inline SVG line icons with `class="icon"` (stroke = currentColor). Don't use emoji/glyph icons for UI chrome.
+- Charts can't read CSS variables, so JS uses `this.themeColor('primary')` etc.; `applyChartTheme()` sets Chart.js font/colour defaults.
 
 ### Frequency-Based Grouping (Today Tab)
 All goals are grouped by frequency in the Today tab, displayed in this order:
@@ -108,14 +115,20 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 - **Badge**: `updateAppBadge()` runs on every dashboard/goals/today render and sets the Home Screen badge to `todayRemainingCount()` (clears at 0).
 - **Reminders** (`data.settings.reminders = { enabled, morning, evening, timezone }`, defaults 08:00 / 21:00 / device timezone): Settings → Enable reminders asks for notification permission from the tap, subscribes with the VAPID key from `push:getVapidPublicKey`, and saves the subscription to Convex. The cron sends a morning nudge and, at the evening time, "N items left today" only if N > 0; `pushSends` records each send so nothing goes out twice. The service worker always shows a notification on push, sets the badge from `payload.count`, and a tap opens `./?section=habits` (the Today tab).
 
+## Reflection (journal)
+- Evening reflection fields: went well, fell short, **3 highlights / things to remember** (`reflection.highlights[]`; older entries have `gratitude`, still displayed), values rating, intention. Reflections are dated with the local date.
+- **Journal streak** (`getJournalStreak()`): consecutive local days with a saved reflection or an imported entry; today not done yet doesn't break it. Shows current, best, days journaled and the last 14 days.
+- **Import** (Settings → Import Journal Entries): PDF (pdf.js loaded from the CDN only when needed) or .txt/.md. `parseJournalEntries(pages)` drops lines repeated on most pages (headers/footers) and page numbers, then starts a new entry at each line that is just a date (+ optional time) — see `parseDateHeading`. Preview, then import: text goes to Convex `journalArchive` (or localStorage `lifeOS_journalArchive` without Convex); only the dates go in `data.journalImportDates` (for the streak). Shown read-only and searchable under "Journal archive" on the Reflection tab.
+
 ## Architecture Notes
 
 - **Single LifeOS class** contains all logic — no separate modules
-- **No test framework** — `tests/app.test.mjs` is a Playwright script (seeded data, stubbed Chart.js, fixed clock) covering scoring before/after the cutover, catch-up, badge, reminders settings and the service worker. Run `python3 build_docs.py && node tests/app.test.mjs`
+- **No test framework** — `tests/app.test.mjs` is a Playwright script (seeded data, stubbed Chart.js, fixed clock) covering scoring before/after the cutover, catch-up, badge, reminders settings and the service worker. Also covers highlights, journal streak and PDF import (generates a PDF, serves pdf.js from the `pdfjs-dist` dev dependency). Run `npm ci && python3 build_docs.py && node tests/app.test.mjs`
 - **No build tools** beyond the Python inliner (no bundler, no transpiler)
 - **Chart.js 4.4** loaded from CDN for all charts
 - **CSS variables** in `:root` control theming (primary: `#6366f1` indigo)
 - **Responsive at 768px** — sidebar collapses, mobile bottom nav appears
+- **Mobile chrome** — light header with menu + settings buttons and a 6-tab bottom bar (12px labels, ~26px icons, full-width tap targets). `viewport-fit=cover` + `env(safe-area-inset-*)` keep both clear of the notch and home indicator; status bar style is `default` (dark text on the paper background)
 - **Phones down to 320px** — iPhone Display Zoom ("Larger Text") or page zoom leaves ~320 CSS px. Flex/grid children that hold wide content need `min-width: 0` (so tables/charts scroll inside their box, not the page), and fields are 16px on phones so iOS doesn't zoom in when one is tapped. The iOS Text Size slider doesn't affect this app (it uses `-apple-system`, not `-apple-system-body`)
 
 ## Key Methods in life-os.js
@@ -127,4 +140,5 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 - `getGoalDays(goal)` / `isExpected(week, entry, day)` / `isTracked(v)` — Schedule and skip helpers
 - `scoreEntry(week, entry)` / `scoreWeek` / `scoreByCategory` / `scoringKind(goal)` — The scoring rule
 - `maybeShowCatchUp()` / `updateAppBadge()` / `toggleReminders()` — Catch-up prompt, badge, push reminders
+- `getJournalStreak()` / `previewJournalImport(file)` / `parseJournalEntries(pages)` / `renderArchive()` — Journal streak, import and archive
 - `saveData()` — Persists to localStorage (and Convex if connected)

@@ -5,6 +5,7 @@ import { createRequire } from 'module';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
@@ -14,6 +15,7 @@ const { chromium } = playwright;
 
 // Serve docs/ at /accountability-tracker/ like GitHub Pages
 const DOCS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'docs');
+const PDFJS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'node_modules', 'pdfjs-dist', 'build');
 const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.json': 'application/json' };
 const server = http.createServer((req, res) => {
     const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/accountability-tracker\/?/, '') || 'index.html';
@@ -197,7 +199,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         summary: document.getElementById('strikeSummaryText').textContent
     }));
     check('review scores', review.scores, ['50% Morning Protocol', '67% Evening Protocol', '67% Physical Health', '0% Midday Protocol', '100% Budgeting', '0% Monthly', '0% Mental Health']);
-    check('strike summary counts 5 strikes', /5 strikes found/.test(review.summary), true);
+    check('strike summary counts 5 strikes', review.summary.startsWith('5 strikes · '), true);
 
     // Today tab grouping follows the scoring rule
     await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
@@ -366,6 +368,100 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         [...new Set([...document.querySelectorAll('input:not([type=file]), select, textarea')].map(e => getComputedStyle(e).fontSize))]), ['16px']);
     check('no page errors', errors, []);
     await context.close();
+}
+
+// ================= Scenario 6: journal — highlights, streak, import, archive =================
+{
+    // A journal export like the Journal app's PDF: a header on every page, page numbers,
+    // mixed date headings, two entries on one day, and prose that starts with a date.
+    const pdfPage = await browser.newPage();
+    const entry = (heading, ...paras) => `<section><h2>${heading}</h2>${paras.map(p => `<p>${p}</p>`).join('')}</section>`;
+    await pdfPage.setContent(`<style>section { page-break-after: always; font: 14px Georgia; } h2 { font-size: 18px; }</style>
+        ${entry('Wednesday, September 30, 2026', 'Long day at work.', 'Ended with a good walk.')}
+        ${entry('Thursday, October 8, 2026', 'Felt strong this morning.', 'October 1, 2026 was when I started running again.')}
+        ${entry('Oct 9, 2026 at 9:41 PM', 'Dinner with friends.')}
+        ${entry('2026-10-10', 'Quiet Saturday morning.')}
+        ${entry('Saturday, October 10, 2026', 'Evening: finished the book.')}`);
+    const pdfPath = path.join(os.tmpdir(), `journal-export-${process.pid}.pdf`);
+    await pdfPage.pdf({
+        path: pdfPath, format: 'Letter', displayHeaderFooter: true,
+        headerTemplate: '<div style="font-size:10px;width:100%;text-align:center;">My Journal</div>',
+        footerTemplate: '<div style="font-size:10px;width:100%;text-align:center;"><span class="pageNumber"></span></div>',
+        margin: { top: '60px', bottom: '60px' }
+    });
+    await pdfPage.close();
+
+    const reflection = (ts) => ({ date: ts.slice(0, 10), timestamp: new Date(ts).toISOString(), wentWell: 'ok' });
+    const journalSeed = { ...seed, eveningReflections: [reflection('2026-10-12T21:30:00-04:00'), reflection('2026-10-11T22:00:00-04:00')] };
+    const { context, page, errors } = await newPage({ seedData: journalSeed, time: '2026-10-13T21:00:00-04:00' });
+    await context.route('**/pdfjs-dist@*/build/*', r => r.fulfill({
+        contentType: 'application/javascript',
+        body: fs.readFileSync(path.join(PDFJS_DIR, path.basename(new URL(r.request().url()).pathname)))
+    }));
+    page.on('dialog', d => d.accept());
+    console.log('\n— Journal: highlights, streak, import —');
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('journal'); });
+
+    check('streak before import (Oct 11–12, today pending)', await page.evaluate(() => {
+        const s = lifeOS.getJournalStreak();
+        return [s.current, s.best, s.total, document.querySelector('.journal-streak-count').textContent];
+    }), [2, 2, 2, '2']);
+    check('three highlight fields replace gratitude', await page.evaluate(() =>
+        [!!document.getElementById('stoicGratitude'), document.querySelectorAll('.highlight-input').length]), [false, 3]);
+    check('archive hidden until something is imported', await page.isHidden('#journalArchive'), true);
+
+    // Import (no Convex here, so the archive text goes to localStorage)
+    await page.setInputFiles('#journalImportInput', pdfPath);
+    await page.waitForSelector('#journalImportModal.active', { timeout: 20000 });
+    check('import preview summary', await page.textContent('#journalImportSummary'), 'Found 5 entries from Sep 30, 2026 to Oct 10, 2026.');
+    await page.click('#journalImportConfirm');
+    await page.waitForFunction(() => !document.querySelector('#journalImportModal.active'));
+    const archived = await page.evaluate(() => JSON.parse(localStorage.getItem('lifeOS_journalArchive')));
+    check('entries split at each date heading', archived.map(e => e.date).sort(), ['2026-09-30', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-10']);
+    const oct8 = archived.find(e => e.date === '2026-10-08').text;
+    check('prose starting with a date stays in its entry', oct8.includes('October 1, 2026 was when I started running again.'), true);
+    check('page headers and numbers stripped', archived.some(e => /My Journal|^\d+$/m.test(e.text)), false);
+    check('imported dates stored for the streak', await page.evaluate(() => lifeOS.data.journalImportDates), ['2026-09-30', '2026-10-08', '2026-10-09', '2026-10-10']);
+    check('streak now includes imported days (Oct 8–12)', await page.evaluate(() => {
+        const s = lifeOS.getJournalStreak();
+        return [s.current, s.best, s.total];
+    }), [5, 5, 6]);
+
+    // Archive on the Reflection tab
+    await page.click('#journalArchive summary');
+    await page.waitForSelector('#archiveList .archive-entry');
+    check('archive lists newest first', await page.$$eval('#archiveList .archive-date', els => els.map(e => e.textContent)),
+        ['Sat, Oct 10, 2026', 'Sat, Oct 10, 2026', 'Fri, Oct 9, 2026', 'Thu, Oct 8, 2026', 'Wed, Sep 30, 2026']);
+    await page.fill('#archiveSearch', 'running');
+    check('archive search', await page.$$eval('#archiveList .archive-date', els => els.map(e => e.textContent)), ['Thu, Oct 8, 2026']);
+
+    // Importing the same file again adds nothing
+    await page.setInputFiles('#journalImportInput', pdfPath);
+    await page.waitForSelector('#journalImportModal.active', { timeout: 20000 });
+    await page.click('#journalImportConfirm');
+    await page.waitForFunction(() => !document.querySelector('#journalImportModal.active'));
+    check('re-import skips duplicates', await page.textContent('#journalImportStatus'), "Imported 0 entries (5 already there). They're under Journal archive on the Reflection tab.");
+
+    // Tonight's reflection with highlights
+    await page.fill('#stoicWentWell', 'Good focus block');
+    await page.fill('#stoicHighlight1', 'Long walk with Chelsey');
+    await page.fill('#stoicHighlight3', 'Remember: book the dentist');
+    await page.click('#saveEveningReflectionBtn');
+    check('highlights saved (blanks dropped)', await page.evaluate(() => lifeOS.data.eveningReflections[0].highlights), ['Long walk with Chelsey', 'Remember: book the dentist']);
+    check('saved under the local date', await page.evaluate(() => lifeOS.data.eveningReflections[0].date), '2026-10-13');
+    check('past reflection shows highlights', await page.$$eval('#journalEntriesList .journal-entry-card:first-child .highlight-list li', els => els.map(e => e.textContent)),
+        ['Long walk with Chelsey', 'Remember: book the dentist']);
+    check('streak counts today', await page.evaluate(() => [lifeOS.getJournalStreak().current, document.querySelector('.journal-streak-note').textContent]), [6, 'Done for today.']);
+
+    // Remove imported entries
+    await page.click('#settingsBtn').catch(() => page.evaluate(() => lifeOS.openModal('settingsModal')));
+    await page.evaluate(() => document.getElementById('journalClearBtn').click());
+    await page.waitForFunction(() => lifeOS.data.journalImportDates.length === 0);
+    check('removing imports clears archive + their streak days', await page.evaluate(() =>
+        [localStorage.getItem('lifeOS_journalArchive'), document.getElementById('journalArchive').hidden, lifeOS.getJournalStreak().current]), [null, true, 3]);
+    check('no page errors', errors, []);
+    await context.close();
+    fs.unlinkSync(pdfPath);
 }
 
 await browser.close();

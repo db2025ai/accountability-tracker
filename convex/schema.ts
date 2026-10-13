@@ -43,4 +43,17 @@ export default defineSchema({
     failed: v.optional(v.number()),
     createdAt: v.string(),
   }).index("by_user_date_kind", ["userId", "date", "kind"]),
+
+  // Read-only archive of entries imported from another journal app. Kept out of the
+  // userData blob, which has to stay under Convex's 1 MB document limit.
+  journalArchive: defineTable({
+    userId: v.string(),
+    date: v.string(), // local YYYY-MM-DD
+    text: v.string(),
+    source: v.string(), // e.g. "Journal app"
+    key: v.string(), // date + text hash, so re-importing the same file adds nothing
+    importedAt: v.string(),
+  })
+    .index("by_user_date", ["userId", "date"])
+    .index("by_user_key", ["userId", "key"]),
 });
