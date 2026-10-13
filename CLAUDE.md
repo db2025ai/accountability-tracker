@@ -137,7 +137,7 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 - **Chart.js 4.4** loaded from CDN for all charts
 - **CSS variables** in `:root` control theming (see Look & feel)
 - **Responsive at 768px** — sidebar collapses, mobile bottom nav appears
-- **Mobile chrome** — light header with menu + settings buttons and a 6-tab bottom bar (12px labels, ~26px icons, full-width tap targets). `viewport-fit=cover` + `env(safe-area-inset-*)` keep both clear of the notch and home indicator; status bar style is `default` (dark text on the paper background)
+- **Mobile chrome** — light header with menu + settings buttons and a 6-tab bottom bar — Home, Goals, Health, Today, Journal, Meditate (Weekly Review lives in the ☰ menu) — with 12px labels, ~26px icons, full-width tap targets. `viewport-fit=cover` + `env(safe-area-inset-*)` keep both clear of the notch and home indicator; status bar style is `default` (dark text on the paper background)
 - **Phones down to 320px** — iPhone Display Zoom ("Larger Text") or page zoom leaves ~320 CSS px. Flex/grid children that hold wide content need `min-width: 0` (so tables/charts scroll inside their box, not the page), and fields are 16px on phones so iOS doesn't zoom in when one is tapped. The iOS Text Size slider doesn't affect this app (it uses `-apple-system`, not `-apple-system-body`)
 
 ## Key Methods in life-os.js
