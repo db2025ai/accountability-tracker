@@ -132,7 +132,9 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
   - Device speech only starts from a tap: `startMeditation` speaks a device voice's first line synchronously, before any `await` (recordings don't need this — the AudioContext is resumed in the tap).
   - Never `cancel()` then immediately `speak()` — WebKit drops the new utterance. Cues are skipped if speech is still playing.
   - Web Audio follows the silent switch: `medPrimeAudio()` (from the tap) sets `navigator.audioSession.type = 'playback'` and loops a generated silent WAV so chimes and voice play like media; `medReleaseAudio()` undoes it.
-  - Test button (`medSoundCheck`) and the in-player hint report when the voice never starts.
+  - Recordings in a session: lines load one at a time in spoken order and decode one at a time (`medDecode`, callback form) — decoding a whole session at once can fail on iPhone. Before each line `medAudioReady()` resumes the AudioContext (iOS can leave it `suspended`/`interrupted`); a line that can't load within 8s falls back to captions.
+  - Never `await` the screen wake lock before the first line (it can hang in Home Screen apps).
+  - Test button (`medSoundCheck`) and the in-player hint (`medVoiceProblem`) say *why* there's no voice: "Speak the guidance" off (the Test button plays regardless, so it warns), a download/decode error, or the iPhone pausing the sound (Pause → Resume wakes it). The generic volume hint shows only when there's no specific reason.
 - Finished sessions go in `data.meditationLog` (`{ date, ts, kind, minutes }`); 3- and 5-minute sessions also check off the goal whose name matches /meditat/i for today. Ending early (<90%) logs nothing.
 - The session clock is pause-aware (`medElapsed`, `medSleepUntil`); tests speed it up with `lifeOS._medTimeScale`.
 

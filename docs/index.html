@@ -7359,24 +7359,71 @@ class LifeOS {
         return this._medAudio;
     }
 
-    // Decoded recording of a line (fetched once), or null if there isn't one
+    // Decoded recording of a line (fetched once), or null if there isn't one.
+    // Why the last one failed is kept in _medClipError for the player's hint.
     medClip(text) {
         this._medClips ||= new Map();
         this._medClipReady ||= new Map();
         if (!this._medClips.has(text)) {
             const clip = this.loadMedManifest().then(async lines => {
-                const file = lines?.[text];
-                if (!file) return null;
+                if (!lines) throw new Error("couldn't load the recordings list");
+                const file = lines[text];
+                if (!file) throw new Error('no recording for this line');
                 const resp = await fetch(MED_AUDIO_BASE + file);
-                if (!resp.ok) return null;
-                const buffer = await this.medAudioContext().decodeAudioData(await resp.arrayBuffer());
+                if (!resp.ok) throw new Error(`download failed, ${resp.status}`);
+                const buffer = await this.medDecode(await resp.arrayBuffer());
                 this._medClipReady.set(text, buffer);
                 return buffer;
-            }).catch(() => null);
+            }).catch(e => {
+                this._medClipError = e?.message || String(e?.name || e || 'unknown error');
+                this._medClips.delete(text); // retry next time
+                if (!this._medManifest) this._medManifestPromise = null;
+                return null;
+            });
             this._medClips.set(text, clip);
-            clip.then(b => { if (!b) this._medClips.delete(text); }); // retry next time
         }
         return this._medClips.get(text);
+    }
+
+    // One decode at a time, callback form: iPhone Safari can fail when a whole session's
+    // lines are decoded at once, and older versions don't return a promise
+    medDecode(arrayBuffer) {
+        const ctx = this.medAudioContext();
+        const run = () => new Promise((resolve, reject) => {
+            const fail = e => reject(new Error(`couldn't decode the audio${e?.message ? `: ${e.message}` : ''}`));
+            const result = ctx.decodeAudioData(arrayBuffer, resolve, fail);
+            if (result?.catch) result.catch(fail);
+        });
+        const next = (this._medDecodeQueue || Promise.resolve()).then(run, run);
+        this._medDecodeQueue = next.catch(() => {});
+        return next;
+    }
+
+    // Make sure the audio engine is running before a line plays (iPhone can suspend or
+    // interrupt it); gives up after a second and reports the state it's stuck in
+    async medAudioReady() {
+        let ctx;
+        try { ctx = this.medAudioContext(); } catch (e) { return 'unavailable'; }
+        if (ctx.state === 'running') return 'running';
+        try {
+            await Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 1000))]);
+        } catch (e) { /* reported below */ }
+        return ctx.state;
+    }
+
+    // Wait for a promise, but no longer than `ms` (resolves to `fallback` on timeout)
+    medWithin(promise, ms, fallback = null) {
+        return Promise.race([promise, new Promise(r => setTimeout(() => r(fallback), ms))]);
+    }
+
+    // Tell the listener exactly why they can't hear the voice (captions keep going)
+    medVoiceProblem(text) {
+        const m = this._med;
+        if (!m || m.cancelled) return;
+        m.voiceProblem = text;
+        const hint = document.getElementById('medHint');
+        hint.textContent = text;
+        hint.hidden = false;
     }
 
     medPlayBuffer(buffer, offset = 0, delay = 0) {
@@ -7482,13 +7529,15 @@ class LifeOS {
             status.textContent = 'Testing…';
             const buffer = await this.medClip(MED_TEST_LINE);
             if (!buffer) {
-                status.textContent = "Couldn't load the voice recordings. Check your connection and tap Test again.";
+                status.textContent = `Couldn't load the voice recordings (${this._medClipError || 'unknown error'}). Check your connection and tap Test again.`;
                 return;
             }
             this.medPlayBuffer(buffer, 0, 0.6);
             status.textContent = 'Playing…';
             setTimeout(() => {
-                status.textContent = '✓ Voice played. Heard nothing? Turn the volume up with the side buttons and tap Test again.';
+                status.textContent = this.getLocal('lifeOS_medVoiceOn') === '0'
+                    ? '✓ Voice played — but “Speak the guidance” below is off, so sessions are silent. Tick it to hear Cori in sessions.'
+                    : '✓ Voice played. Heard nothing? Turn the volume up with the side buttons and tap Test again.';
                 this.medReleaseAudio();
             }, (buffer.duration + 0.9) * 1000);
             return;
@@ -7518,13 +7567,27 @@ class LifeOS {
         document.getElementById('medCaption').textContent = text;
         if (!m.voiceOn) return this.medSleep(this.medSpeechSeconds(text));
         if (this.medUsesRecordings()) {
-            const buffer = await this.medClip(text);
-            if (!buffer || m.cancelled) return this.medSleep(this.medSpeechSeconds(text)); // captions only
+            // Never hold the session up for a slow download: after 8s, show captions and move on
+            let buffer = await this.medWithin(this.medClip(text), 8000);
+            if (!buffer && !m.cancelled && !this._medClips?.has(text)) buffer = await this.medWithin(this.medClip(text), 8000); // one retry
+            if (m.cancelled) return;
+            if (!buffer) {
+                this.medVoiceProblem(`Couldn't load the voice (${this._medClips?.has(text) ? 'still downloading' : this._medClipError || 'unknown error'}). The captions keep going — check your connection.`);
+                return this.medSleep(this.medSpeechSeconds(text)); // captions only
+            }
+            const state = await this.medAudioReady();
+            if (m.cancelled) return;
+            if (state !== 'running') {
+                this.medVoiceProblem(`The iPhone paused the sound (${state}). Tap Pause, then Resume, to wake it.`);
+            } else {
+                m.heardVoice = true;
+                m.voiceProblem = null;
+                document.getElementById('medHint').hidden = true;
+            }
             (m.played ||= []).push(text);
-            m.heardVoice = true;
             // Timed on the session clock, so Pause/Resume can pick the line up where it stopped
             m.line = { buffer, startedAt: this.medElapsed() };
-            m.source = this.medPlayBuffer(buffer);
+            m.source = m.paused ? null : this.medPlayBuffer(buffer); // paused while loading: Resume starts it
             await this.medSleepUntil(m.line.startedAt + buffer.duration);
             m.line = null;
             return;
@@ -7632,9 +7695,13 @@ class LifeOS {
         document.getElementById('medPlayer').hidden = false;
         document.body.classList.add('med-open');
 
-        document.getElementById('medHint').hidden = true;
+        const hint = document.getElementById('medHint');
+        this._medHintText ||= hint.textContent;
+        hint.textContent = this._medHintText;
+        hint.hidden = true;
         this.medPrimeAudio();
         this.medChime(session.gentle);
+        if (!voiceOn) this.medVoiceProblem('Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Cori.');
 
         const total = minutes * 60;
         const tick = () => {
@@ -7654,18 +7721,32 @@ class LifeOS {
 
         const recorded = voiceOn && this.medUsesRecordings();
         if (recorded) {
-            steps.forEach(st => st.say && this.medClip(st.say));
-            Object.values(BREATH_PATTERNS).flat().forEach(p => p.cue && this.medClip(p.cue));
+            // Load the session's lines one by one, in the order they're spoken (breath cues
+            // after the first few), rather than all at once
+            const says = steps.filter(st => st.say).map(st => st.say);
+            const cues = Object.values(BREATH_PATTERNS).flat().map(p => p.cue).filter(Boolean);
+            const order = [...new Set([...says.slice(0, 3), ...cues, ...says.slice(3)])];
+            (async () => {
+                for (const line of order) {
+                    if (m.cancelled || !m.running) break;
+                    await this.medClip(line);
+                }
+            })();
         }
         // A device voice must start inside the tap (iOS rule), so speak its first line now
         if (!recorded && window.speechSynthesis?.speaking) speechSynthesis.cancel();
         const opening = !recorded && main[0]?.say ? this.medRunStep(main.shift()) : null;
-        if (voiceOn && window.speechSynthesis) {
+        if (voiceOn && (recorded || window.speechSynthesis)) {
             setTimeout(() => {
-                if (m.running && !m.cancelled && !m.heardVoice) document.getElementById('medHint').hidden = false;
+                if (m.running && !m.cancelled && !m.heardVoice && !m.voiceProblem) hint.hidden = false;
             }, 5000 / (this._medTimeScale || 1));
         }
-        try { m.wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) { /* not supported */ }
+        // Keep the screen on, but never wait for it (it can hang in Home Screen apps)
+        try {
+            navigator.wakeLock?.request('screen').then(lock => {
+                if (m.running) m.wakeLock = lock; else lock.release().catch(() => {});
+            }).catch(() => {});
+        } catch (e) { /* not supported */ }
         if (opening) await opening;
         else await this.medSleep(1.2); // let the opening chime ring
 
@@ -7702,6 +7783,14 @@ class LifeOS {
         m.resumedAt = performance.now();
         m.paused = false;
         this.medPrimeAudio(); // Resume is a tap, so audio can restart
+        if (m.voiceProblem?.startsWith('The iPhone paused')) {
+            this.medAudioReady().then(state => {
+                if (state === 'running' && m.voiceProblem?.startsWith('The iPhone paused')) {
+                    m.voiceProblem = null;
+                    document.getElementById('medHint').hidden = true;
+                }
+            });
+        }
         // Pick up the recorded line where it stopped
         if (m.line && m.voiceOn) {
             const offset = this.medElapsed() - m.line.startedAt;

@@ -632,6 +632,51 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.waitForSelector('#medPlayer', { state: 'hidden' });
     check('ending early logs nothing', await page.evaluate(() => lifeOS.data.meditationLog.length), 2);
 
+    // Why a session is silent while Test plays: the player names the reason
+    const endSession = async () => { await page.click('#medEndBtn'); await page.waitForSelector('#medPlayer', { state: 'hidden' }); };
+    await page.evaluate(() => { lifeOS._medTimeScale = 1; });
+    await page.click('.med-length[data-min="1"]');
+    // 1) "Speak the guidance" is off
+    await page.uncheck('#medVoiceOn');
+    await page.click('#medVoiceTest');
+    await page.waitForFunction(() => document.getElementById('medVoiceStatus').textContent.startsWith('✓'), null, { timeout: 15000 });
+    check('Test warns that sessions are silent when "Speak the guidance" is off',
+        (await page.textContent('#medVoiceStatus')).includes('sessions are silent'), true);
+    await page.click('[data-med="breathe"]');
+    check('voice off: the player says so right away', [await page.isVisible('#medHint'), await page.textContent('#medHint')],
+        [true, 'Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Cori.']);
+    await endSession();
+    await page.check('#medVoiceOn');
+    // 2) A recording can't be downloaded
+    await page.evaluate(() => {
+        // (the service worker fetches the files, so stub fetch in the page rather than page.route)
+        window.__fetch = window.fetch;
+        window.fetch = (url, ...rest) => String(url).endsWith('.mp3') ? Promise.resolve(new Response('', { status: 404 })) : window.__fetch(url, ...rest);
+        lifeOS._medClips.clear(); lifeOS._medClipReady.clear();
+    });
+    await page.click('[data-med="reflect"]');
+    await page.waitForSelector('#medHint:not([hidden])', { timeout: 5000 });
+    check('failed download is named in the hint, captions continue', [await page.textContent('#medHint'), (await page.textContent('#medCaption')).length > 0],
+        ["Couldn't load the voice (download failed, 404). The captions keep going — check your connection.", true]);
+    await endSession();
+    await page.evaluate(() => { window.fetch = window.__fetch; });
+    // 3) The phone suspends the audio engine; Pause → Resume (a tap) wakes it
+    await page.evaluate(async () => {
+        const ctx = lifeOS.medAudioContext();
+        await ctx.suspend();
+        ctx.resume = () => Promise.resolve(); // stays suspended, like an interrupted iPhone
+    });
+    await page.click('[data-med="body"]');
+    await page.waitForSelector('#medHint:not([hidden])', { timeout: 5000 });
+    check('suspended audio is named in the hint', await page.textContent('#medHint'), 'The iPhone paused the sound (suspended). Tap Pause, then Resume, to wake it.');
+    await page.evaluate(() => { delete lifeOS.medAudioContext().resume; });
+    await page.click('#medPauseBtn');
+    await page.click('#medPauseBtn');
+    await page.waitForSelector('#medHint', { state: 'hidden', timeout: 3000 });
+    check('Resume wakes the audio and clears the hint', await page.evaluate(() => [lifeOS.medAudioContext().state, lifeOS._med.voiceProblem]), ['running', null]);
+    await endSession();
+    check('still only the two finished sessions logged', await page.evaluate(() => lifeOS.data.meditationLog.length), 2);
+
     // Every session × length, voice off (captions only): each ends on time
     const timings = await page.evaluate(async () => {
         lifeOS._medTimeScale = 150;
