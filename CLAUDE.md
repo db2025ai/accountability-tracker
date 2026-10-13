@@ -62,9 +62,14 @@ Within each frequency group, items are sub-labeled by category (Morning Protocol
 ### Weekly Tracking Data
 Each week's `entries` array has one entry per goal with a 7-element `tracking` array:
 - Index 0 = Sunday through 6 = Saturday
-- Values: `'X'` (completed), `'1'` (strike/missed), `''` (not tracked yet)
+- Values: `'X'` (completed), `'1'`/`'2'`… (strikes), `'-'` (skipped — doesn't apply that day), `''` (not tracked yet)
 
 Checking items in the Today tab writes to the same tracking data as the Goals grid — they are the same data, different views.
+
+### Greyed-out Days (skips and schedules)
+- **Per-cell skip**: `'-'` marks one goal on one day as "doesn't apply". Set via the Skip button on the Today tab or the grid tap cycle.
+- **Per-goal schedule**: optional `goal.days` (array of 0–6) on `this.data.goals`, edited with the day chips in Manage Goals. It applies to every week (looked up by goal name). Without it, days derive from the target (`weekdays` = Mon–Fri, `weeknights` = Sun–Thu, otherwise all days).
+- Skipped days, unscheduled days and vacation days are excluded from expected counts and never break streaks. Use `isTracked(v)` instead of `v !== ''` when counting tracked cells, and `isExpected(week, entry, day)` when a goal should only count on days it applies.
 
 ## Architecture Notes
 
@@ -80,5 +85,6 @@ Checking items in the Today tab writes to the same tracking data as the Goals gr
 - `renderGoals()` — Renders the weekly Goals grid
 - `classifyFrequency(target)` — Maps target strings to frequency groups
 - `createNewWeek()` — Creates a new week with entries for all goals
-- `toggleGoalCell()` — Cycles tracking value: '' → 'X' → '1' → ''
+- `toggleGoalCell()` — Cycles tracking value: '' → 'X' → '1' → '-' → ''
+- `getGoalDays(goal)` / `isExpected(week, entry, day)` / `isTracked(v)` — Schedule and skip helpers
 - `saveData()` — Persists to localStorage (and Convex if connected)

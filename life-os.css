@@ -598,6 +598,31 @@ body {
     font-size: 1.2rem;
 }
 
+/* Greyed-out cells: skipped for that day, or outside the goal's schedule */
+.goals-grid .day-cell.skipped,
+.goals-grid .day-cell.off-day {
+    background: repeating-linear-gradient(135deg, var(--border-light), var(--border-light) 4px, #e5e9f0 4px, #e5e9f0 8px);
+    color: var(--text-light);
+}
+
+.grid-legend {
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.grid-legend .lg-done { color: var(--success); }
+.grid-legend .lg-strike { color: var(--danger); }
+.grid-legend .lg-skip { color: var(--text-light); }
+.grid-legend .lg-off {
+    display: inline-block;
+    width: 14px;
+    height: 12px;
+    vertical-align: middle;
+    border: 1px solid var(--border);
+    background: repeating-linear-gradient(135deg, var(--border-light), var(--border-light) 3px, #e5e9f0 3px, #e5e9f0 6px);
+}
+
 .goals-grid .strike-count {
     font-weight: 700;
     color: var(--danger);
@@ -684,7 +709,18 @@ tr:hover .strike-dec { opacity: 1; }
     font-size: 0.85rem;
 }
 
-.goal-list-item button {
+.goal-list-item {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.goal-list-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.goal-remove-btn {
     background: var(--danger);
     color: white;
     border: none;
@@ -692,6 +728,60 @@ tr:hover .strike-dec { opacity: 1; }
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.75rem;
+}
+
+/* Per-goal schedule chips (S M T W T F S) */
+.day-chips {
+    display: flex;
+    gap: 3px;
+}
+
+.day-chip {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-light);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    transition: var(--transition);
+}
+
+.day-chip.on {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.goals-list .goal-category-group h4 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.cat-days-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.cat-days-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.cat-days-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 /* ========================================
@@ -1374,6 +1464,77 @@ tr:hover .strike-dec { opacity: 1; }
 
 .heatmap-cell.today {
     border: 2px solid var(--primary);
+}
+
+.heatmap-cell.off {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-light);
+}
+
+/* Today tab: skip button and "Doesn't apply today" section */
+.habit-skip-btn,
+.habit-unskip-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    color: var(--text-light);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.habit-skip-btn:hover,
+.habit-unskip-btn:hover {
+    border-color: var(--text-muted);
+    color: var(--text-muted);
+}
+
+.habit-check-item.item-done .habit-skip-btn {
+    visibility: hidden;
+}
+
+.off-today {
+    margin-top: 16px;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.off-today summary {
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+}
+
+.off-today-count {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 8px;
+    border-radius: 10px;
+    background: var(--border-light);
+    font-size: 0.75rem;
+}
+
+.off-item .habit-name {
+    color: var(--text-light);
+}
+
+.off-reason {
+    font-size: 0.72rem;
+    color: var(--text-light);
+    white-space: nowrap;
+}
+
+.off-today-hint {
+    padding: 8px 16px 12px;
+    font-size: 0.72rem;
+    color: var(--text-light);
 }
 
 /* ========================================
