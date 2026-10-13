@@ -605,6 +605,31 @@ body {
     font-size: 1.2rem;
 }
 
+/* Greyed-out cells: skipped for that day, or outside the goal's schedule */
+.goals-grid .day-cell.skipped,
+.goals-grid .day-cell.off-day {
+    background: repeating-linear-gradient(135deg, var(--border-light), var(--border-light) 4px, #e5e9f0 4px, #e5e9f0 8px);
+    color: var(--text-light);
+}
+
+.grid-legend {
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.grid-legend .lg-done { color: var(--success); }
+.grid-legend .lg-strike { color: var(--danger); }
+.grid-legend .lg-skip { color: var(--text-light); }
+.grid-legend .lg-off {
+    display: inline-block;
+    width: 14px;
+    height: 12px;
+    vertical-align: middle;
+    border: 1px solid var(--border);
+    background: repeating-linear-gradient(135deg, var(--border-light), var(--border-light) 3px, #e5e9f0 3px, #e5e9f0 6px);
+}
+
 .goals-grid .strike-count {
     font-weight: 700;
     color: var(--danger);
@@ -691,7 +716,18 @@ tr:hover .strike-dec { opacity: 1; }
     font-size: 0.85rem;
 }
 
-.goal-list-item button {
+.goal-list-item {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.goal-list-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.goal-remove-btn {
     background: var(--danger);
     color: white;
     border: none;
@@ -699,6 +735,60 @@ tr:hover .strike-dec { opacity: 1; }
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.75rem;
+}
+
+/* Per-goal schedule chips (S M T W T F S) */
+.day-chips {
+    display: flex;
+    gap: 3px;
+}
+
+.day-chip {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-light);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    transition: var(--transition);
+}
+
+.day-chip.on {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.goals-list .goal-category-group h4 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.cat-days-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.cat-days-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.cat-days-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 /* ========================================
@@ -1381,6 +1471,77 @@ tr:hover .strike-dec { opacity: 1; }
 
 .heatmap-cell.today {
     border: 2px solid var(--primary);
+}
+
+.heatmap-cell.off {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-light);
+}
+
+/* Today tab: skip button and "Doesn't apply today" section */
+.habit-skip-btn,
+.habit-unskip-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    color: var(--text-light);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.habit-skip-btn:hover,
+.habit-unskip-btn:hover {
+    border-color: var(--text-muted);
+    color: var(--text-muted);
+}
+
+.habit-check-item.item-done .habit-skip-btn {
+    visibility: hidden;
+}
+
+.off-today {
+    margin-top: 16px;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.off-today summary {
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+}
+
+.off-today-count {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 8px;
+    border-radius: 10px;
+    background: var(--border-light);
+    font-size: 0.75rem;
+}
+
+.off-item .habit-name {
+    color: var(--text-light);
+}
+
+.off-reason {
+    font-size: 0.72rem;
+    color: var(--text-light);
+    white-space: nowrap;
+}
+
+.off-today-hint {
+    padding: 8px 16px 12px;
+    font-size: 0.72rem;
+    color: var(--text-light);
 }
 
 /* ========================================
@@ -2675,6 +2836,7 @@ tr:hover .strike-dec { opacity: 1; }
                 <div id="goalsGrid" class="goals-grid">
                     <!-- Dynamic goal tracking table -->
                 </div>
+                <p class="grid-legend">Tap a cell to cycle: <b class="lg-done">&#10003;</b> done &rarr; <b class="lg-strike">&#10007;</b> strike &rarr; <b class="lg-skip">&ndash;</b> doesn't apply &rarr; clear. <span class="lg-off"></span> = not scheduled that day.</p>
             </div>
 
             <!-- Goal Analytics -->
@@ -3652,6 +3814,44 @@ class LifeOS {
     }
 
     // ========================================
+    // Tracking Helpers (skipped cells, per-goal schedules)
+    // ========================================
+    // Cell values: 'X' done, '1'/'2'.. strikes, '-' skipped (doesn't apply), '' untracked
+    isTracked(v) {
+        return v !== '' && v !== '-' && v != null;
+    }
+
+    getVacationDays(week) {
+        return week.vacationDays || (week.vacation ? [0, 1, 2, 3, 4, 5, 6] : []);
+    }
+
+    // Days of the week (0=Sun..6=Sat) a goal applies to. The schedule lives on the goal
+    // in this.data.goals (matched by name) so it applies to every week, past and future;
+    // otherwise derive from the target. Weeknights = Sun-Thu (nights before a workday).
+    getGoalDays(goal) {
+        const current = this.data.goals.find(g => g.name === goal.name);
+        const days = current?.days ?? goal.days;
+        if (Array.isArray(days)) return days;
+        const t = (goal.target || '').toLowerCase().trim();
+        if (t === 'weekdays') return [1, 2, 3, 4, 5];
+        if (t === 'weeknights') return [0, 1, 2, 3, 4];
+        return [0, 1, 2, 3, 4, 5, 6];
+    }
+
+    // Is this goal expected on this day? False for vacation days, skipped cells,
+    // and days outside the goal's schedule.
+    isExpected(week, entry, dayIdx) {
+        if (this.getVacationDays(week).includes(dayIdx)) return false;
+        if (entry.tracking[dayIdx] === '-') return false;
+        return this.getGoalDays(entry.goal).includes(dayIdx);
+    }
+
+    setGoalDays(goalIdx, days) {
+        const goal = this.data.goals[goalIdx];
+        if (goal) goal.days = [...days].sort();
+    }
+
+    // ========================================
     // Dashboard
     // ========================================
     renderDashboard() {
@@ -3675,7 +3875,7 @@ class LifeOS {
         Object.values(week.entries).forEach(entry => {
             entry.tracking.forEach(val => {
                 if (val === 'X' || val === 'x') completedGoals++;
-                if (val !== '') totalGoals++;
+                if (this.isTracked(val)) totalGoals++;
             });
         });
 
@@ -3734,8 +3934,8 @@ class LifeOS {
             Object.values(week.entries).forEach(entry => {
                 const freq = this.classifyFrequency(entry.goal.target);
                 // Only count items applicable today
-                const applicable = freq.group === 'daily' ||
-                    (freq.group !== 'monthly' && freq.group !== 'weekly' && freq.group !== 'limit');
+                const applicable = (freq.group === 'daily' || freq.group === 'fewPerWeek') &&
+                    this.isExpected(week, entry, todayDayIdx);
                 if (applicable) {
                     todayTotal++;
                     const val = entry.tracking[todayDayIdx];
@@ -3752,7 +3952,7 @@ class LifeOS {
         Object.values(week.entries).forEach(entry => {
             if (entry.goal.category === 'Physical Health' || entry.goal.category === 'Mental Health') {
                 entry.tracking.forEach(v => {
-                    if (v !== '') healthTotal++;
+                    if (this.isTracked(v)) healthTotal++;
                     if (v === 'X' || v === 'x') healthCompleted++;
                 });
             }
@@ -3785,9 +3985,14 @@ class LifeOS {
             if (entries.length === 0) break;
 
             for (let d = dayIdx; d >= 0; d--) {
-                const done = entries.filter(e => e.tracking[d] === 'X' || e.tracking[d] === 'x').length;
-                if (done / entries.length >= 0.7) {
+                // Only goals expected that day count; days with nothing expected are skipped
+                const expected = entries.filter(e => this.isExpected(week, e, d));
+                if (expected.length === 0) continue;
+                const done = expected.filter(e => e.tracking[d] === 'X' || e.tracking[d] === 'x').length;
+                if (done / expected.length >= 0.7) {
                     streak++;
+                } else if (weekIdx === sortedWeeks.length - 1 && d === todayDayIdx) {
+                    continue; // today is still in progress — don't break the streak yet
                 } else {
                     return streak;
                 }
@@ -3811,7 +4016,7 @@ class LifeOS {
             const cat = entry.goal.category;
             if (!catStats[cat]) catStats[cat] = { total: 0, completed: 0 };
             entry.tracking.forEach(v => {
-                if (v !== '') catStats[cat].total++;
+                if (this.isTracked(v)) catStats[cat].total++;
                 if (v === 'X' || v === 'x') catStats[cat].completed++;
             });
         });
@@ -3852,7 +4057,7 @@ class LifeOS {
         const getScore = (week) => {
             let done = 0, total = 0;
             Object.values(week.entries).forEach(e => {
-                e.tracking.forEach(v => { if (v !== '') total++; if (v === 'X' || v === 'x') done++; });
+                e.tracking.forEach(v => { if (this.isTracked(v)) total++; if (v === 'X' || v === 'x') done++; });
             });
             return total > 0 ? Math.round((done / total) * 100) : 0;
         };
@@ -3877,9 +4082,9 @@ class LifeOS {
             const cat = entry.goal.category;
             if (!catStats[cat]) catStats[cat] = { done: 0, total: 0, strikes: 0 };
             entry.tracking.forEach(v => {
-                if (v !== '') catStats[cat].total++;
+                if (this.isTracked(v)) catStats[cat].total++;
                 if (v === 'X' || v === 'x') catStats[cat].done++;
-                else if (v !== '' && !isNaN(parseInt(v))) catStats[cat].strikes += parseInt(v);
+                else if (this.isTracked(v) && !isNaN(parseInt(v))) catStats[cat].strikes += parseInt(v);
             });
         });
 
@@ -3945,7 +4150,7 @@ class LifeOS {
                 if (!cStat.goals[gName]) cStat.goals[gName] = { done: 0, strikes: 0, total: 0 };
                 const gStat = cStat.goals[gName];
                 entry.tracking.forEach((v, dayIdx) => {
-                    if (dayIdx > maxDay || vacDays.has(dayIdx) || v === '') return;
+                    if (dayIdx > maxDay || vacDays.has(dayIdx) || !this.isTracked(v)) return;
                     cStat.total++; gStat.total++;
                     if (v === 'X' || v === 'x') { cStat.done++; gStat.done++; }
                     else if (!isNaN(parseInt(v))) {
@@ -4049,7 +4254,7 @@ class LifeOS {
             if (!monthStats[key]) monthStats[key] = { done: 0, total: 0 };
             Object.values(week.entries).forEach(entry => {
                 entry.tracking.forEach((v, dayIdx) => {
-                    if (dayIdx > maxDay || vacDays.has(dayIdx) || v === '') return;
+                    if (dayIdx > maxDay || vacDays.has(dayIdx) || !this.isTracked(v)) return;
                     monthStats[key].total++;
                     if (v === 'X' || v === 'x') monthStats[key].done++;
                 });
@@ -4089,7 +4294,7 @@ class LifeOS {
                 const name = entry.goal.name;
                 if (!goalStats[name]) goalStats[name] = { done: 0, total: 0 };
                 entry.tracking.forEach((v, dayIdx) => {
-                    if (dayIdx > maxDay || vacDays.has(dayIdx) || v === '') return;
+                    if (dayIdx > maxDay || vacDays.has(dayIdx) || !this.isTracked(v)) return;
                     goalStats[name].total++;
                     if (v === 'X' || v === 'x') goalStats[name].done++;
                 });
@@ -4313,6 +4518,7 @@ class LifeOS {
             let catTotal = 0;
             entries.forEach(entry => {
                 html += `<tr><td class="goal-name-cell">${this.escapeHtml(entry.goal.name)}</td>`;
+                const goalDays = this.getGoalDays(entry.goal);
                 entry.tracking.forEach((val, dayIdx) => {
                     let cls = 'day-cell';
                     let display = '';
@@ -4325,6 +4531,11 @@ class LifeOS {
                     } else if (val === '1') {
                         cls += ' missed';
                         display = '\u2717';
+                    } else if (val === '-') {
+                        cls += ' skipped';
+                        display = '\u2013';
+                    } else if (val === '' && !goalDays.includes(dayIdx)) {
+                        cls += ' off-day';
                     }
                     html += `<td class="${cls}" data-goal="${entry.idx}" data-day="${dayIdx}">${display}</td>`;
                 });
@@ -4358,13 +4569,16 @@ class LifeOS {
         const entry = week.entries[goalIdx] ?? week.entries[String(goalIdx)];
         if (!entry) return;
 
+        // Cycle: empty → ✓ done → ✗ strike → – skipped (doesn't apply) → empty
         const current = entry.tracking[dayIdx];
         if (current === '') {
             entry.tracking[dayIdx] = 'X';
         } else if (current === 'X' || current === 'x') {
             entry.tracking[dayIdx] = '1';
-        } else {
+        } else if (current === '-') {
             entry.tracking[dayIdx] = '';
+        } else {
+            entry.tracking[dayIdx] = '-';
         }
 
         this.saveData();
@@ -4417,7 +4631,7 @@ class LifeOS {
                 const cat = entry.goal.category;
                 if (!catStats[cat]) catStats[cat] = { completed: 0, total: 0 };
                 entry.tracking.forEach(v => {
-                    if (v !== '') catStats[cat].total++;
+                    if (this.isTracked(v)) catStats[cat].total++;
                     if (v === 'X' || v === 'x') catStats[cat].completed++;
                 });
             });
@@ -4459,18 +4673,65 @@ class LifeOS {
             grouped[goal.category].push({ ...goal, index: i });
         });
 
-        let html = '';
-        for (const [cat, goals] of Object.entries(grouped)) {
-            html += `<div class="goal-category-group"><h4>${cat}</h4>`;
-            goals.forEach(g => {
+        const dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const cats = Object.keys(grouped);
+
+        let html = '<p class="setting-desc">Tap the day letters to set which days each goal applies to. Greyed-out days don\'t count against you.</p>';
+        cats.forEach((cat, catIdx) => {
+            html += `<div class="goal-category-group">
+                <h4><span>${this.escapeHtml(cat)}</span>
+                    <span class="cat-days-actions">
+                        <button class="cat-days-btn" data-cat-idx="${catIdx}" data-cat-days="weekdays">Mon–Fri</button>
+                        <button class="cat-days-btn" data-cat-idx="${catIdx}" data-cat-days="all">Every day</button>
+                    </span>
+                </h4>`;
+            grouped[cat].forEach(g => {
+                const activeDays = this.getGoalDays(g);
+                const chips = dayLetters.map((letter, d) =>
+                    `<button class="day-chip${activeDays.includes(d) ? ' on' : ''}" data-goal-idx="${g.index}" data-day="${d}" title="${dayNames[d]}">${letter}</button>`
+                ).join('');
                 html += `<div class="goal-list-item">
-                    <span>${this.escapeHtml(g.name)} ${g.target ? '(' + this.escapeHtml(g.target) + ')' : ''}</span>
-                    <button data-remove-goal="${g.index}">Remove</button>
+                    <span class="goal-list-name">${this.escapeHtml(g.name)} ${g.target ? '(' + this.escapeHtml(g.target) + ')' : ''}</span>
+                    <div class="goal-list-actions">
+                        <div class="day-chips">${chips}</div>
+                        <button class="goal-remove-btn" data-remove-goal="${g.index}">Remove</button>
+                    </div>
                 </div>`;
             });
             html += '</div>';
-        }
+        });
         container.innerHTML = html;
+
+        // Toggle a single day on a goal's schedule
+        container.querySelectorAll('.day-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const goalIdx = parseInt(chip.dataset.goalIdx);
+                const day = parseInt(chip.dataset.day);
+                const days = new Set(this.getGoalDays(this.data.goals[goalIdx]));
+                if (days.has(day)) {
+                    if (days.size === 1) return; // a goal needs at least one day
+                    days.delete(day);
+                } else {
+                    days.add(day);
+                }
+                this.setGoalDays(goalIdx, days);
+                this.saveData();
+                this.renderGoals();
+            });
+        });
+
+        // Apply Mon–Fri or every day to a whole category
+        container.querySelectorAll('.cat-days-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const cat = cats[parseInt(btn.dataset.catIdx)];
+                const days = btn.dataset.catDays === 'weekdays' ? [1, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5, 6];
+                grouped[cat].forEach(g => this.setGoalDays(g.index, days));
+                this.saveData();
+                this.logActivity(`Set ${cat} to ${btn.dataset.catDays === 'weekdays' ? 'Mon–Fri' : 'every day'}`);
+                this.renderGoals();
+            });
+        });
 
         // Bind remove buttons
         container.querySelectorAll('[data-remove-goal]').forEach(btn => {
@@ -4616,6 +4877,8 @@ class LifeOS {
         Object.values(week.entries).forEach(entry => {
             if (entry.goal.name.includes('bed by')) {
                 sleepDone = entry.tracking.filter(v => v === 'X' || v === 'x').length;
+                // Nights the bedtime goal actually applies (schedule minus skips/vacation)
+                sleepTotal = Math.max(1, [0, 1, 2, 3, 4, 5, 6].filter(d => this.isExpected(week, entry, d)).length);
             }
         });
         document.getElementById('sleepScore').textContent = `${sleepDone}/${sleepTotal}`;
@@ -4638,7 +4901,7 @@ class LifeOS {
         Object.values(week.entries).forEach(entry => {
             if (entry.goal.name.includes('Zyn') || entry.goal.name.includes('drink')) {
                 entry.tracking.forEach(v => {
-                    if (v !== '') substancesTotal++;
+                    if (this.isTracked(v)) substancesTotal++;
                     if (v === 'X' || v === 'x') substancesClean++;
                 });
             }
@@ -4729,16 +4992,28 @@ class LifeOS {
 
         // Delegated: habit checkbox clicks — bound once, survives re-renders
         document.getElementById('habitsChecklist').addEventListener('click', (e) => {
-            const cb = e.target.closest('.habit-checkbox');
-            if (!cb) return;
+            // Remember whether the "Doesn't apply today" section is open across re-renders
+            const summary = e.target.closest('.off-today summary');
+            if (summary) {
+                this._offTodayOpen = !summary.parentElement.open;
+                return;
+            }
+            const btn = e.target.closest('.habit-checkbox, .habit-skip-btn, .habit-unskip-btn');
+            if (!btn) return;
             const week = this.getTodayWeek();
             if (!week) return;
-            const entryIdx = cb.dataset.entryIdx;
-            const dayIdx = parseInt(cb.dataset.day);
+            const entryIdx = btn.dataset.entryIdx;
+            const dayIdx = parseInt(btn.dataset.day);
             const entry = week.entries[entryIdx] ?? week.entries[parseInt(entryIdx)];
             if (!entry) return;
             const current = entry.tracking[dayIdx];
-            entry.tracking[dayIdx] = (current === 'X' || current === 'x') ? '' : 'X';
+            if (btn.classList.contains('habit-skip-btn')) {
+                entry.tracking[dayIdx] = '-';
+            } else if (btn.classList.contains('habit-unskip-btn')) {
+                entry.tracking[dayIdx] = '';
+            } else {
+                entry.tracking[dayIdx] = (current === 'X' || current === 'x') ? '' : 'X';
+            }
             this.saveData();
             this.renderHabits();
         });
@@ -4902,6 +5177,9 @@ class LifeOS {
             const todayVal = entry.tracking[todayDayIdx];
             const todayDone = todayVal === 'X' || todayVal === 'x';
             const todayStrike = todayVal === '1';
+            const todaySkipped = todayVal === '-';
+            // Not scheduled today and untouched → off today (checking it anyway still counts)
+            const offSchedule = !this.getGoalDays(entry.goal).includes(todayDayIdx) && todayVal === '';
             allEntries.push({
                 idx: parseInt(idx),
                 ...entry,
@@ -4909,7 +5187,9 @@ class LifeOS {
                 weekDone,
                 weekStrikes,
                 todayDone,
-                todayStrike
+                todayStrike,
+                todaySkipped,
+                offToday: todaySkipped || offSchedule
             });
         });
 
@@ -4924,7 +5204,7 @@ class LifeOS {
 
         let html = '';
         groups.forEach(group => {
-            const entries = allEntries.filter(e => e.freq.group === group.key);
+            const entries = allEntries.filter(e => e.freq.group === group.key && !e.offToday);
             if (entries.length === 0) return;
 
             // Calculate group-level progress
@@ -4997,12 +5277,36 @@ class LifeOS {
                             </div>
                             ${progressHtml}
                         </div>
+                        <button class="habit-skip-btn" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}" title="Doesn't apply today">Skip</button>
                     </div>`;
                 });
             });
 
             html += '</div>';
         });
+
+        // Items skipped today or not scheduled today, collapsed at the bottom
+        const offEntries = allEntries.filter(e => e.offToday);
+        if (offEntries.length > 0) {
+            const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+            html += `<details class="off-today"${this._offTodayOpen ? ' open' : ''}>
+                <summary>Doesn't apply today <span class="off-today-count">${offEntries.length}</span></summary>`;
+            offEntries.forEach(entry => {
+                const reason = entry.todaySkipped ? 'Skipped' : `Not on ${dayName}s`;
+                const action = entry.todaySkipped
+                    ? `<button class="habit-unskip-btn" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}">Undo</button>`
+                    : '';
+                html += `<div class="habit-check-item off-item">
+                    <div class="habit-checkbox" data-entry-idx="${entry.idx}" data-day="${todayDayIdx}" title="Did it anyway"></div>
+                    <div class="habit-item-content">
+                        <span class="habit-name">${this.escapeHtml(entry.goal.name)}</span>
+                        <span class="off-reason">${reason}</span>
+                    </div>
+                    ${action}
+                </div>`;
+            });
+            html += `<p class="off-today-hint">Set recurring days for a goal under Goals &rarr; Manage Goals.</p></details>`;
+        }
 
         checklist.innerHTML = html;
 
@@ -5018,7 +5322,8 @@ class LifeOS {
 
         let streak = 0;
         let weekIdx = sortedWeeks.length - 1;
-        let dayIdx = new Date().getDay();
+        const todayIdx = new Date().getDay();
+        let dayIdx = todayIdx;
 
         while (weekIdx >= 0) {
             const week = sortedWeeks[weekIdx];
@@ -5033,6 +5338,10 @@ class LifeOS {
                 const val = entry.tracking[d];
                 if (val === 'X' || val === 'x') {
                     streak++;
+                } else if (!this.isExpected(week, entry, d)) {
+                    continue; // skipped or not scheduled that day — doesn't break the streak
+                } else if (weekIdx === sortedWeeks.length - 1 && d === todayIdx) {
+                    continue; // today is still in progress
                 } else {
                     return streak;
                 }
@@ -5088,7 +5397,10 @@ class LifeOS {
                 const done = val === 'X' || val === 'x';
                 const strike = val === '1';
                 const isToday = i === todayDayIdx;
-                const cls = done ? 'done' : (strike ? 'strike' : (i <= todayDayIdx ? 'missed' : ''));
+                const cls = done ? 'done'
+                    : strike ? 'strike'
+                    : !this.isExpected(week, entry, i) ? 'off'
+                    : (i < todayDayIdx ? 'missed' : '');
                 html += `<div class="heatmap-cell ${cls} ${isToday ? 'today' : ''}" title="${days[i]}">${days[i][0]}</div>`;
             }
             html += '</div></div>';
@@ -5284,46 +5596,21 @@ class LifeOS {
         const textEl = document.getElementById('strikeSummaryText');
         if (!card || !textEl) return;
 
-        // Prefer the most recently completed week (not current week)
-        // Fall back to current week only if it's the only week with data
-        const currentWeekKey = this.weekKey(new Date());
-        const weeks = (this.data.weeks || []).slice().reverse();
-        let targetWeek = null;
-        let isLastWeek = false;
-
-        // First pass: find most recent non-current week with strike data
-        for (const w of weeks) {
-            const wKey = this.weekKey(new Date(w.startDate));
-            if (wKey === currentWeekKey) continue;
-            const hasStrikes = Object.values(w.entries).some(e => e.tracking.some(v => v === '1'));
-            if (hasStrikes) { targetWeek = w; isLastWeek = true; break; }
-        }
-
-        // Second pass: any non-current week with tracking data
-        if (!targetWeek) {
-            for (const w of weeks) {
-                const wKey = this.weekKey(new Date(w.startDate));
-                if (wKey === currentWeekKey) continue;
-                const hasData = Object.values(w.entries).some(e => e.tracking.some(v => v !== ''));
-                if (hasData) { targetWeek = w; isLastWeek = true; break; }
-            }
-        }
-
-        // Last resort: current week
-        if (!targetWeek) {
-            const cur = weeks.find(w => this.weekKey(new Date(w.startDate)) === currentWeekKey);
-            if (cur && Object.values(cur.entries).some(e => e.tracking.some(v => v !== ''))) {
-                targetWeek = cur; isLastWeek = false;
-            }
-        }
-
+        // Use the same week that the review scores show (the currently viewed week)
+        const targetWeek = this.getCurrentWeek();
         if (!targetWeek) {
             card.style.display = 'none';
             return;
         }
 
+        const hasData = Object.values(targetWeek.entries).some(e => e.tracking.some(v => v !== ''));
+        if (!hasData) {
+            card.style.display = 'none';
+            return;
+        }
+
         const result = this.generateStrikeSummary(targetWeek);
-        const weekLabel = isLastWeek ? 'Last week' : 'This week';
+        const weekLabel = 'This week';
 
         if (!result) {
             card.style.display = 'flex';
@@ -5334,9 +5621,27 @@ class LifeOS {
 
         card.style.display = 'flex';
         card.classList.remove('strike-summary-clean');
-        textEl.textContent = isLastWeek
+        const weekDateStr = targetWeek.startDate ? new Date(targetWeek.startDate).toLocaleDateString() : '?';
+        const baseSummary = isLastWeek
             ? result.summary.replace(/^This week/, 'Last week')
             : result.summary;
+        textEl.textContent = `[Week of ${weekDateStr} | ${result.totalStrikes} strikes found] ${baseSummary}`;
+    }
+
+    // Calculate expected completions for a goal through a given day index
+    getExpectedCount(week, entry, throughDayIdx) {
+        const freq = this.classifyFrequency(entry.goal.target);
+        if (freq.group === 'daily') {
+            // Days the goal applies, minus skipped and vacation days
+            let count = 0;
+            for (let d = 0; d <= throughDayIdx; d++) {
+                if (this.isExpected(week, entry, d)) count++;
+            }
+            return count;
+        }
+        if (freq.isLimit) return freq.perWeek; // limits: compare usage vs max
+        // Weekly, fewPerWeek, monthly: target is for the whole week/month
+        return freq.perWeek;
     }
 
     renderReviewScores() {
@@ -5347,19 +5652,40 @@ class LifeOS {
             return;
         }
 
+        const todayDayIdx = new Date().getDay();
+        // If viewing a past week, count all 7 days
+        const isCurrentWeek = this.currentWeekIndex === -1 || this.currentWeekIndex === this.data.weeks.length - 1;
+        const throughDay = isCurrentWeek ? todayDayIdx : 6;
+
         const catStats = {};
         Object.values(week.entries).forEach(entry => {
             const cat = entry.goal.category;
-            if (!catStats[cat]) catStats[cat] = { completed: 0, total: 0, strikes: 0 };
-            entry.tracking.forEach(v => {
-                if (v !== '') catStats[cat].total++;
-                if (v === 'X' || v === 'x') catStats[cat].completed++;
-                if (v === '1') catStats[cat].strikes++;
-            });
+            if (!catStats[cat]) catStats[cat] = { completed: 0, expected: 0, strikes: 0 };
+            const freq = this.classifyFrequency(entry.goal.target);
+
+            const completed = entry.tracking.filter(v => v === 'X' || v === 'x').length;
+            const strikes = entry.tracking.filter(v => v === '1').length;
+            const expected = this.getExpectedCount(week, entry, throughDay);
+
+            // Limits and Budgeting: success = staying at or under the max
+            // Checking off means you "used" one (bought lunch, had a drink, etc.)
+            // NOT checking = you stayed on budget = success
+            const isLimitStyle = freq.isLimit || cat === 'Budgeting';
+            if (isLimitStyle) {
+                const limit = freq.perWeek;
+                const used = completed;
+                // Score: if you stayed at or under limit, full marks. Otherwise proportionally less.
+                catStats[cat].completed += used <= limit ? limit : Math.max(0, 2 * limit - used);
+                catStats[cat].expected += limit;
+            } else {
+                catStats[cat].completed += completed;
+                catStats[cat].expected += expected;
+            }
+            catStats[cat].strikes += strikes;
         });
 
         container.innerHTML = Object.entries(catStats).map(([cat, s]) => {
-            const pct = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
+            const pct = s.expected > 0 ? Math.min(100, Math.round((s.completed / s.expected) * 100)) : 0;
             return `<div class="review-score-card">
                 <div class="score-value">${pct}%</div>
                 <div class="score-label">${cat}</div>
