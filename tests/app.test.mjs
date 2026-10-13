@@ -1,0 +1,350 @@
+// Browser checks for scoring, yesterday catch-up, badge, reminders settings and the service worker.
+// Run after `python3 build_docs.py`:  node tests/app.test.mjs
+// Uses Playwright (local install, or PLAYWRIGHT_PATH); Chart.js is stubbed and the clock is fixed.
+import { createRequire } from 'module';
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const require = createRequire(import.meta.url);
+let playwright;
+try { playwright = require('playwright'); } catch { playwright = require(process.env.PLAYWRIGHT_PATH || '/opt/node22/lib/node_modules/playwright'); }
+const { chromium } = playwright;
+
+// Serve docs/ at /accountability-tracker/ like GitHub Pages
+const DOCS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'docs');
+const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.json': 'application/json' };
+const server = http.createServer((req, res) => {
+    const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/accountability-tracker\/?/, '') || 'index.html';
+    const file = path.join(DOCS, rel);
+    if (!file.startsWith(DOCS) || !fs.existsSync(file)) { res.writeHead(404).end(); return; }
+    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' }).end(fs.readFileSync(file));
+});
+await new Promise(r => server.listen(0, '127.0.0.1', r));
+const ORIGIN = `http://127.0.0.1:${server.address().port}`;
+const BASE = `${ORIGIN}/accountability-tracker/`;
+const TZ = 'America/New_York';
+let failures = 0;
+const check = (name, actual, expected) => {
+    const ok = JSON.stringify(actual) === JSON.stringify(expected);
+    if (!ok) failures++;
+    console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : `\n      expected ${JSON.stringify(expected)}\n      got      ${JSON.stringify(actual)}`}`);
+};
+
+// ---- Seed data ----
+const goal = (category, name, target, extra = {}) => ({ category, name, target, ...extra });
+const goals = [
+    goal('Morning Protocol', 'Skincare AM', 'daily'),
+    goal('Morning Protocol', 'Up by 7:15AM', 'weekdays'),
+    goal('Evening Protocol', 'In bed by 11:15PM', 'weeknights'),
+    goal('Evening Protocol', 'Meditate (3-5 min, long exhales)', 'daily'),
+    goal('Physical Health', '2 Strength Training', 'x2'),
+    goal('Physical Health', '2 Cardio Training (1 swim)', 'x2'),
+    goal('Midday Protocol', 'Cold shower finish 60s', 'x1'),
+    goal('Physical Health', '1 Night of Drinking, 2 drinks max', 'x1 max'),
+    goal('Budgeting', 'Buy lunch max x2/weekdays', 'x2'),
+    goal('Budgeting', 'Sunday Money Date with Chelsey', 'weekly'),
+    goal('Monthly', 'Review financial health (expenses, savings)', 'monthly'),
+    goal('Mental Health', 'Written Journaling 10 min x2 (Wed & Sat)', 'x2', { days: [3, 6] }),
+];
+// Local-midnight Sunday in Chicago, like createNewWeek stores it
+const sunday = (ymd) => new Date(`${ymd}T05:00:00Z`).toISOString(); // CDT (UTC-5)
+const week = (ymd, rows, extra = {}) => ({
+    startDate: sunday(ymd),
+    entries: Object.fromEntries(goals.map((g, i) => [i, {
+        goal: { category: g.category, name: g.name, target: g.target },
+        tracking: rows[g.name] ? [...rows[g.name]] : ['', '', '', '', '', '', ''],
+        ...(g.name === 'Meditate (3-5 min, long exhales)' && extra.manualMeditate ? { manual: extra.manualMeditate } : {})
+    }])),
+    ...(extra.vacationDays ? { vacationDays: extra.vacationDays } : {})
+});
+
+// Pre-cutover week (Oct 4): legacy math
+const W0 = week('2026-10-04', {
+    'Skincare AM': ['X', '', 'X', '1', '', '', ''],
+    'In bed by 11:15PM': ['X', 'X', '', '', '', '', ''],
+    '2 Strength Training': ['', '', '', '', '', '', ''],
+    '1 Night of Drinking, 2 drinks max': ['X', '', '', '', '', '', ''],
+    'Buy lunch max x2/weekdays': ['', 'X', '', '', '', '', ''],
+});
+// Cutover week (Oct 11) — "today" is Tue Oct 13 (dayIdx 2)
+const W1 = week('2026-10-11', {
+    'Skincare AM': ['X', '', '', '', '', '', ''],
+    'Up by 7:15AM': ['', '', 'X', '', '', '', ''],
+    'In bed by 11:15PM': ['X', '1', '', '', '', '', ''],
+    'Meditate (3-5 min, long exhales)': ['-', 'X', '', '', '', '', ''],
+    '2 Strength Training': ['', 'X', '', '', '', '', ''],
+    '2 Cardio Training (1 swim)': ['X', 'X', '', '', '', '', ''],
+    '1 Night of Drinking, 2 drinks max': ['X', 'X', '', '', '', '', ''],
+    'Buy lunch max x2/weekdays': ['', 'X', '', '', '', '', ''],
+}, { manualMeditate: 1 });
+
+const seed = {
+    goals,
+    categories: ['Morning Protocol', 'Midday Protocol', 'Evening Protocol', 'Mental Health', 'Physical Health', 'Budgeting', 'Monthly'],
+    weeks: [W0, W1],
+    transactions: [], accounts: [], budgets: {}, habits: [], habitLog: {}, adhocTasks: [], healthLog: [],
+    journalEntries: [], weeklyReviews: [], eveningReflections: [], activityLog: [],
+    settings: { defaultBudgets: {} } // no scoringCutover on purpose: normalizeData should add it
+};
+
+const CHART_STUB = `window.Chart = class { constructor(canvas, cfg) { (window.__charts ||= {})[canvas.id] = cfg; } destroy() {} };`;
+
+const browser = await chromium.launch({ channel: 'chromium' }); // new headless: supports notifications
+
+async function newPage({ width = 1280, seedData = seed, time = '2026-10-13T15:00:00-05:00', notifications = false } = {}) {
+    const context = await browser.newContext({ timezoneId: TZ, viewport: { width, height: 900 } });
+    if (notifications) await context.grantPermissions(['notifications'], { origin: ORIGIN });
+    await context.route('**/chart.umd.min.js', r => r.fulfill({ contentType: 'application/javascript', body: CHART_STUB }));
+    await context.addInitScript(([data]) => {
+        if (!localStorage.getItem('__seeded')) {
+            localStorage.setItem('lifeOSData', data);
+            localStorage.setItem('__seeded', '1');
+        }
+        // Record badge calls
+        window.__badge = [];
+        navigator.setAppBadge = (n) => { window.__badge.push(n); return Promise.resolve(); };
+        navigator.clearAppBadge = () => { window.__badge.push(0); return Promise.resolve(); };
+    }, [JSON.stringify(seedData)]);
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.clock.setFixedTime(new Date(time));
+    await page.goto(BASE);
+    await page.waitForFunction(() => window.lifeOS);
+    return { context, page, errors };
+}
+
+const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
+    const w = lifeOS.data.weeks[wi];
+    const e = Object.values(w.entries).find(x => x.goal.name === n);
+    const s = lifeOS.scoreEntry(w, e);
+    return { done: s.done, expected: s.expected, misses: s.misses };
+}, [weekIdx, name]);
+
+// ================= Scenario 1: Tue Oct 13, mid cutover week =================
+{
+    const { context, page, errors } = await newPage();
+    console.log('\n— Tue Oct 13, 3pm (cutover week in progress) —');
+    check('cutover stored in settings', await page.evaluate(() => lifeOS.data.settings.scoringCutover), '2026-10-11');
+    check('W0 (Oct 4) is legacy, W1 (Oct 11) is cutover', await page.evaluate(() => lifeOS.data.weeks.map(w => lifeOS.isCutoverWeek(w))), [false, true]);
+
+    // Legacy week: ✓ ÷ marked cells, explicit strikes only (blanks ignored)
+    check('legacy daily: 2✓ of 3 marked, 1 explicit strike', await score(page, 0, 'Skincare AM'), { done: 2, expected: 3, misses: 1 });
+    check('legacy blanks never count', await score(page, 0, '2 Strength Training'), { done: 0, expected: 0, misses: 0 });
+    check('legacy limit ✓ counts as done', await score(page, 0, '1 Night of Drinking, 2 drinks max'), { done: 1, expected: 1, misses: 0 });
+
+    // Cutover week
+    check('daily: Mon blank = miss, today blank ≠ miss', await score(page, 1, 'Skincare AM'), { done: 1, expected: 2, misses: 1 });
+    check('weekdays: Sun unscheduled, Mon blank miss, Tue ✓', await score(page, 1, 'Up by 7:15AM'), { done: 1, expected: 2, misses: 1 });
+    check('weeknights: explicit ✗ counted once, not doubled', await score(page, 1, 'In bed by 11:15PM'), { done: 1, expected: 2, misses: 1 });
+    check('daily: skipped day excluded, manual +1 applies', await score(page, 1, 'Meditate (3-5 min, long exhales)'), { done: 1, expected: 1, misses: 1 });
+    check('x2 not yet met mid-week: left out', await score(page, 1, '2 Strength Training'), { done: 0, expected: 0, misses: 0 });
+    check('x2 already met: 100%', await score(page, 1, '2 Cardio Training (1 swim)'), { done: 2, expected: 2, misses: 0 });
+    check('x1 untouched mid-week: left out', await score(page, 1, 'Cold shower finish 60s'), { done: 0, expected: 0, misses: 0 });
+    check('x1 max used twice: 1 over = 1 miss', await score(page, 1, '1 Night of Drinking, 2 drinks max'), { done: 0, expected: 1, misses: 1 });
+    check('Budgeting x2 used once: under limit = 100%', await score(page, 1, 'Buy lunch max x2/weekdays'), { done: 2, expected: 2, misses: 0 });
+    check('Budgeting weekly untouched: under limit = 100%', await score(page, 1, 'Sunday Money Date with Chelsey'), { done: 1, expected: 1, misses: 0 });
+    check('monthly mid-month: not judged', await score(page, 1, 'Review financial health (expenses, savings)'), { done: 0, expected: 0, misses: 0 });
+    check('x2 with days [Wed,Sat] is daily; both still ahead', await score(page, 1, 'Written Journaling 10 min x2 (Wed & Sat)'), { done: 0, expected: 0, misses: 0 });
+
+    // Grid (desktop shows Goals grid for latest week)
+    await page.evaluate(() => lifeOS.navigateTo('goals'));
+    check('grid total strikes this week', await page.textContent('.grand-total-val'), '5');
+    const skincareRow = await page.$$eval('#goalsGrid tr', rows => {
+        const r = rows.find(tr => tr.querySelector('.goal-name-cell')?.textContent === 'Skincare AM');
+        return [...r.querySelectorAll('.day-cell')].map(td => td.className.replace('day-cell', '').trim()).slice(0, 3);
+    });
+    check('grid marks Mon blank as inferred miss, today plain', skincareRow, ['completed', 'inferred-miss', '']);
+    check('Morning Protocol subtotal', await page.$$eval('.subtotal-row', rows => rows.find(r => r.textContent.includes('Morning Protocol')).querySelector('.subtotal-val').textContent), '2');
+
+    // − on an inferred miss lowers the count (manual goes negative), never below 0
+    await page.evaluate(() => {
+        const btn = [...document.querySelectorAll('#goalsGrid tr')].find(tr => tr.querySelector('.goal-name-cell')?.textContent === 'Skincare AM').querySelector('.strike-dec');
+        btn.click();
+    });
+    check('strike − cancels an inferred miss', await score(page, 1, 'Skincare AM'), { done: 1, expected: 2, misses: 0 });
+    check('no − button once at 0', await page.evaluate(() => !![...document.querySelectorAll('#goalsGrid tr')].find(tr => tr.querySelector('.goal-name-cell')?.textContent === 'Skincare AM').querySelector('.strike-dec')), false);
+    await page.evaluate(() => {
+        const e = Object.values(lifeOS.data.weeks[1].entries).find(x => x.goal.name === 'Skincare AM');
+        delete e.manual; lifeOS.saveData(); lifeOS.renderAll();
+    });
+
+    // Strikes chart uses the same misses
+    check('strikes chart: legacy week 1, cutover week 5', await page.evaluate(() => window.__charts.goalStrikesChart.data.datasets[0].data), [1, 5]);
+
+    // Dashboard numbers (same helper)
+    const dash = await page.evaluate(() => {
+        const w = lifeOS.data.weeks[1];
+        const s = lifeOS.scoreWeek(w);
+        return { s, bars: [...document.querySelectorAll('.category-bar-item')].map(el => el.textContent.replace(/\s+/g, ' ').trim()) };
+    });
+    check('week totals', dash.s, { done: 9, expected: 13, misses: 5 });
+    check('category bars', dash.bars, ['Morning Protocol 50%', 'Evening Protocol 67%', 'Physical Health 67%', 'Midday Protocol 0%', 'Budgeting 100%', 'Monthly 0%', 'Mental Health 0%']);
+    check('life score uses done/expected', await page.textContent('#lifeScoreValue'), String(Math.min(100, Math.round((9 / 13) * 100 * 0.6 + 15))));
+    check('goals on track (misses = 0)', await page.textContent('#dashGoalsOnTrack'), '7');
+
+    // Health rings
+    await page.evaluate(() => lifeOS.navigateTo('health'));
+    check('health rings', await page.evaluate(() => ['workoutCount', 'sleepScore', 'mindfulCount', 'substanceScore'].map(id => document.getElementById(id).textContent)),
+        ['3/4', '1/2', '1/1', '0%']);
+
+    // Weekly review: scores + strike summary (used to throw on any strike)
+    await page.evaluate(() => lifeOS.navigateTo('review'));
+    const review = await page.evaluate(() => ({
+        scores: [...document.querySelectorAll('.review-score-card')].map(c => c.textContent.replace(/\s+/g, ' ').trim()),
+        summary: document.getElementById('strikeSummaryText').textContent
+    }));
+    check('review scores', review.scores, ['50% Morning Protocol', '67% Evening Protocol', '67% Physical Health', '0% Midday Protocol', '100% Budgeting', '0% Monthly', '0% Mental Health']);
+    check('strike summary counts 5 strikes', /5 strikes found/.test(review.summary), true);
+
+    // Today tab grouping follows the scoring rule
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
+    const groups = await page.$$eval('.freq-group', gs => gs.map(g => [g.querySelector('.freq-label').textContent, [...g.querySelectorAll('.habit-name')].map(n => n.textContent)]));
+    const limits = groups.find(([t]) => t === 'Limits & Boundaries')[1];
+    check('Budgeting shows under Limits & Boundaries', limits.includes('Buy lunch max x2/weekdays') && limits.includes('Sunday Money Date with Chelsey'), true);
+
+    check('no page errors', errors, []);
+    await context.close();
+}
+
+// ================= Scenario 2: catch-up prompt + badge =================
+{
+    const { context, page, errors } = await newPage({ width: 390 });
+    console.log('\n— Catch-up prompt + badge (mobile) —');
+    // Mon Oct 12 unchecked + scheduled: Skincare AM, Up by 7:15AM (In bed has ✗, Meditate ✓, Journaling not on Mon)
+    check('catch-up modal open', await page.isVisible('#catchUpModal.active'), true);
+    check('catch-up title', await page.textContent('#catchUpModal h2'), 'Yesterday — did you do these?');
+    check('catch-up items', await page.$$eval('#catchUpList .habit-name', els => els.map(e => e.textContent)), ['Skincare AM', 'Up by 7:15AM']);
+    check('badge = today remaining (Skincare, In bed, Meditate)', await page.evaluate(() => window.__badge.at(-1)), 3);
+    await page.click('#catchUpList .catchup-item:first-child');
+    await page.click('#catchUpDoneBtn');
+    check('modal closed after Done', await page.isVisible('#catchUpModal.active'), false);
+    check('checked item written as ✓ yesterday; unchecked stays blank', await page.evaluate(() => {
+        const w = lifeOS.data.weeks[1];
+        const t = n => Object.values(w.entries).find(e => e.goal.name === n).tracking[1];
+        return [t('Skincare AM'), t('Up by 7:15AM')];
+    }), ['X', '']);
+    check('unchecked one is still a miss', await score(page, 1, 'Up by 7:15AM'), { done: 1, expected: 2, misses: 1 });
+    check('Skincare now 2/2', await score(page, 1, 'Skincare AM'), { done: 2, expected: 2, misses: 0 });
+    check('mobile lands on Today tab', await page.isVisible('#section-habits.active'), true);
+
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS);
+    check('not shown again the same day', await page.isVisible('#catchUpModal.active'), false);
+
+    // Check off the rest of today → badge clears
+    await page.evaluate(() => {
+        const w = lifeOS.data.weeks[1];
+        ['Skincare AM', 'In bed by 11:15PM', 'Meditate (3-5 min, long exhales)'].forEach(n => {
+            Object.values(w.entries).find(e => e.goal.name === n).tracking[2] = 'X';
+        });
+        lifeOS.saveData(); lifeOS.renderHabits();
+    });
+    check('badge cleared at 0', await page.evaluate(() => window.__badge.at(-1)), 0);
+
+    // Next day (Wed) after midnight, app resumes → prompt for Tue
+    await page.evaluate(() => {
+        const w = lifeOS.data.weeks[1];
+        Object.values(w.entries).find(e => e.goal.name === 'Up by 7:15AM').tracking[2] = 'X';
+        lifeOS.saveData();
+    });
+    await page.clock.setFixedTime(new Date('2026-10-14T07:30:00-05:00'));
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    check('new day: no prompt when yesterday is all done', await page.isVisible('#catchUpModal.active'), false);
+    check('new day: badge = Wed items (Skincare, Up by, In bed, Meditate, Journaling)', await page.evaluate(() => window.__badge.at(-1)), 5);
+
+    // ?section=habits (notification tap) opens Today
+    check('no page errors', errors, []);
+    await context.close();
+}
+
+// ================= Scenario 3: weeks that are over, monthly, vacation =================
+{
+    const W2 = week('2026-10-18', {}, {});
+    const W3 = week('2026-10-25', { 'Review financial health (expenses, savings)': ['', '', '', '', '', '', ''] }, { vacationDays: [0, 1, 2, 3, 4, 5, 6] });
+    const data = { ...seed, weeks: [W0, W1, W2, W3] };
+    const { context, page, errors } = await newPage({ seedData: data, time: '2026-11-02T12:00:00-06:00' });
+    console.log('\n— Mon Nov 2 (cutover weeks finished) —');
+    check('x2 week over: 1 short = 1 miss', await score(page, 1, '2 Strength Training'), { done: 1, expected: 2, misses: 1 });
+    check('x1 week over, none = 1 miss', await score(page, 1, 'Cold shower finish 60s'), { done: 0, expected: 1, misses: 1 });
+    check('weeknights week over: Tue–Thu blanks are misses', await score(page, 1, 'In bed by 11:15PM'), { done: 1, expected: 5, misses: 4 });
+    check('x2 with days: Wed & Sat blank = 2 misses', await score(page, 1, 'Written Journaling 10 min x2 (Wed & Sat)'), { done: 0, expected: 2, misses: 2 });
+    check('full vacation week: daily excluded', await score(page, 3, 'Skincare AM'), { done: 0, expected: 0, misses: 0 });
+    check('full vacation week: x2 excluded', await score(page, 3, '2 Strength Training'), { done: 0, expected: 0, misses: 0 });
+    check('full vacation week: limit excluded', await score(page, 3, 'Buy lunch max x2/weekdays'), { done: 0, expected: 0, misses: 0 });
+    check('monthly: Oct over, not done = 1 miss in the week holding Oct 31', await score(page, 3, 'Review financial health (expenses, savings)'), { done: 0, expected: 1, misses: 1 });
+    check('monthly: other weeks of the month not judged', await score(page, 2, 'Review financial health (expenses, savings)'), { done: 0, expected: 0, misses: 0 });
+    await page.evaluate(() => {
+        // Done on Mon Oct 5 (in the pre-cutover week) still counts for October
+        Object.values(lifeOS.data.weeks[0].entries).find(e => e.goal.name.startsWith('Review financial')).tracking[1] = 'X';
+    });
+    check('monthly: done any day of the month = 100%', await score(page, 3, 'Review financial health (expenses, savings)'), { done: 1, expected: 1, misses: 0 });
+    check('legacy week unchanged by the new rule', await score(page, 0, 'Skincare AM'), { done: 2, expected: 3, misses: 1 });
+    check('weekly trend renders', await page.evaluate(() => document.getElementById('weeklyTrend').textContent.length > 0), true);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
+// ================= Scenario 4: reminders settings + service worker =================
+{
+    const { context, page, errors } = await newPage({ notifications: true });
+    console.log('\n— Reminders settings + service worker —');
+    await page.evaluate(() => lifeOS.closeModal('catchUpModal'));
+    await page.click('#settingsBtn');
+    check('default times', [await page.inputValue('#reminderMorning'), await page.inputValue('#reminderEvening')], ['08:00', '21:00']);
+    check('default timezone = device timezone', await page.inputValue('#reminderTimezone'), TZ);
+    await page.fill('#reminderEvening', '21:30');
+    await page.dispatchEvent('#reminderEvening', 'change');
+    check('settings stored in data.settings.reminders', await page.evaluate(() => lifeOS.data.settings.reminders),
+        { enabled: false, morning: '08:00', evening: '21:30', timezone: TZ });
+    await page.click('#enableRemindersBtn');
+    check('enable without Convex explains what to do', /Connect Convex/.test(await page.textContent('#reminderStatus')), true);
+
+    // Service worker: push shows a notification + sets badge; tap opens Today
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    const sw = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
+    check('cache bumped', await sw.evaluate(() => caches.keys()), ['life-os-v4']);
+    const pushed = await sw.evaluate(async () => {
+        const badge = [];
+        self.navigator.setAppBadge = (n) => { badge.push(n); return Promise.resolve(); };
+        self.navigator.clearAppBadge = () => { badge.push(0); return Promise.resolve(); };
+        const ev = new PushEvent('push', { data: JSON.stringify({ title: '3 items left today', body: 'Skincare PM · Read before bed · Meditate', count: 3, url: './?section=habits', tag: 'life-os-evening' }) });
+        self.dispatchEvent(ev);
+        await new Promise(r => setTimeout(r, 300));
+        const shown = await self.registration.getNotifications();
+        return { badge, notes: shown.map(n => ({ title: n.title, body: n.body, url: n.data.url })) };
+    });
+    check('push → notification shown', pushed.notes, [{ title: '3 items left today', body: 'Skincare PM · Read before bed · Meditate', url: './?section=habits' }]);
+    check('push → badge set', pushed.badge, [3]);
+    const blank = await sw.evaluate(async () => {
+        (await self.registration.getNotifications()).forEach(n => n.close());
+        self.dispatchEvent(new PushEvent('push', {}));
+        await new Promise(r => setTimeout(r, 300));
+        return (await self.registration.getNotifications()).map(n => n.title);
+    });
+    check('push with no payload still shows a notification', blank, ['Life OS']);
+
+    await page.evaluate(() => { lifeOS.closeModal('settingsModal'); lifeOS.navigateTo('dashboard'); });
+    await sw.evaluate(async () => {
+        self.dispatchEvent(new PushEvent('push', { data: JSON.stringify({ title: 't', count: 1 }) }));
+        await new Promise(r => setTimeout(r, 300));
+        const [n] = await self.registration.getNotifications({ tag: 'life-os' });
+        self.dispatchEvent(new NotificationEvent('notificationclick', { notification: n }));
+    });
+    await page.waitForTimeout(500);
+    check('notification tap → open window shows Today', await page.isVisible('#section-habits.active'), true);
+
+    // Cold start from a notification: ?section=habits
+    await page.goto(BASE + '?section=habits');
+    await page.waitForFunction(() => window.lifeOS);
+    check('?section=habits opens Today and cleans the URL', [await page.isVisible('#section-habits.active'), new URL(page.url()).search], [true, '']);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
+await browser.close();
+server.close();
+console.log(failures ? `\n${failures} FAILED` : '\nALL PASSED');
+process.exit(failures ? 1 : 0);

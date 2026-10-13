@@ -69,6 +69,25 @@ class ConvexDataLayer {
         }
     }
 
+    // Call any Convex function over HTTP; throws on failure (unlike load/save)
+    async run(kind, path, args = {}) {
+        if (!this.convexUrl) throw new Error('Convex is not connected');
+        const resp = await fetch(`${this.convexUrl}/api/${kind}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, args, format: 'json' })
+        });
+        const result = await resp.json().catch(() => null);
+        if (!resp.ok || !result || result.status !== 'success') {
+            throw new Error(result?.errorMessage || `Convex ${kind} ${path} failed (HTTP ${resp.status})`);
+        }
+        return result.value;
+    }
+
+    query(path, args) { return this.run('query', path, args); }
+    mutation(path, args) { return this.run('mutation', path, args); }
+    action(path, args) { return this.run('action', path, args); }
+
     // Polling-based subscribe — checks for changes every 30s
     subscribe(callback) {
         if (!this.convexUrl) return;

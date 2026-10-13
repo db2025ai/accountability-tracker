@@ -605,6 +605,13 @@ body {
     color: var(--text-light);
 }
 
+/* Blank on a scheduled day that has passed — counts as a miss (cutover weeks) */
+.goals-grid .day-cell.inferred-miss {
+    background: rgba(239, 68, 68, 0.07);
+    color: var(--danger-light);
+    opacity: 0.7;
+}
+
 .grid-legend {
     margin-top: 10px;
     font-size: 0.75rem;
@@ -614,6 +621,7 @@ body {
 .grid-legend .lg-done { color: var(--success); }
 .grid-legend .lg-strike { color: var(--danger); }
 .grid-legend .lg-skip { color: var(--text-light); }
+.grid-legend .lg-inferred { color: var(--danger-light); opacity: 0.7; }
 .grid-legend .lg-off {
     display: inline-block;
     width: 14px;
@@ -2003,6 +2011,41 @@ tr:hover .strike-dec { opacity: 1; }
 
 .setting-item.danger label {
     color: var(--danger);
+}
+
+.reminder-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.reminder-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-weight: 500;
+    font-size: 0.8rem;
+    margin: 0;
+}
+
+.reminder-fields .reminder-tz {
+    flex: 1;
+    min-width: 180px;
+}
+
+/* Yesterday catch-up */
+.catchup-list {
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+}
+
+.catchup-item {
+    cursor: pointer;
+}
+
+.catchup-done {
+    width: 100%;
 }
 
 /* ========================================
