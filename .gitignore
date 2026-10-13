@@ -24,3 +24,6 @@ temp/
 node_modules/
 
 .env.local
+
+# Local voice-recording environment (tools/meditation_audio.py)
+.venv-tts/
