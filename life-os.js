@@ -2875,7 +2875,7 @@ class LifeOS {
         btn.className = `btn ${on ? 'btn-secondary' : 'btn-primary'}`;
         document.getElementById('testReminderBtn').style.display = on ? 'inline-block' : 'none';
         if (on) {
-            this.setReminderStatus(`🔔 On for this device — ${this.formatTime12(r.morning)} nudge, ${this.formatTime12(r.evening)} "items left" (${r.timezone}).`, 'ok');
+            this.setReminderStatus(`🔔 On for this device — ${this.formatTime12(r.morning)} nudge, ${this.formatTime12(r.evening)} "items left" (${r.timezone.replace(/_/g, ' ')}).`, 'ok');
         } else if (r.enabled) {
             this.setReminderStatus('Reminders are on, but not for this device. Tap Enable reminders to add it.');
         } else {

@@ -116,6 +116,7 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 - **Chart.js 4.4** loaded from CDN for all charts
 - **CSS variables** in `:root` control theming (primary: `#6366f1` indigo)
 - **Responsive at 768px** — sidebar collapses, mobile bottom nav appears
+- **Phones down to 320px** — iPhone Display Zoom ("Larger Text") or page zoom leaves ~320 CSS px. Flex/grid children that hold wide content need `min-width: 0` (so tables/charts scroll inside their box, not the page), and fields are 16px on phones so iOS doesn't zoom in when one is tapped. The iOS Text Size slider doesn't affect this app (it uses `-apple-system`, not `-apple-system-body`)
 
 ## Key Methods in life-os.js
 - `renderHabits()` — Renders the Today tab with frequency grouping

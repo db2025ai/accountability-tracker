@@ -502,7 +502,7 @@
                     <label>Convex Backend</label>
                     <p class="setting-desc">Connect to Convex for cloud sync across devices. Enter your Convex deployment URL.</p>
                     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-                        <input type="text" id="convexUrlInput" placeholder="https://your-app.convex.cloud" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
+                        <input type="text" id="convexUrlInput" placeholder="https://your-app.convex.cloud" style="flex:1;min-width:0;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
                         <button class="btn btn-primary" id="connectConvexBtn">Connect</button>
                     </div>
                     <div id="convexStatus" style="font-size:0.8rem;color:var(--text-muted);">Not connected - using local storage</div>
@@ -571,8 +571,10 @@
             </div>
             <p class="setting-desc" id="catchUpDate"></p>
             <div class="habits-checklist catchup-list" id="catchUpList"></div>
-            <p class="setting-desc catchup-hint">Tap what you did. Anything left unchecked counts as a miss.</p>
-            <button class="btn btn-primary catchup-done" id="catchUpDoneBtn">Done</button>
+            <div class="catchup-footer">
+                <p class="setting-desc catchup-hint">Tap what you did. Anything left unchecked counts as a miss.</p>
+                <button class="btn btn-primary catchup-done" id="catchUpDoneBtn">Done</button>
+            </div>
         </div>
     </div>
 

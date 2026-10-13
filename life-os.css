@@ -185,6 +185,7 @@ body {
 .main-content {
     margin-left: var(--sidebar-width);
     flex: 1;
+    min-width: 0; /* let wide children (goals table, charts) scroll instead of widening the page */
     padding: 32px;
     max-width: 1200px;
 }
@@ -675,6 +676,11 @@ tr:hover .strike-dec { opacity: 1; }
     border-radius: var(--radius);
     padding: 20px;
     box-shadow: var(--shadow);
+    min-width: 0;
+}
+
+.chart-card canvas {
+    max-width: 100%;
 }
 
 .chart-card h4 {
@@ -1288,6 +1294,7 @@ tr:hover .strike-dec { opacity: 1; }
 
 .adhoc-input {
     flex: 1;
+    min-width: 0;
     padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -2044,8 +2051,27 @@ tr:hover .strike-dec { opacity: 1; }
     cursor: pointer;
 }
 
+/* Keep the hint and Done on screen when the list is long; the negative
+   bottom/margins cover the modal's 24px padding so items don't show below */
+.catchup-footer {
+    position: sticky;
+    bottom: -24px;
+    margin: 0 -24px -24px;
+    padding: 8px 24px 24px;
+    background: var(--card-bg);
+    box-shadow: 0 -8px 12px -8px rgba(0, 0, 0, 0.15);
+}
+
 .catchup-done {
     width: 100%;
+}
+
+/* iOS zooms into any field under 16px when it's tapped (and stays zoomed in the
+   Home Screen app). Several fields here are 0.85–0.9rem, one via an inline style. */
+@media (max-width: 768px) {
+    input, select, textarea {
+        font-size: 16px !important;
+    }
 }
 
 /* ========================================

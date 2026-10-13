@@ -344,6 +344,30 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await context.close();
 }
 
+// ================= Scenario 5: small screens =================
+// iPhone Display Zoom ("Larger Text") or page zoom leaves ~320 CSS px of width
+{
+    const { context, page, errors } = await newPage({ width: 320 });
+    console.log('\n— 320px wide (iPhone with Display Zoom) —');
+    check('catch-up Done reachable without scrolling', await page.evaluate(() => document.getElementById('catchUpDoneBtn').getBoundingClientRect().bottom <= innerHeight), true);
+    await page.click('#catchUpDoneBtn');
+    const wide = [];
+    for (const s of ['dashboard', 'goals', 'health', 'habits', 'journal', 'review']) {
+        await page.evaluate(x => lifeOS.navigateTo(x), s);
+        if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) wide.push(s);
+    }
+    check('no screen scrolls sideways', wide, []);
+    await page.evaluate(() => lifeOS.openModal('settingsModal'));
+    check('settings fit the width', await page.evaluate(() => {
+        const b = document.querySelector('#settingsModal .modal-content');
+        return b.scrollWidth <= b.clientWidth;
+    }), true);
+    check('fields are 16px (iOS zooms in on smaller ones)', await page.evaluate(() =>
+        [...new Set([...document.querySelectorAll('input:not([type=file]), select, textarea')].map(e => getComputedStyle(e).fontSize))]), ['16px']);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASSED');

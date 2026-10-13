@@ -192,6 +192,7 @@ body {
 .main-content {
     margin-left: var(--sidebar-width);
     flex: 1;
+    min-width: 0; /* let wide children (goals table, charts) scroll instead of widening the page */
     padding: 32px;
     max-width: 1200px;
 }
@@ -682,6 +683,11 @@ tr:hover .strike-dec { opacity: 1; }
     border-radius: var(--radius);
     padding: 20px;
     box-shadow: var(--shadow);
+    min-width: 0;
+}
+
+.chart-card canvas {
+    max-width: 100%;
 }
 
 .chart-card h4 {
@@ -1295,6 +1301,7 @@ tr:hover .strike-dec { opacity: 1; }
 
 .adhoc-input {
     flex: 1;
+    min-width: 0;
     padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -2051,8 +2058,27 @@ tr:hover .strike-dec { opacity: 1; }
     cursor: pointer;
 }
 
+/* Keep the hint and Done on screen when the list is long; the negative
+   bottom/margins cover the modal's 24px padding so items don't show below */
+.catchup-footer {
+    position: sticky;
+    bottom: -24px;
+    margin: 0 -24px -24px;
+    padding: 8px 24px 24px;
+    background: var(--card-bg);
+    box-shadow: 0 -8px 12px -8px rgba(0, 0, 0, 0.15);
+}
+
 .catchup-done {
     width: 100%;
+}
+
+/* iOS zooms into any field under 16px when it's tapped (and stays zoomed in the
+   Home Screen app). Several fields here are 0.85–0.9rem, one via an inline style. */
+@media (max-width: 768px) {
+    input, select, textarea {
+        font-size: 16px !important;
+    }
 }
 
 /* ========================================
@@ -3224,7 +3250,7 @@ tr:hover .strike-dec { opacity: 1; }
                     <label>Convex Backend</label>
                     <p class="setting-desc">Connect to Convex for cloud sync across devices. Enter your Convex deployment URL.</p>
                     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-                        <input type="text" id="convexUrlInput" placeholder="https://your-app.convex.cloud" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
+                        <input type="text" id="convexUrlInput" placeholder="https://your-app.convex.cloud" style="flex:1;min-width:0;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
                         <button class="btn btn-primary" id="connectConvexBtn">Connect</button>
                     </div>
                     <div id="convexStatus" style="font-size:0.8rem;color:var(--text-muted);">Not connected - using local storage</div>
@@ -3293,8 +3319,10 @@ tr:hover .strike-dec { opacity: 1; }
             </div>
             <p class="setting-desc" id="catchUpDate"></p>
             <div class="habits-checklist catchup-list" id="catchUpList"></div>
-            <p class="setting-desc catchup-hint">Tap what you did. Anything left unchecked counts as a miss.</p>
-            <button class="btn btn-primary catchup-done" id="catchUpDoneBtn">Done</button>
+            <div class="catchup-footer">
+                <p class="setting-desc catchup-hint">Tap what you did. Anything left unchecked counts as a miss.</p>
+                <button class="btn btn-primary catchup-done" id="catchUpDoneBtn">Done</button>
+            </div>
         </div>
     </div>
 
@@ -6326,7 +6354,7 @@ class LifeOS {
         btn.className = `btn ${on ? 'btn-secondary' : 'btn-primary'}`;
         document.getElementById('testReminderBtn').style.display = on ? 'inline-block' : 'none';
         if (on) {
-            this.setReminderStatus(`🔔 On for this device — ${this.formatTime12(r.morning)} nudge, ${this.formatTime12(r.evening)} "items left" (${r.timezone}).`, 'ok');
+            this.setReminderStatus(`🔔 On for this device — ${this.formatTime12(r.morning)} nudge, ${this.formatTime12(r.evening)} "items left" (${r.timezone.replace(/_/g, ' ')}).`, 'ok');
         } else if (r.enabled) {
             this.setReminderStatus('Reminders are on, but not for this device. Tap Enable reminders to add it.');
         } else {
