@@ -1,7 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-
-const DEFAULT_USER = "default";
+import { DEFAULT_USER, syncReminderSettings } from "./lib/reminders";
 
 export const getUpdatedAt = query({
   handler: async (ctx) => {
@@ -34,6 +33,7 @@ export const setData = mutation({
       .withIndex("by_userId", (q) => q.eq("userId", DEFAULT_USER))
       .first();
     const updatedAt = new Date().toISOString();
+    await syncReminderSettings(ctx, args.payload);
     if (existing) {
       await ctx.db.patch(existing._id, { payload: args.payload, updatedAt });
       return existing._id;

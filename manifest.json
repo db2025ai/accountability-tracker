@@ -5,12 +5,12 @@
   "start_url": "/accountability-tracker/",
   "scope": "/accountability-tracker/",
   "display": "standalone",
-  "background_color": "#1a1d23",
-  "theme_color": "#6366f1",
+  "background_color": "#f6f4ef",
+  "theme_color": "#f6f4ef",
   "orientation": "any",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236366f1'/><text x='50' y='68' font-size='50' text-anchor='middle' fill='white' font-family='system-ui' font-weight='bold'>OS</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232f5d8c'/><text x='50' y='68' font-size='50' text-anchor='middle' fill='white' font-family='Georgia,serif' font-weight='600'>OS</text></svg>",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

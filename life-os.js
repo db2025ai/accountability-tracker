@@ -6,6 +6,15 @@
 // Categories excluded from all-time stats (one-time tasks, low-signal noise)
 const EXCLUDE_CATS = new Set(['other', 'one-time / other', 'one-time/other', 'general']);
 
+// Weeks starting on/after this Sunday use the inferred-miss scoring rule (see scoreEntry)
+const DEFAULT_SCORING_CUTOVER = '2026-10-11';
+const DEFAULT_REMINDERS = { enabled: false, morning: '08:00', evening: '21:00', timezone: '' };
+
+// Imported journal entries (text) when Convex isn't connected; see loadArchive()
+const ARCHIVE_STORAGE_KEY = 'lifeOS_journalArchive';
+const ARCHIVE_PAGE = 30;
+const PDFJS_CDN = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build';
+
 class LifeOS {
     constructor() {
         this.STORAGE_KEY = 'lifeOSData';
@@ -41,9 +50,11 @@ class LifeOS {
             healthLog: [],      // { date, weight, sleep, energy }
             journalEntries: [], // { date, text, mood, type }
             weeklyReviews: [],  // { weekDate, wins, improvements, priorities, rating }
-            eveningReflections: [], // { date, whatWentWell, whatCouldImprove, gratitude, didILiveByValues, tomorrowIntention }
+            eveningReflections: [], // { date, timestamp, wentWell, fellShort, highlights[], valuesRating, intention } (older ones: gratitude)
+            journalImportDates: [], // local dates of entries imported from another journal app (text is in the archive)
             activityLog: [],
             settings: {
+                scoringCutover: DEFAULT_SCORING_CUTOVER,
                 defaultBudgets: {
                     'Food & Dining': 400,
                     'Groceries': 600,
@@ -151,20 +162,22 @@ class LifeOS {
         try {
             const stored = localStorage.getItem(this.STORAGE_KEY);
             if (stored) {
-                const parsed = JSON.parse(stored);
-                // Merge with defaults for any missing keys
-                const defaults = this.getDefaultData();
-                for (const key of Object.keys(defaults)) {
-                    if (!(key in parsed)) {
-                        parsed[key] = defaults[key];
-                    }
-                }
-                return parsed;
+                return this.normalizeData(JSON.parse(stored));
             }
         } catch (e) {
             console.error('Error loading data:', e);
         }
         return this.getDefaultData();
+    }
+
+    // Fill in missing top-level keys and settings. Run on anything assigned to this.data.
+    normalizeData(data) {
+        const defaults = this.getDefaultData();
+        for (const key of Object.keys(defaults)) {
+            if (!(key in data)) data[key] = defaults[key];
+        }
+        if (!data.settings.scoringCutover) data.settings.scoringCutover = DEFAULT_SCORING_CUTOVER;
+        return data;
     }
 
     saveData() {
@@ -193,6 +206,7 @@ class LifeOS {
     // Initialization
     // ========================================
     init() {
+        this.applyChartTheme();
         this.bindNavigation();
         this.bindModals();
         this.bindForms();
@@ -204,6 +218,8 @@ class LifeOS {
         this.bindGoals();
         this.bindSettings();
         this.bindMobileMenu();
+        this.bindCatchUp();
+        this.bindAppLifecycle();
 
         // Ensure at least one week exists
         if (this.data.weeks.length === 0) {
@@ -217,17 +233,18 @@ class LifeOS {
                     const remoteWeeks = (remote.weeks || []).length;
                     const localWeeks = (this.data.weeks || []).length;
                     if (remoteWeeks >= localWeeks) {
-                        this.data = remote;
+                        this.data = this.normalizeData(remote);
                         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
                         this.renderAll();
                     }
                 }
                 this.convex.subscribe((payload) => {
-                    this.data = payload;
+                    this.data = this.normalizeData(payload);
                     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
                     this.renderAll();
                 });
                 this.updateConvexStatusUI();
+                this.maybeShowCatchUp(); // after the freshest data is in
             });
         }
 
@@ -247,6 +264,115 @@ class LifeOS {
         if (window.innerWidth <= 768) {
             this.navigateTo('habits');
         }
+
+        // Notification taps open ?section=habits
+        this.openSectionFromUrl();
+        if (!this.convex) this.maybeShowCatchUp();
+    }
+
+    openSectionFromUrl() {
+        const params = new URLSearchParams(location.search);
+        const section = params.get('section');
+        if (!section || !document.getElementById(`section-${section}`)) return;
+        this.navigateTo(section);
+        params.delete('section');
+        const query = params.toString();
+        history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+    }
+
+    bindAppLifecycle() {
+        // The service worker asks an already-open window to show a section (notification tap)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (e) => {
+                if (e.data?.type === 'navigate' && e.data.section) this.navigateTo(e.data.section);
+            });
+            navigator.serviceWorker.startMessages();
+        }
+        // Home Screen apps resume from memory — refresh when the day has rolled over
+        this._renderedDay = this.localDateKey(new Date());
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible') return;
+            const day = this.localDateKey(new Date());
+            if (day !== this._renderedDay) {
+                this._renderedDay = day;
+                this.renderAll();
+                this.maybeShowCatchUp();
+            }
+            this.updateAppBadge();
+        });
+    }
+
+    // Home Screen icon badge = scheduled daily items still unchecked today
+    updateAppBadge() {
+        if (!('setAppBadge' in navigator)) return;
+        const n = this.todayRemainingCount();
+        const p = n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge();
+        if (p && p.catch) p.catch(() => {});
+    }
+
+    // ========================================
+    // Yesterday catch-up
+    // ========================================
+    bindCatchUp() {
+        document.getElementById('catchUpList').addEventListener('click', (e) => {
+            const item = e.target.closest('.catchup-item');
+            if (!item) return;
+            const box = item.querySelector('.habit-checkbox');
+            const on = !box.classList.contains('checked');
+            box.classList.toggle('checked', on);
+            box.textContent = on ? '\u2713' : '';
+            item.classList.toggle('item-done', on);
+        });
+        document.getElementById('catchUpDoneBtn').addEventListener('click', () => this.finishCatchUp());
+    }
+
+    // Once a day, offer to check off yesterday's scheduled daily items that are still blank
+    maybeShowCatchUp() {
+        const todayKey = this.localDateKey(new Date());
+        try {
+            if (localStorage.getItem('lifeOS_catchUpShown') === todayKey) return;
+        } catch (e) { /* storage unavailable — show anyway */ }
+        const yesterday = this.startOfToday();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const week = this.getWeekForDate(yesterday);
+        if (!week || !this.isCutoverWeek(week)) return;
+        const items = this.uncheckedDailyEntries(week, yesterday.getDay());
+        if (items.length === 0) return;
+        try { localStorage.setItem('lifeOS_catchUpShown', todayKey); } catch (e) { /* ignore */ }
+
+        this._catchUpDate = yesterday;
+        this._catchUpNames = items.map(i => i.entry.goal.name);
+        document.getElementById('catchUpDate').textContent = yesterday.toLocaleDateString('en-US', {
+            weekday: 'long', month: 'long', day: 'numeric'
+        });
+        document.getElementById('catchUpList').innerHTML = items.map(({ entry }, i) => `
+            <div class="habit-check-item catchup-item" data-catchup-idx="${i}">
+                <div class="habit-checkbox"></div>
+                <div class="habit-item-content">
+                    <span class="habit-name">${this.escapeHtml(entry.goal.name)}</span>
+                    <span class="off-reason">${this.escapeHtml(entry.goal.category)}</span>
+                </div>
+            </div>`).join('');
+        this.openModal('catchUpModal');
+    }
+
+    finishCatchUp() {
+        const names = [...document.querySelectorAll('#catchUpList .catchup-item')]
+            .filter(el => el.querySelector('.habit-checkbox.checked'))
+            .map(el => this._catchUpNames[parseInt(el.dataset.catchupIdx)]);
+        // Look the week up again — a Convex sync may have replaced this.data meanwhile
+        const day = this._catchUpDate;
+        const week = day && this.getWeekForDate(day);
+        if (week && names.length > 0) {
+            const d = day.getDay();
+            Object.values(week.entries).forEach(e => {
+                if (names.includes(e.goal.name) && !this.isDone(e.tracking[d])) e.tracking[d] = 'X';
+            });
+            this.saveData();
+            this.logActivity(`Caught up on yesterday: ${names.length} item${names.length > 1 ? 's' : ''} done`);
+            this.renderAll();
+        }
+        this.closeModal('catchUpModal');
     }
 
     renderAll() {
@@ -491,9 +617,225 @@ class LifeOS {
     }
 
     // ========================================
+    // Scoring (one rule for every %, strike count and chart)
+    // ========================================
+    isDone(v) {
+        return v === 'X' || v === 'x';
+    }
+
+    // 'YYYY-MM-DD' in local time (toISOString would shift evenings into tomorrow)
+    localDateKey(date) {
+        const d = new Date(date);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    startOfToday() {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+
+    // Local midnight of the Sunday a stored week starts on. startDate is Sunday midnight
+    // (or noon, for imports) in whatever timezone it was created; shifting by 12h first
+    // keeps a few hours of timezone difference from landing it in the previous week.
+    weekStartOf(week) {
+        return this.getWeekStartDate(new Date(new Date(week.startDate).getTime() + 12 * 3600e3));
+    }
+
+    // Local midnight of day dayIdx (0=Sun) of a week
+    weekDayDate(week, dayIdx) {
+        const d = this.weekStartOf(week);
+        d.setDate(d.getDate() + dayIdx);
+        return d;
+    }
+
+    // The stored week containing date, or null (no fallback to another week)
+    getWeekForDate(date) {
+        const key = this.localDateKey(this.getWeekStartDate(date));
+        for (let i = this.data.weeks.length - 1; i >= 0; i--) {
+            if (this.localDateKey(this.weekStartOf(this.data.weeks[i])) === key) return this.data.weeks[i];
+        }
+        return null;
+    }
+
+    isCutoverWeek(week) {
+        const cutover = this.data.settings?.scoringCutover || DEFAULT_SCORING_CUTOVER;
+        return this.localDateKey(this.weekStartOf(week)) >= cutover;
+    }
+
+    hasCustomDays(goal) {
+        const current = this.data.goals.find(g => g.name === goal.name);
+        return Array.isArray(current?.days ?? goal.days);
+    }
+
+    // Which scoring rule a goal follows: 'limit' | 'monthly' | 'daily' | 'perWeek'
+    scoringKind(goal) {
+        const freq = this.classifyFrequency(goal.target);
+        if (freq.isLimit || (goal.category || '').trim() === 'Budgeting') return 'limit';
+        if (freq.group === 'monthly') return 'monthly';
+        if (freq.group === 'daily' || this.hasCustomDays(goal)) return 'daily';
+        return 'perWeek';
+    }
+
+    // Was a monthly goal checked on any day of the given month (any week)?
+    isMonthlyDone(goalName, year, month) {
+        return this.data.weeks.some(week => {
+            const entry = Object.values(week.entries).find(e => e.goal.name === goalName);
+            if (!entry) return false;
+            return entry.tracking.some((v, d) => {
+                if (!this.isDone(v)) return false;
+                const date = this.weekDayDate(week, d);
+                return date.getFullYear() === year && date.getMonth() === month;
+            });
+        });
+    }
+
+    // Score one goal for one week → { done, expected, misses, ... }.
+    // done/expected feed every %; misses (incl. manual +/− adjustments) feed every strike count.
+    // Weeks before the cutover: ✓ ÷ marked cells, explicit strikes only.
+    // From the cutover on, only ✓ is entered and misses are inferred:
+    //   daily    — each scheduled day that has passed and is still blank is a miss (today never is)
+    //   perWeek  — only ✓ count; a shortfall counts once the week is over (until then the goal
+    //              is left out unless the target is already met)
+    //   limit    — ✓ = used one; at/under the limit = 100%, each use over = a miss
+    //   monthly  — judged at month end, in the week holding the month's last day
+    // Skipped '-', unscheduled and vacation days are excluded. Explicit ✗ still counts as a miss.
+    scoreEntry(week, entry) {
+        const t = entry.tracking || [];
+        const vac = this.getVacationDays(week);
+        const days = [0, 1, 2, 3, 4, 5, 6].filter(d => !vac.includes(d));
+        const explicit = days.reduce((n, d) => n + (parseInt(t[d]) || 0), 0);
+        const checks = days.filter(d => this.isDone(t[d])).length;
+        const withManual = n => Math.max(0, n + (entry.manual || 0));
+
+        const target = Math.round(this.classifyFrequency(entry.goal.target).perWeek);
+
+        if (!this.isCutoverWeek(week)) {
+            const marked = days.filter(d => this.isTracked(t[d])).length;
+            return { kind: 'legacy', done: checks, expected: marked, misses: withManual(explicit), checks, target };
+        }
+
+        const kind = this.scoringKind(entry.goal);
+        const today = this.startOfToday();
+        const weekOver = this.weekDayDate(week, 6) < today;
+
+        if (kind === 'daily') {
+            let done = 0, expected = 0, inferred = 0;
+            for (let d = 0; d < 7; d++) {
+                if (!this.isExpected(week, entry, d)) continue;
+                const v = t[d] ?? '';
+                if (this.isDone(v)) { done++; expected++; }
+                else if (parseInt(v) > 0) expected++; // explicit ✗, already in `explicit`
+                else if (this.weekDayDate(week, d) < today) { expected++; inferred++; }
+            }
+            return { kind, done, expected, misses: withManual(explicit + inferred), checks, target: expected };
+        }
+
+        // Days the goal could still happen on (vacation and skipped days removed)
+        const available = days.filter(d => t[d] !== '-').length;
+
+        if (kind === 'limit') {
+            if (available === 0) return { kind, done: 0, expected: 0, misses: withManual(explicit), checks, target };
+            const over = Math.max(0, checks - target);
+            const missed = Math.max(explicit, over);
+            return { kind, done: Math.max(0, target - missed), expected: target, misses: withManual(missed), checks, target };
+        }
+
+        if (kind === 'monthly') {
+            const endDay = [0, 1, 2, 3, 4, 5, 6].find(d => {
+                const next = this.weekDayDate(week, d + 1);
+                return next.getDate() === 1;
+            });
+            if (endDay === undefined) return { kind, done: 0, expected: 0, misses: withManual(explicit), checks, target: 0 };
+            const end = this.weekDayDate(week, endDay);
+            if (this.isMonthlyDone(entry.goal.name, end.getFullYear(), end.getMonth())) {
+                return { kind, done: 1, expected: 1, misses: withManual(explicit), checks, target: 1 };
+            }
+            if (end >= today) return { kind, done: 0, expected: 0, misses: withManual(explicit), checks, target: 1, pending: true };
+            return { kind, done: 0, expected: 1, misses: withManual(Math.max(explicit, 1)), checks, target: 1 };
+        }
+
+        // perWeek: x2, x3, weekly, x1 — target shrinks if vacation/skips leave fewer days
+        const need = Math.min(target, available);
+        if (need === 0) return { kind, done: 0, expected: 0, misses: withManual(explicit), checks, target: 0 };
+        if (checks >= need) return { kind, done: need, expected: need, misses: withManual(explicit), checks, target: need };
+        if (!weekOver) return { kind, done: 0, expected: 0, misses: withManual(explicit), checks, target: need, pending: true };
+        return { kind, done: checks, expected: need, misses: withManual(Math.max(explicit, need - checks)), checks, target: need };
+    }
+
+    // Sum scoreEntry over a week's entries, optionally filtered
+    scoreWeek(week, filter = () => true) {
+        const total = { done: 0, expected: 0, misses: 0 };
+        Object.values(week.entries).forEach(entry => {
+            if (!filter(entry)) return;
+            const s = this.scoreEntry(week, entry);
+            total.done += s.done;
+            total.expected += s.expected;
+            total.misses += s.misses;
+        });
+        return total;
+    }
+
+    // { category: { done, expected, misses } } for one week
+    scoreByCategory(week) {
+        const cats = {};
+        Object.values(week.entries).forEach(entry => {
+            const cat = entry.goal.category;
+            if (!cats[cat]) cats[cat] = { done: 0, expected: 0, misses: 0 };
+            const s = this.scoreEntry(week, entry);
+            cats[cat].done += s.done;
+            cats[cat].expected += s.expected;
+            cats[cat].misses += s.misses;
+        });
+        return cats;
+    }
+
+    scorePct(s) {
+        return s.expected > 0 ? Math.min(100, Math.round((s.done / s.expected) * 100)) : 0;
+    }
+
+    // Is this cell an inferred miss (blank on a scheduled day that has passed)?
+    isInferredMiss(week, entry, dayIdx) {
+        return this.isCutoverWeek(week) &&
+            this.scoringKind(entry.goal) === 'daily' &&
+            (entry.tracking[dayIdx] ?? '') === '' &&
+            this.isExpected(week, entry, dayIdx) &&
+            this.weekDayDate(week, dayIdx) < this.startOfToday();
+    }
+
+    // Scheduled daily items on dayIdx of week that are still blank
+    uncheckedDailyEntries(week, dayIdx) {
+        return Object.entries(week.entries)
+            .filter(([, e]) => this.scoringKind(e.goal) === 'daily' &&
+                this.isExpected(week, e, dayIdx) &&
+                (e.tracking[dayIdx] ?? '') === '')
+            .map(([idx, e]) => ({ idx, entry: e }));
+    }
+
+    todayRemainingCount() {
+        const today = this.startOfToday();
+        const week = this.getWeekForDate(today);
+        return week ? this.uncheckedDailyEntries(week, today.getDay()).length : 0;
+    }
+
+    // Theme color from life-os.css (charts can't read CSS variables themselves)
+    themeColor(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+    }
+
+    // Quiet chart defaults to match the paper theme
+    applyChartTheme() {
+        if (!window.Chart || !Chart.defaults) return;
+        Chart.defaults.font.family = this.themeColor('font-sans');
+        Chart.defaults.color = this.themeColor('text-muted');
+        Chart.defaults.borderColor = this.themeColor('border-light');
+    }
+
+    // ========================================
     // Dashboard
     // ========================================
     renderDashboard() {
+        this.updateAppBadge();
         this.renderLifeScore();
         this.renderDashStats();
         this.renderWeeklyTrend();
@@ -508,15 +850,7 @@ class LifeOS {
         const week = this.getCurrentWeek();
         if (!week) return;
 
-        let totalGoals = 0;
-        let completedGoals = 0;
-
-        Object.values(week.entries).forEach(entry => {
-            entry.tracking.forEach(val => {
-                if (val === 'X' || val === 'x') completedGoals++;
-                if (this.isTracked(val)) totalGoals++;
-            });
-        });
+        const goalStats = this.scoreWeek(week);
 
         // Factor in habits
         const today = this.getTodayStr();
@@ -525,7 +859,7 @@ class LifeOS {
         const habitsTotal = this.data.habits.length;
 
         // Weighted score: 60% goals, 25% habits, 15% other factors
-        const goalScore = totalGoals > 0 ? (completedGoals / totalGoals) * 100 : 0;
+        const goalScore = goalStats.expected > 0 ? (goalStats.done / goalStats.expected) * 100 : 0;
         const habitScore = habitsTotal > 0 ? (habitsDone / habitsTotal) * 100 : 0;
         const lifeScore = Math.round(goalScore * 0.6 + habitScore * 0.25 + 15); // 15 base points
 
@@ -539,7 +873,7 @@ class LifeOS {
             data: {
                 datasets: [{
                     data: [Math.min(lifeScore, 100), Math.max(100 - lifeScore, 0)],
-                    backgroundColor: ['#6366f1', '#f1f5f9'],
+                    backgroundColor: [this.themeColor('primary'), this.themeColor('border-light')],
                     borderWidth: 0,
                 }]
             },
@@ -560,8 +894,7 @@ class LifeOS {
         let onTrack = 0;
         const totalGoals = Object.keys(week.entries).length;
         Object.values(week.entries).forEach(entry => {
-            const strikes = entry.tracking.filter(v => v === '1').length;
-            if (strikes === 0) onTrack++;
+            if (this.scoreEntry(week, entry).misses === 0) onTrack++;
         });
         document.getElementById('dashGoalsOnTrack').textContent = onTrack;
         document.getElementById('dashGoalsDetail').textContent = `of ${totalGoals} goals`;
@@ -574,6 +907,7 @@ class LifeOS {
                 const freq = this.classifyFrequency(entry.goal.target);
                 // Only count items applicable today
                 const applicable = (freq.group === 'daily' || freq.group === 'fewPerWeek') &&
+                    this.scoringKind(entry.goal) !== 'limit' &&
                     this.isExpected(week, entry, todayDayIdx);
                 if (applicable) {
                     todayTotal++;
@@ -586,17 +920,8 @@ class LifeOS {
         document.getElementById('dashTodayDetail').textContent = 'items done today';
 
         // Health score (based on physical health goal completion this week)
-        let healthCompleted = 0;
-        let healthTotal = 0;
-        Object.values(week.entries).forEach(entry => {
-            if (entry.goal.category === 'Physical Health' || entry.goal.category === 'Mental Health') {
-                entry.tracking.forEach(v => {
-                    if (this.isTracked(v)) healthTotal++;
-                    if (v === 'X' || v === 'x') healthCompleted++;
-                });
-            }
-        });
-        const healthPct = healthTotal > 0 ? Math.round((healthCompleted / healthTotal) * 100) : 0;
+        const healthPct = this.scorePct(this.scoreWeek(week, e =>
+            e.goal.category === 'Physical Health' || e.goal.category === 'Mental Health'));
         document.getElementById('dashHealthScore').textContent = healthPct + '%';
 
         // Habit streak
@@ -650,29 +975,11 @@ class LifeOS {
             return;
         }
 
-        const catStats = {};
-        Object.values(week.entries).forEach(entry => {
-            const cat = entry.goal.category;
-            if (!catStats[cat]) catStats[cat] = { total: 0, completed: 0 };
-            entry.tracking.forEach(v => {
-                if (this.isTracked(v)) catStats[cat].total++;
-                if (v === 'X' || v === 'x') catStats[cat].completed++;
-            });
-        });
-
-        const colors = {
-            'Physical Health': '#ef4444',
-            'Mental Health': '#8b5cf6',
-            'Budgeting': '#22c55e',
-            'Work': '#3b82f6',
-            'Monthly': '#f59e0b',
-            'Cooking': '#f97316',
-            'Other': '#6b7280'
-        };
+        const catStats = this.scoreByCategory(week);
 
         let html = '';
         for (const [cat, stats] of Object.entries(catStats)) {
-            const pct = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+            const pct = this.scorePct(stats);
             html += `
                 <div class="category-bar-item">
                     <div class="category-bar-label">
@@ -680,7 +987,7 @@ class LifeOS {
                         <span>${pct}%</span>
                     </div>
                     <div class="category-bar-track">
-                        <div class="category-bar-fill" style="width:${pct}%;background:${colors[cat] || '#6366f1'}"></div>
+                        <div class="category-bar-fill" style="width:${pct}%"></div>
                     </div>
                 </div>`;
         }
@@ -693,13 +1000,7 @@ class LifeOS {
         const sorted = [...this.data.weeks].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
         if (sorted.length < 2) { el.textContent = ''; return; }
 
-        const getScore = (week) => {
-            let done = 0, total = 0;
-            Object.values(week.entries).forEach(e => {
-                e.tracking.forEach(v => { if (this.isTracked(v)) total++; if (v === 'X' || v === 'x') done++; });
-            });
-            return total > 0 ? Math.round((done / total) * 100) : 0;
-        };
+        const getScore = (week) => this.scorePct(this.scoreWeek(week));
 
         const curr = getScore(sorted[sorted.length - 1]);
         const prev = getScore(sorted[sorted.length - 2]);
@@ -716,20 +1017,11 @@ class LifeOS {
         const week = this.getCurrentWeek();
         if (!week) { container.innerHTML = ''; return; }
 
-        const catStats = {};
-        Object.values(week.entries).forEach(entry => {
-            const cat = entry.goal.category;
-            if (!catStats[cat]) catStats[cat] = { done: 0, total: 0, strikes: 0 };
-            entry.tracking.forEach(v => {
-                if (this.isTracked(v)) catStats[cat].total++;
-                if (v === 'X' || v === 'x') catStats[cat].done++;
-                else if (this.isTracked(v) && !isNaN(parseInt(v))) catStats[cat].strikes += parseInt(v);
-            });
-        });
+        const catStats = this.scoreByCategory(week);
 
         const worst = Object.entries(catStats)
-            .filter(([, s]) => s.total > 0)
-            .map(([cat, s]) => ({ cat, pct: Math.round((s.done / s.total) * 100), strikes: s.strikes }))
+            .filter(([, s]) => s.expected > 0)
+            .map(([cat, s]) => ({ cat, pct: this.scorePct(s), strikes: s.misses }))
             .sort((a, b) => a.pct - b.pct)
             .slice(0, 3)
             .filter(s => s.pct < 80);
@@ -772,13 +1064,8 @@ class LifeOS {
         }[period];
         const weeks = this.data.weeks.filter(w => new Date(w.startDate) >= periodCutoff);
 
-        const todayWeekKey = this.weekKey(now);
         const catStats = {};   // cat -> { done, strikes, total, weekCount: Set, goals: { name -> {done,strikes,total} } }
         weeks.forEach(week => {
-            const isCurrentWeek = this.weekKey(new Date(week.startDate)) === todayWeekKey;
-            const maxDay = isCurrentWeek ? new Date().getDay() : 6; // don't count future days
-            const vacDays = new Set(week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []));
-
             Object.values(week.entries).forEach(entry => {
                 const cat = (entry.goal.category || 'Other').trim();
                 if (EXCLUDE_CATS.has(cat.toLowerCase())) return;
@@ -788,15 +1075,10 @@ class LifeOS {
                 const gName = entry.goal.name;
                 if (!cStat.goals[gName]) cStat.goals[gName] = { done: 0, strikes: 0, total: 0 };
                 const gStat = cStat.goals[gName];
-                entry.tracking.forEach((v, dayIdx) => {
-                    if (dayIdx > maxDay || vacDays.has(dayIdx) || !this.isTracked(v)) return;
-                    cStat.total++; gStat.total++;
-                    if (v === 'X' || v === 'x') { cStat.done++; gStat.done++; }
-                    else if (!isNaN(parseInt(v))) {
-                        const n = parseInt(v);
-                        cStat.strikes += n; gStat.strikes += n;
-                    }
-                });
+                const s = this.scoreEntry(week, entry);
+                cStat.total += s.expected; gStat.total += s.expected;
+                cStat.done += s.done; gStat.done += s.done;
+                cStat.strikes += s.misses; gStat.strikes += s.misses;
             });
         });
 
@@ -868,7 +1150,6 @@ class LifeOS {
 
         // Filter weeks by selected period
         const now = new Date();
-        const todayWeekKey = this.weekKey(now);
         const periodCutoff = {
             '1m':  new Date(now - 30 * 864e5),
             '3m':  new Date(now - 91 * 864e5),
@@ -877,27 +1158,15 @@ class LifeOS {
         }[period];
         const weeks = this.data.weeks.filter(w => new Date(w.startDate) >= periodCutoff);
 
-        // ── Shared stat builder ─────────────────────────────────────────
-        const accum = (weeksArr, perWeek) => weeksArr.forEach(week => {
-            const isCurrentWeek = this.weekKey(new Date(week.startDate)) === todayWeekKey;
-            const maxDay = isCurrentWeek ? now.getDay() : 6;
-            const vacDays = new Set(week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []));
-            perWeek(week, maxDay, vacDays);
-        });
-
         // ── Month-over-month bars ───────────────────────────────────────
         const monthStats = {};
-        accum(weeks, (week, maxDay, vacDays) => {
+        weeks.forEach(week => {
             const d = new Date(week.startDate);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             if (!monthStats[key]) monthStats[key] = { done: 0, total: 0 };
-            Object.values(week.entries).forEach(entry => {
-                entry.tracking.forEach((v, dayIdx) => {
-                    if (dayIdx > maxDay || vacDays.has(dayIdx) || !this.isTracked(v)) return;
-                    monthStats[key].total++;
-                    if (v === 'X' || v === 'x') monthStats[key].done++;
-                });
-            });
+            const s = this.scoreWeek(week);
+            monthStats[key].done += s.done;
+            monthStats[key].total += s.expected;
         });
         const monthKeys = Object.keys(monthStats).sort().slice(-12);
         const monthBars = monthKeys.map(key => {
@@ -928,15 +1197,13 @@ class LifeOS {
 
         // ── Top & bottom goals ──────────────────────────────────────────
         const goalStats = {};
-        accum(weeks, (week, maxDay, vacDays) => {
+        weeks.forEach(week => {
             Object.values(week.entries).forEach(entry => {
                 const name = entry.goal.name;
                 if (!goalStats[name]) goalStats[name] = { done: 0, total: 0 };
-                entry.tracking.forEach((v, dayIdx) => {
-                    if (dayIdx > maxDay || vacDays.has(dayIdx) || !this.isTracked(v)) return;
-                    goalStats[name].total++;
-                    if (v === 'X' || v === 'x') goalStats[name].done++;
-                });
+                const s = this.scoreEntry(week, entry);
+                goalStats[name].done += s.done;
+                goalStats[name].total += s.expected;
             });
         });
         const minTotal = period === '1m' ? 3 : 10;
@@ -1082,7 +1349,8 @@ class LifeOS {
                 const idx = decBtn.dataset.goal;
                 const entry = week.entries[idx] ?? week.entries[parseInt(idx)];
                 if (!entry) return;
-                entry.manual = Math.max(0, (entry.manual || 0) - 1);
+                // Manual adjustments can go negative to cancel inferred misses; the total never drops below 0
+                if (this.scoreEntry(week, entry).misses > 0) entry.manual = (entry.manual || 0) - 1;
                 this.saveData();
                 this.renderGoals();
                 return;
@@ -1119,6 +1387,7 @@ class LifeOS {
     }
 
     renderGoals() {
+        this.updateAppBadge();
         const week = this.getCurrentWeek();
         if (!week) {
             document.getElementById('goalsGrid').innerHTML = '<div class="empty-state">No weeks yet. Click "+ New Week" to start.</div>';
@@ -1175,12 +1444,13 @@ class LifeOS {
                         display = '\u2013';
                     } else if (val === '' && !goalDays.includes(dayIdx)) {
                         cls += ' off-day';
+                    } else if (this.isInferredMiss(week, entry, dayIdx)) {
+                        cls += ' inferred-miss';
+                        display = '\u2717';
                     }
                     html += `<td class="${cls}" data-goal="${entry.idx}" data-day="${dayIdx}">${display}</td>`;
                 });
-                const calcStrikes = entry.tracking.reduce((n, v) => n + (!isNaN(parseInt(v)) ? parseInt(v) : 0), 0);
-                const manualStrikes = entry.manual || 0;
-                const totalStrikes = calcStrikes + manualStrikes;
+                const totalStrikes = this.scoreEntry(week, entry).misses;
                 catTotal += totalStrikes;
                 grandTotal += totalStrikes;
                 const decBtn = totalStrikes > 0 ? `<button class="strike-dec" data-goal="${entry.idx}">−</button>` : '';
@@ -1231,11 +1501,7 @@ class LifeOS {
         this.data.weeks.slice(-12).forEach(week => {
             const d = new Date(week.startDate);
             labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-            let strikes = 0;
-            Object.values(week.entries).forEach(entry => {
-                strikes += entry.tracking.filter(v => v === '1').length;
-            });
-            strikesData.push(strikes);
+            strikesData.push(this.scoreWeek(week).misses);
         });
 
         const strikesCanvas = document.getElementById('goalStrikesChart');
@@ -1247,8 +1513,8 @@ class LifeOS {
                 datasets: [{
                     label: 'Strikes',
                     data: strikesData,
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239,68,68,0.1)',
+                    borderColor: this.themeColor('danger'),
+                    backgroundColor: this.themeColor('danger-tint'),
                     fill: true,
                     tension: 0.3
                 }]
@@ -1263,24 +1529,11 @@ class LifeOS {
         });
 
         // Category performance
-        const catStats = {};
         const week = this.getCurrentWeek();
-        if (week) {
-            Object.values(week.entries).forEach(entry => {
-                const cat = entry.goal.category;
-                if (!catStats[cat]) catStats[cat] = { completed: 0, total: 0 };
-                entry.tracking.forEach(v => {
-                    if (this.isTracked(v)) catStats[cat].total++;
-                    if (v === 'X' || v === 'x') catStats[cat].completed++;
-                });
-            });
-        }
+        const catStats = week ? this.scoreByCategory(week) : {};
 
         const catLabels = Object.keys(catStats);
-        const catPcts = catLabels.map(c => {
-            const s = catStats[c];
-            return s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
-        });
+        const catPcts = catLabels.map(c => this.scorePct(catStats[c]));
 
         const catCanvas = document.getElementById('goalCategoryChart');
         if (this.charts.goalCategory) this.charts.goalCategory.destroy();
@@ -1291,7 +1544,8 @@ class LifeOS {
                 datasets: [{
                     label: 'Completion %',
                     data: catPcts,
-                    backgroundColor: ['#ef4444', '#8b5cf6', '#22c55e', '#3b82f6', '#f59e0b', '#f97316', '#6b7280']
+                    backgroundColor: this.themeColor('primary'),
+                    borderRadius: 4
                 }]
             },
             options: {
@@ -1499,58 +1753,37 @@ class LifeOS {
         const week = this.getCurrentWeek();
         if (!week) return;
 
-        // Workouts (Strength + Cardio from goals)
-        let workouts = 0;
-        const workoutTarget = 4; // 2 strength + 2 cardio
-        Object.values(week.entries).forEach(entry => {
-            if (entry.goal.name.includes('Strength') || entry.goal.name.includes('Cardio')) {
-                workouts += entry.tracking.filter(v => v === 'X' || v === 'x').length;
-            }
+        const scored = name => Object.values(week.entries)
+            .filter(e => e.goal.name.includes(name))
+            .map(e => this.scoreEntry(week, e));
+
+        // Workouts (Strength + Cardio): progress toward the weekly targets — only ✓ count
+        let workouts = 0, workoutTarget = 0;
+        [...scored('Strength'), ...scored('Cardio')].forEach(s => {
+            workouts += Math.min(s.checks, s.target);
+            workoutTarget += s.target;
         });
         document.getElementById('workoutCount').textContent = `${workouts}/${workoutTarget}`;
-        this.drawRing('workoutRing', workouts / workoutTarget, '#ef4444');
+        this.drawRing('workoutRing', workouts / Math.max(workoutTarget, 1));
 
-        // Sleep (bedtime compliance)
-        let sleepDone = 0;
-        let sleepTotal = 5; // weeknights
-        Object.values(week.entries).forEach(entry => {
-            if (entry.goal.name.includes('bed by')) {
-                sleepDone = entry.tracking.filter(v => v === 'X' || v === 'x').length;
-                // Nights the bedtime goal actually applies (schedule minus skips/vacation)
-                sleepTotal = Math.max(1, [0, 1, 2, 3, 4, 5, 6].filter(d => this.isExpected(week, entry, d)).length);
-            }
-        });
-        document.getElementById('sleepScore').textContent = `${sleepDone}/${sleepTotal}`;
-        this.drawRing('sleepRing', sleepDone / sleepTotal, '#3b82f6');
+        // Sleep (bedtime) and mindfulness (Meditate): nights done of nights expected so far
+        const ring = (name, countId, ringId) => {
+            const s = scored(name)[0] || { done: 0, expected: 0 };
+            document.getElementById(countId).textContent = `${s.done}/${s.expected}`;
+            this.drawRing(ringId, s.done / Math.max(s.expected, 1));
+        };
+        ring('bed by', 'sleepScore', 'sleepRing');
+        ring('Meditate', 'mindfulCount', 'mindfulRing');
 
-        // Mindfulness (Meditate)
-        let mindful = 0;
-        const mindfulTarget = 7;
-        Object.values(week.entries).forEach(entry => {
-            if (entry.goal.name.includes('Meditate')) {
-                mindful = entry.tracking.filter(v => v === 'X' || v === 'x').length;
-            }
-        });
-        document.getElementById('mindfulCount').textContent = `${mindful}/${mindfulTarget}`;
-        this.drawRing('mindfulRing', mindful / mindfulTarget, '#8b5cf6');
-
-        // Substances (Zyns + alcohol)
-        let substancesClean = 0;
-        let substancesTotal = 0;
-        Object.values(week.entries).forEach(entry => {
-            if (entry.goal.name.includes('Zyn') || entry.goal.name.includes('drink')) {
-                entry.tracking.forEach(v => {
-                    if (this.isTracked(v)) substancesTotal++;
-                    if (v === 'X' || v === 'x') substancesClean++;
-                });
-            }
-        });
-        const substPct = substancesTotal > 0 ? Math.round((substancesClean / substancesTotal) * 100) : 0;
+        // Substances (Zyns + alcohol) — limits: at/under the max = 100%
+        const subst = [...scored('Zyn'), ...scored('drink')].reduce(
+            (a, s) => ({ done: a.done + s.done, expected: a.expected + s.expected }), { done: 0, expected: 0 });
+        const substPct = this.scorePct(subst);
         document.getElementById('substanceScore').textContent = substPct + '%';
-        this.drawRing('substanceRing', substancesClean / Math.max(substancesTotal, 1), '#22c55e');
+        this.drawRing('substanceRing', substPct / 100);
     }
 
-    drawRing(canvasId, progress, color) {
+    drawRing(canvasId, progress, color = this.themeColor('primary')) {
         const canvas = document.getElementById(canvasId);
         if (this.charts[canvasId]) this.charts[canvasId].destroy();
         this.charts[canvasId] = new Chart(canvas, {
@@ -1558,7 +1791,7 @@ class LifeOS {
             data: {
                 datasets: [{
                     data: [Math.min(progress, 1) * 100, Math.max((1 - progress), 0) * 100],
-                    backgroundColor: [color, '#f1f5f9'],
+                    backgroundColor: [color, this.themeColor('border-light')],
                     borderWidth: 0
                 }]
             },
@@ -1585,8 +1818,8 @@ class LifeOS {
                     datasets: [{
                         label: 'Weight (lbs)',
                         data: weightLogs.map(l => l.weight),
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99,102,241,0.1)',
+                        borderColor: this.themeColor('primary'),
+                        backgroundColor: this.themeColor('primary-tint'),
                         fill: true,
                         tension: 0.3
                     }]
@@ -1610,7 +1843,7 @@ class LifeOS {
                     datasets: [{
                         label: 'Hours',
                         data: sleepLogs.map(l => l.sleep),
-                        backgroundColor: sleepLogs.map(l => l.sleep >= 7 ? '#22c55e' : l.sleep >= 6 ? '#f59e0b' : '#ef4444'),
+                        backgroundColor: sleepLogs.map(l => this.themeColor(l.sleep >= 7 ? 'primary' : l.sleep >= 6 ? 'warning' : 'danger')),
                         borderRadius: 4
                     }]
                 },
@@ -1769,6 +2002,7 @@ class LifeOS {
     }
 
     renderHabits() {
+        this.updateAppBadge();
         document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US', {
             weekday: 'long', month: 'long', day: 'numeric'
         });
@@ -1809,8 +2043,13 @@ class LifeOS {
 
         // Build entries with frequency info
         const allEntries = [];
+        const now = new Date();
         Object.entries(week.entries).forEach(([idx, entry]) => {
-            const freq = this.classifyFrequency(entry.goal.target);
+            // Group by the scoring rule: Budgeting is a limit, a custom day schedule makes a goal daily
+            let freq = this.classifyFrequency(entry.goal.target);
+            const kind = this.scoringKind(entry.goal);
+            if (kind === 'limit' && !freq.isLimit) freq = { ...freq, group: 'limit', label: `${freq.perWeek}x max/week`, isLimit: true };
+            else if (kind === 'daily' && freq.group !== 'daily') freq = { ...freq, group: 'daily' };
             const weekDone = entry.tracking.filter(v => v === 'X' || v === 'x').length;
             const weekStrikes = entry.tracking.filter(v => v === '1').length;
             const todayVal = entry.tracking[todayDayIdx];
@@ -1825,6 +2064,7 @@ class LifeOS {
                 freq,
                 weekDone,
                 weekStrikes,
+                monthDone: kind === 'monthly' && this.isMonthlyDone(entry.goal.name, now.getFullYear(), now.getMonth()),
                 todayDone,
                 todayStrike,
                 todaySkipped,
@@ -1834,11 +2074,11 @@ class LifeOS {
 
         // Define frequency groups in display order
         const groups = [
-            { key: 'daily', title: 'Daily Essentials', icon: '&#9788;', desc: 'Do these every day' },
-            { key: 'fewPerWeek', title: 'A Few Times This Week', icon: '&#8635;', desc: 'Hit your target this week' },
-            { key: 'weekly', title: 'Weekly Goals', icon: '&#9733;', desc: 'Complete once this week' },
-            { key: 'limit', title: 'Limits & Boundaries', icon: '&#9888;', desc: 'Stay within these limits' },
-            { key: 'monthly', title: 'Monthly Goals', icon: '&#128197;', desc: 'Once this month' }
+            { key: 'daily', title: 'Daily Essentials', desc: 'Do these every day' },
+            { key: 'fewPerWeek', title: 'A Few Times This Week', desc: 'Hit your target this week' },
+            { key: 'weekly', title: 'Weekly Goals', desc: 'Complete once this week' },
+            { key: 'limit', title: 'Limits & Boundaries', desc: 'Stay within these limits' },
+            { key: 'monthly', title: 'Monthly Goals', desc: 'Once this month' }
         ];
 
         let html = '';
@@ -1853,7 +2093,6 @@ class LifeOS {
             html += `<div class="freq-group">
                 <div class="freq-group-header">
                     <div class="freq-group-title">
-                        <span class="freq-icon">${group.icon}</span>
                         <span class="freq-label">${group.title}</span>
                     </div>
                     <span class="freq-group-count">${todayChecked}/${groupTotal}</span>
@@ -1898,7 +2137,7 @@ class LifeOS {
                             const over = used > target;
                             progressHtml = `<span class="freq-progress ${over ? 'over-limit' : 'under-limit'}">${used}/${target} used</span>`;
                         } else if (group.key === 'monthly') {
-                            progressHtml = `<span class="freq-progress ${entry.weekDone > 0 ? 'on-track' : ''}">${entry.weekDone > 0 ? 'Done' : 'Not yet'}</span>`;
+                            progressHtml = `<span class="freq-progress ${entry.monthDone ? 'on-track' : ''}">${entry.monthDone ? 'Done' : 'Not yet'}</span>`;
                         } else {
                             const pct = Math.min(100, Math.round((entry.weekDone / target) * 100));
                             const met = entry.weekDone >= target;
@@ -2026,8 +2265,7 @@ class LifeOS {
         // Show heatmap for daily items only (keeps it readable)
         let html = '';
         Object.entries(week.entries).forEach(([idx, entry]) => {
-            const freq = this.classifyFrequency(entry.goal.target);
-            if (freq.group !== 'daily') return;
+            if (this.scoringKind(entry.goal) !== 'daily') return;
             html += `<div class="heatmap-row">
                 <span class="heatmap-label">${this.escapeHtml(entry.goal.name)}</span>
                 <div class="heatmap-cells">`;
@@ -2061,28 +2299,58 @@ class LifeOS {
                 e.target.classList.add('active');
             }
         });
+
+        // Archive: load on first open, filter as you type, page through
+        const archive = document.getElementById('journalArchive');
+        archive.addEventListener('toggle', () => { if (archive.open) this.renderArchive(); });
+        document.getElementById('archiveSearch').addEventListener('input', () => {
+            this._archiveShown = ARCHIVE_PAGE;
+            this.renderArchive();
+        });
+        document.getElementById('archiveMoreBtn').addEventListener('click', () => {
+            this._archiveShown = (this._archiveShown || ARCHIVE_PAGE) + ARCHIVE_PAGE;
+            this.renderArchive();
+        });
+        document.getElementById('archiveList').addEventListener('click', (e) => {
+            const card = e.target.closest('.archive-entry');
+            if (card) card.classList.toggle('expanded');
+        });
+
+        // Import from another journal app (Settings)
+        document.getElementById('journalImportBtn').addEventListener('click', () => document.getElementById('journalImportInput').click());
+        document.getElementById('journalImportInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            e.target.value = '';
+            if (file) this.previewJournalImport(file);
+        });
+        document.getElementById('journalImportConfirm').addEventListener('click', () => this.confirmJournalImport());
+        document.getElementById('journalImportCancel').addEventListener('click', () => this.closeModal('journalImportModal'));
+        document.getElementById('journalClearBtn').addEventListener('click', () => this.clearJournalArchive());
     }
 
     saveEveningReflection() {
         const wentWell = document.getElementById('stoicWentWell')?.value?.trim();
         const fellShort = document.getElementById('stoicFellShort')?.value?.trim();
-        const gratitude = document.getElementById('stoicGratitude')?.value?.trim();
+        const highlights = [1, 2, 3]
+            .map(i => document.getElementById(`stoicHighlight${i}`)?.value?.trim())
+            .filter(Boolean);
         const intention = document.getElementById('stoicIntention')?.value?.trim();
 
         const ratingBtn = document.querySelector('#stoicValuesRating .rating-btn.active');
         const valuesRating = ratingBtn ? parseInt(ratingBtn.dataset.rating) : null;
 
-        if (!wentWell && !fellShort && !gratitude) {
+        if (!wentWell && !fellShort && highlights.length === 0) {
             alert('Please fill in at least one reflection field.');
             return;
         }
 
+        const now = new Date();
         const reflection = {
-            date: this.getTodayStr(),
-            timestamp: new Date().toISOString(),
+            date: this.localDateKey(now),
+            timestamp: now.toISOString(),
             wentWell,
             fellShort,
-            gratitude,
+            highlights,
             valuesRating,
             intention
         };
@@ -2090,10 +2358,11 @@ class LifeOS {
         this.data.eveningReflections.unshift(reflection);
 
         // Also save as a journal entry for unified history
+        const highlightText = highlights.map((h, i) => `${i + 1}. ${h}`).join('\n') || '-';
         this.data.journalEntries.unshift({
-            date: this.getTodayStr(),
-            timestamp: new Date().toISOString(),
-            text: `**What went well:** ${wentWell || '-'}\n\n**Where I fell short:** ${fellShort || '-'}\n\n**Gratitude:** ${gratitude || '-'}\n\n**Values Rating:** ${valuesRating || '-'}/10\n\n**Tomorrow's Intention:** ${intention || '-'}`,
+            date: reflection.date,
+            timestamp: reflection.timestamp,
+            text: `**What went well:** ${wentWell || '-'}\n\n**Where I fell short:** ${fellShort || '-'}\n\n**Highlights / to remember:**\n${highlightText}\n\n**Values Rating:** ${valuesRating || '-'}/10\n\n**Tomorrow's Intention:** ${intention || '-'}`,
             mood: valuesRating >= 7 ? 'good' : valuesRating >= 5 ? 'okay' : 'low',
             type: 'stoic'
         });
@@ -2102,17 +2371,86 @@ class LifeOS {
         this.logActivity('Completed evening reflection');
 
         // Clear form
-        ['stoicWentWell', 'stoicFellShort', 'stoicGratitude', 'stoicIntention'].forEach(id => {
+        ['stoicWentWell', 'stoicFellShort', 'stoicHighlight1', 'stoicHighlight2', 'stoicHighlight3', 'stoicIntention'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
         document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
 
         this.renderJournal();
-        alert('Evening reflection saved!');
+        const streak = this.getJournalStreak().current;
+        alert(streak > 1 ? `Evening reflection saved — ${streak} days in a row!` : 'Evening reflection saved!');
+    }
+
+    // ---- Journal streak ----
+
+    // Local days with a saved reflection or an imported entry
+    getJournalDays() {
+        const days = new Set(this.data.journalImportDates || []);
+        (this.data.eveningReflections || []).forEach(r => {
+            days.add(r.timestamp ? this.localDateKey(new Date(r.timestamp)) : r.date);
+        });
+        days.delete(undefined);
+        return days;
+    }
+
+    shiftDateKey(key, n) {
+        const d = new Date(`${key}T12:00:00`);
+        d.setDate(d.getDate() + n);
+        return this.localDateKey(d);
+    }
+
+    // current: consecutive days up to today (today not done yet doesn't break it)
+    getJournalStreak() {
+        const days = this.getJournalDays();
+        const today = this.localDateKey(new Date());
+        const doneToday = days.has(today);
+        let current = 0;
+        for (let key = doneToday ? today : this.shiftDateKey(today, -1); days.has(key); key = this.shiftDateKey(key, -1)) current++;
+
+        let best = 0, run = 0, prev = null;
+        [...days].sort().forEach(key => {
+            run = prev && this.shiftDateKey(prev, 1) === key ? run + 1 : 1;
+            best = Math.max(best, run);
+            prev = key;
+        });
+        return { current, best, total: days.size, doneToday, days };
+    }
+
+    renderJournalStreak() {
+        const el = document.getElementById('journalStreak');
+        if (!el) return;
+        const s = this.getJournalStreak();
+        const today = this.localDateKey(new Date());
+        const dots = [];
+        for (let i = 13; i >= 0; i--) {
+            const key = this.shiftDateKey(today, -i);
+            const label = new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { weekday: 'narrow' });
+            const cls = s.days.has(key) ? 'on' : i === 0 ? 'today' : '';
+            dots.push(`<span class="streak-dot ${cls}" title="${key}">${label}</span>`);
+        }
+        const note = s.current === 0 ? 'Write tonight to start a streak.'
+            : s.doneToday ? 'Done for today.'
+            : 'Reflect tonight to keep it going.';
+        el.innerHTML = `
+            <div class="journal-streak-main">
+                <div class="journal-streak-count">${s.current}</div>
+                <div>
+                    <div class="journal-streak-label">${s.current === 1 ? 'day' : 'days'} in a row</div>
+                    <div class="journal-streak-note">${note}</div>
+                    <div class="journal-streak-meta">
+                        <span>Best <b>${s.best}</b></span>
+                        <span><b>${s.total}</b> days journaled</span>
+                    </div>
+                </div>
+            </div>
+            <div class="streak-dots">${dots.join('')}</div>`;
     }
 
     renderJournal() {
+        this.renderJournalStreak();
+        this.updateArchiveSummary();
+
         const container = document.getElementById('journalEntriesList');
         const entries = this.data.eveningReflections;
 
@@ -2125,8 +2463,11 @@ class LifeOS {
             const dateStr = entry.timestamp
                 ? new Date(entry.timestamp).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
                 : entry.date;
+            const highlights = entry.highlights?.length
+                ? `<p><strong>Highlights:</strong></p><ol class="highlight-list">${entry.highlights.map(h => `<li>${this.escapeHtml(h)}</li>`).join('')}</ol>`
+                : entry.gratitude ? `<p><strong>Grateful for:</strong> ${this.escapeHtml(entry.gratitude)}</p>` : '';
 
-            return `<div class="journal-entry-card" style="border-left-color:var(--secondary)">
+            return `<div class="journal-entry-card">
                 <div class="journal-entry-header">
                     <span class="journal-entry-date">${dateStr}</span>
                     ${entry.valuesRating ? `<span class="journal-entry-mood">Values: ${entry.valuesRating}/10</span>` : ''}
@@ -2134,11 +2475,246 @@ class LifeOS {
                 <div class="journal-entry-text">
                     ${entry.wentWell ? `<p><strong>Went well:</strong> ${this.escapeHtml(entry.wentWell)}</p>` : ''}
                     ${entry.fellShort ? `<p><strong>Fell short:</strong> ${this.escapeHtml(entry.fellShort)}</p>` : ''}
-                    ${entry.gratitude ? `<p><strong>Grateful for:</strong> ${this.escapeHtml(entry.gratitude)}</p>` : ''}
+                    ${highlights}
                     ${entry.intention ? `<p><strong>Tomorrow:</strong> ${this.escapeHtml(entry.intention)}</p>` : ''}
                 </div>
             </div>`;
         }).join('');
+    }
+
+    // ---- Journal archive (entries imported from another app) ----
+    // Text lives in Convex (journalArchive table) or, without Convex, in localStorage —
+    // never in the main data blob. data.journalImportDates keeps just the dates for the streak.
+
+    async loadArchive(force = false) {
+        if (this._archive && !force) return this._archive;
+        if (this.convex) {
+            this._archive = await this.convex.query('journal:listArchive');
+        } else {
+            try { this._archive = JSON.parse(localStorage.getItem(ARCHIVE_STORAGE_KEY) || '[]'); } catch (e) { this._archive = []; }
+            this._archive.sort((a, b) => b.date.localeCompare(a.date));
+        }
+        return this._archive;
+    }
+
+    updateArchiveSummary() {
+        const n = (this.data.journalImportDates || []).length;
+        const details = document.getElementById('journalArchive');
+        details.hidden = n === 0;
+        document.getElementById('journalClearBtn').style.display = n > 0 ? 'inline-block' : 'none';
+        if (n > 0 && this._archive) document.getElementById('archiveCount').textContent = `${this._archive.length} entries`;
+        else if (n > 0) document.getElementById('archiveCount').textContent = `${n} days`;
+        if (details.open && !details.hidden) this.renderArchive();
+    }
+
+    async renderArchive() {
+        const list = document.getElementById('archiveList');
+        const moreBtn = document.getElementById('archiveMoreBtn');
+        if (!this._archive) list.innerHTML = '<div class="empty-state">Loading…</div>';
+        let entries;
+        try {
+            entries = await this.loadArchive();
+        } catch (e) {
+            list.innerHTML = `<div class="empty-state">Couldn't load the archive (${this.escapeHtml(e.message)}).</div>`;
+            return;
+        }
+        document.getElementById('archiveCount').textContent = `${entries.length} entries`;
+        const q = document.getElementById('archiveSearch').value.trim().toLowerCase();
+        const matches = q ? entries.filter(e => e.text.toLowerCase().includes(q) || e.date.includes(q)) : entries;
+        const shown = matches.slice(0, this._archiveShown || ARCHIVE_PAGE);
+        list.innerHTML = shown.map(e => `
+            <article class="archive-entry">
+                <div class="archive-date">${new Date(`${e.date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                <div class="archive-text">${this.escapeHtml(e.text)}</div>
+            </article>`).join('') || `<div class="empty-state">No entries match "${this.escapeHtml(q)}".</div>`;
+        moreBtn.style.display = matches.length > shown.length ? 'block' : 'none';
+    }
+
+    setJournalImportStatus(text, tone) {
+        const el = document.getElementById('journalImportStatus');
+        el.textContent = text;
+        el.style.color = tone === 'ok' ? 'var(--success)' : tone === 'warn' ? 'var(--danger)' : 'var(--text-muted)';
+    }
+
+    // Read the file, split it into dated entries and show a preview before saving
+    async previewJournalImport(file) {
+        this.setJournalImportStatus(`Reading ${file.name}…`);
+        try {
+            const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+            const pages = isPdf ? await this.pdfToLines(file) : [(await file.text()).split(/\r?\n/)];
+            const entries = this.parseJournalEntries(pages);
+            if (entries.length === 0) {
+                this.setJournalImportStatus('No dated entries found in that file. Send a sample page and the importer can be adjusted.', 'warn');
+                return;
+            }
+            this._pendingImport = { entries, source: 'Journal app' };
+            const fmt = key => new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+            document.getElementById('journalImportSummary').textContent =
+                `Found ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} from ${fmt(sorted[0].date)} to ${fmt(sorted.at(-1).date)}.`;
+            const sample = entries.length > 3 ? [sorted[0], sorted[Math.floor(sorted.length / 2)], sorted.at(-1)] : sorted;
+            document.getElementById('journalImportPreview').innerHTML = sample.map(e => `
+                <div class="archive-entry">
+                    <div class="archive-date">${fmt(e.date)}</div>
+                    <div class="archive-text">${this.escapeHtml(e.text.slice(0, 280))}${e.text.length > 280 ? '…' : ''}</div>
+                </div>`).join('');
+            this.setJournalImportStatus('');
+            this.openModal('journalImportModal');
+        } catch (err) {
+            this.setJournalImportStatus('Could not read that file: ' + err.message, 'warn');
+        }
+    }
+
+    async confirmJournalImport() {
+        const pending = this._pendingImport;
+        if (!pending) return;
+        const btn = document.getElementById('journalImportConfirm');
+        btn.disabled = true;
+        btn.textContent = 'Importing…';
+        try {
+            let added = 0, skipped = 0;
+            if (this.convex) {
+                for (let i = 0; i < pending.entries.length; i += 50) {
+                    const r = await this.convex.mutation('journal:importEntries', {
+                        entries: pending.entries.slice(i, i + 50), source: pending.source
+                    });
+                    added += r.added;
+                    skipped += r.skipped;
+                }
+            } else {
+                const existing = await this.loadArchive(true);
+                const keys = new Set(existing.map(e => `${e.date}:${e.text}`));
+                pending.entries.forEach(e => {
+                    if (keys.has(`${e.date}:${e.text}`)) { skipped++; return; }
+                    existing.push({ ...e, source: pending.source });
+                    keys.add(`${e.date}:${e.text}`);
+                    added++;
+                });
+                localStorage.setItem(ARCHIVE_STORAGE_KEY, JSON.stringify(existing));
+            }
+            const dates = new Set(this.data.journalImportDates || []);
+            pending.entries.forEach(e => dates.add(e.date));
+            this.data.journalImportDates = [...dates].sort();
+            this._archive = null;
+            this._pendingImport = null;
+            this.saveData();
+            this.logActivity(`Imported ${added} journal entr${added === 1 ? 'y' : 'ies'}`);
+            this.closeModal('journalImportModal');
+            this.setJournalImportStatus(`Imported ${added} entr${added === 1 ? 'y' : 'ies'}${skipped ? ` (${skipped} already there)` : ''}. They're under Journal archive on the Reflection tab.`, 'ok');
+            this.renderJournal();
+        } catch (err) {
+            this.setJournalImportStatus('Import failed: ' + err.message, 'warn');
+        }
+        btn.disabled = false;
+        btn.textContent = 'Import';
+    }
+
+    async clearJournalArchive() {
+        if (!confirm('Remove all imported journal entries? Your Life OS reflections are not affected.')) return;
+        try {
+            if (this.convex) {
+                let remaining = 1;
+                while (remaining > 0) ({ remaining } = await this.convex.mutation('journal:clearArchive', {}));
+            } else {
+                localStorage.removeItem(ARCHIVE_STORAGE_KEY);
+            }
+            this.data.journalImportDates = [];
+            this._archive = null;
+            this.saveData();
+            this.logActivity('Removed imported journal entries');
+            this.setJournalImportStatus('Imported entries removed.', 'ok');
+            this.renderJournal();
+        } catch (err) {
+            this.setJournalImportStatus('Could not remove entries: ' + err.message, 'warn');
+        }
+    }
+
+    // ---- Parsing exported journals ----
+
+    // pdf.js is only loaded when a PDF is imported
+    loadPdfJs() {
+        if (!this._pdfjs) {
+            this._pdfjs = import(`${PDFJS_CDN}/pdf.min.mjs`).then(lib => {
+                lib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.mjs`;
+                return lib;
+            });
+            this._pdfjs.catch(() => { this._pdfjs = null; });
+        }
+        return this._pdfjs;
+    }
+
+    // [[line, line, …] per page]
+    async pdfToLines(file) {
+        const lib = await this.loadPdfJs();
+        const pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+        const pages = [];
+        for (let p = 1; p <= pdf.numPages; p++) {
+            const content = await (await pdf.getPage(p)).getTextContent();
+            const lines = [];
+            let line = '';
+            content.items.forEach(item => {
+                line += item.str;
+                if (item.hasEOL) { lines.push(line.trim()); line = ''; }
+            });
+            if (line.trim()) lines.push(line.trim());
+            pages.push(lines);
+        }
+        return pages;
+    }
+
+    // Split exported text into { date: 'YYYY-MM-DD', text } at each line that is a date heading
+    parseJournalEntries(pages) {
+        // Lines repeated on most pages are headers/footers; bare numbers are page numbers
+        const seen = new Map();
+        pages.forEach(lines => new Set(lines).forEach(l => seen.set(l, (seen.get(l) || 0) + 1)));
+        const repeated = pages.length >= 3
+            ? new Set([...seen].filter(([, n]) => n >= Math.max(3, pages.length / 2)).map(([l]) => l))
+            : new Set();
+        const pageNumber = /^(page\s*)?\d{1,4}(\s*(of|\/)\s*\d{1,4})?$/i;
+
+        const entries = [];
+        let current = null;
+        pages.flat().forEach(raw => {
+            const line = (raw || '').trim();
+            if (repeated.has(line) || pageNumber.test(line)) return;
+            const heading = this.parseDateHeading(line);
+            if (heading) {
+                if (current) entries.push(current);
+                current = { date: heading.date, lines: heading.rest ? [heading.rest] : [] };
+            } else if (current) {
+                current.lines.push(line);
+            }
+        });
+        if (current) entries.push(current);
+        return entries
+            .map(e => ({ date: e.date, text: e.lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() }))
+            .filter(e => e.text);
+    }
+
+    // A line that starts with a date and has nothing but a time after it → { date, rest }
+    parseDateHeading(line) {
+        if (!line || line.length > 80) return null;
+        const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        const M = '(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?';
+        const W = '(?:(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\\.?,?\\s+)?';
+        const patterns = [
+            [new RegExp(`^${W}${M}\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})`, 'i'), m => [m[3], months.indexOf(m[1].toLowerCase()) + 1, m[2]]],
+            [new RegExp(`^${W}(\\d{1,2})(?:st|nd|rd|th)?\\s+${M},?\\s+(\\d{4})`, 'i'), m => [m[3], months.indexOf(m[2].toLowerCase()) + 1, m[1]]],
+            [/^(\d{4})-(\d{1,2})-(\d{1,2})/, m => [m[1], m[2], m[3]]],
+            [new RegExp(`^${W}(\\d{1,2})/(\\d{1,2})/(\\d{4}|\\d{2})\\b`, 'i'), m => [m[3].length === 2 ? '20' + m[3] : m[3], m[1], m[2]]]
+        ];
+        for (const [re, pick] of patterns) {
+            const m = line.match(re);
+            if (!m) continue;
+            const [y, mo, d] = pick(m).map(Number);
+            const date = new Date(y, mo - 1, d);
+            if (y < 1990 || y > 2100 || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
+            // Allow a trailing time ("at 9:41 PM", "· 21:41"); anything else means it's prose
+            const rest = line.slice(m[0].length).replace(/^[\s,·•|–—-]*(at\s+)?(\d{1,2}[:.]\d{2}(\s*[ap]\.?m\.?)?)?[\s,·•|–—-]*/i, '');
+            if (rest.length > 0) return null;
+            return { date: this.localDateKey(date), rest: '' };
+        }
+        return null;
     }
 
     // ========================================
@@ -2175,8 +2751,8 @@ class LifeOS {
 
         // Collect strikes per goal (key by entry index since goals have no id)
         const strikeList = [];
-        Object.entries(week.entries).forEach(([idx, entry]) => {
-            const strikes = entry.tracking.filter(v => v === '1').length;
+        Object.values(week.entries).forEach(entry => {
+            const strikes = this.scoreEntry(week, entry).misses;
             if (strikes > 0) {
                 strikeList.push({
                     name: entry.goal.name,
@@ -2242,14 +2818,17 @@ class LifeOS {
             return;
         }
 
+        const result = this.generateStrikeSummary(targetWeek);
         const hasData = Object.values(targetWeek.entries).some(e => e.tracking.some(v => v !== ''));
-        if (!hasData) {
+        if (!hasData && !result) {
             card.style.display = 'none';
             return;
         }
 
-        const result = this.generateStrikeSummary(targetWeek);
-        const weekLabel = 'This week';
+        const lastWeekDate = this.startOfToday();
+        lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+        const weekLabel = targetWeek === this.getWeekForDate(new Date()) ? 'This week'
+            : targetWeek === this.getWeekForDate(lastWeekDate) ? 'Last week' : 'That week';
 
         if (!result) {
             card.style.display = 'flex';
@@ -2260,27 +2839,8 @@ class LifeOS {
 
         card.style.display = 'flex';
         card.classList.remove('strike-summary-clean');
-        const weekDateStr = targetWeek.startDate ? new Date(targetWeek.startDate).toLocaleDateString() : '?';
-        const baseSummary = isLastWeek
-            ? result.summary.replace(/^This week/, 'Last week')
-            : result.summary;
-        textEl.textContent = `[Week of ${weekDateStr} | ${result.totalStrikes} strikes found] ${baseSummary}`;
-    }
-
-    // Calculate expected completions for a goal through a given day index
-    getExpectedCount(week, entry, throughDayIdx) {
-        const freq = this.classifyFrequency(entry.goal.target);
-        if (freq.group === 'daily') {
-            // Days the goal applies, minus skipped and vacation days
-            let count = 0;
-            for (let d = 0; d <= throughDayIdx; d++) {
-                if (this.isExpected(week, entry, d)) count++;
-            }
-            return count;
-        }
-        if (freq.isLimit) return freq.perWeek; // limits: compare usage vs max
-        // Weekly, fewPerWeek, monthly: target is for the whole week/month
-        return freq.perWeek;
+        const baseSummary = result.summary.replace(/^This week/, weekLabel);
+        textEl.innerHTML = `<strong>${result.totalStrikes} strike${result.totalStrikes === 1 ? '' : 's'}</strong> · ${this.escapeHtml(baseSummary)}`;
     }
 
     renderReviewScores() {
@@ -2291,40 +2851,10 @@ class LifeOS {
             return;
         }
 
-        const todayDayIdx = new Date().getDay();
-        // If viewing a past week, count all 7 days
-        const isCurrentWeek = this.currentWeekIndex === -1 || this.currentWeekIndex === this.data.weeks.length - 1;
-        const throughDay = isCurrentWeek ? todayDayIdx : 6;
-
-        const catStats = {};
-        Object.values(week.entries).forEach(entry => {
-            const cat = entry.goal.category;
-            if (!catStats[cat]) catStats[cat] = { completed: 0, expected: 0, strikes: 0 };
-            const freq = this.classifyFrequency(entry.goal.target);
-
-            const completed = entry.tracking.filter(v => v === 'X' || v === 'x').length;
-            const strikes = entry.tracking.filter(v => v === '1').length;
-            const expected = this.getExpectedCount(week, entry, throughDay);
-
-            // Limits and Budgeting: success = staying at or under the max
-            // Checking off means you "used" one (bought lunch, had a drink, etc.)
-            // NOT checking = you stayed on budget = success
-            const isLimitStyle = freq.isLimit || cat === 'Budgeting';
-            if (isLimitStyle) {
-                const limit = freq.perWeek;
-                const used = completed;
-                // Score: if you stayed at or under limit, full marks. Otherwise proportionally less.
-                catStats[cat].completed += used <= limit ? limit : Math.max(0, 2 * limit - used);
-                catStats[cat].expected += limit;
-            } else {
-                catStats[cat].completed += completed;
-                catStats[cat].expected += expected;
-            }
-            catStats[cat].strikes += strikes;
-        });
+        const catStats = this.scoreByCategory(week);
 
         container.innerHTML = Object.entries(catStats).map(([cat, s]) => {
-            const pct = s.expected > 0 ? Math.min(100, Math.round((s.completed / s.expected) * 100)) : 0;
+            const pct = this.scorePct(s);
             return `<div class="review-score-card">
                 <div class="score-value">${pct}%</div>
                 <div class="score-label">${cat}</div>
@@ -2455,10 +2985,23 @@ class LifeOS {
     // Settings
     // ========================================
     bindSettings() {
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-            this.openModal('settingsModal');
-            this.updateConvexStatusUI();
+        ['settingsBtn', 'mobileSettingsBtn'].forEach(id => {
+            document.getElementById(id).addEventListener('click', () => {
+                this.openModal('settingsModal');
+                this.updateConvexStatusUI();
+                this.renderReminderSettings();
+            });
         });
+
+        // Reminders — times and timezone live in data.settings.reminders, which the Convex cron reads
+        ['reminderMorning', 'reminderEvening', 'reminderTimezone'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => {
+                this.saveReminderSettings(this.readReminderInputs());
+                this.renderReminderStatus();
+            });
+        });
+        document.getElementById('enableRemindersBtn').addEventListener('click', () => this.toggleReminders());
+        document.getElementById('testReminderBtn').addEventListener('click', () => this.sendTestReminder());
 
         // Convex connection
         document.getElementById('connectConvexBtn').addEventListener('click', async () => {
@@ -2473,14 +3016,14 @@ class LifeOS {
             const remoteWeeks = (remote?.weeks || []).length;
             const localWeeks = (this.data.weeks || []).length;
             if (remote && remoteWeeks >= localWeeks) {
-                this.data = remote;
+                this.data = this.normalizeData(remote);
                 localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
                 this.renderAll();
             } else {
                 await this.convex.save(this.data);
             }
             this.convex.subscribe((payload) => {
-                this.data = payload;
+                this.data = this.normalizeData(payload);
                 localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
                 this.renderAll();
             });
@@ -2512,7 +3055,7 @@ class LifeOS {
             btn.disabled = true;
             const remote = await this.convex.load();
             if (remote) {
-                this.data = remote;
+                this.data = this.normalizeData(remote);
                 localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
                 this.renderAll();
                 btn.textContent = 'Pulled ✓';
@@ -2561,7 +3104,7 @@ class LifeOS {
             reader.onload = (ev) => {
                 try {
                     const imported = JSON.parse(ev.target.result);
-                    this.data = imported;
+                    this.data = this.normalizeData(imported);
                     this.saveData();
                     this.logActivity('Restored from backup');
                     location.reload();
@@ -2604,6 +3147,177 @@ class LifeOS {
                 }
             }
         });
+    }
+
+    // ========================================
+    // Reminders (Web Push via Convex)
+    // ========================================
+    getReminderSettings() {
+        const r = { ...DEFAULT_REMINDERS, ...(this.data.settings.reminders || {}) };
+        if (!r.timezone) r.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago';
+        return r;
+    }
+
+    saveReminderSettings(patch) {
+        this.data.settings.reminders = { ...this.getReminderSettings(), ...patch };
+        this.saveData();
+    }
+
+    readReminderInputs() {
+        return {
+            morning: document.getElementById('reminderMorning').value || DEFAULT_REMINDERS.morning,
+            evening: document.getElementById('reminderEvening').value || DEFAULT_REMINDERS.evening,
+            timezone: document.getElementById('reminderTimezone').value
+        };
+    }
+
+    renderReminderSettings() {
+        const r = this.getReminderSettings();
+        document.getElementById('reminderMorning').value = r.morning;
+        document.getElementById('reminderEvening').value = r.evening;
+        const tzSelect = document.getElementById('reminderTimezone');
+        let zones = [];
+        try { zones = Intl.supportedValuesOf('timeZone'); } catch (e) { /* older browsers */ }
+        if (!zones.includes(r.timezone)) zones = [r.timezone, ...zones];
+        tzSelect.innerHTML = zones.map(z => `<option value="${z}">${z.replace(/_/g, ' ')}</option>`).join('');
+        tzSelect.value = r.timezone;
+        this.renderReminderStatus();
+        // Fetch the VAPID key now so nothing is awaited before the permission prompt on tap
+        if (this.convex && !this._vapidKeyPromise) this.prefetchVapidKey();
+    }
+
+    prefetchVapidKey() {
+        this._vapidKeyPromise = this.convex.query('push:getVapidPublicKey').then(key => {
+            if (!key) throw new Error('reminders are not set up on the Convex backend yet');
+            return key;
+        });
+        this._vapidKeyPromise.catch(() => { this._vapidKeyPromise = null; });
+        return this._vapidKeyPromise;
+    }
+
+    async getPushSubscription() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+        const reg = await navigator.serviceWorker.getRegistration();
+        return reg ? reg.pushManager.getSubscription() : null;
+    }
+
+    setReminderStatus(text, tone) {
+        const el = document.getElementById('reminderStatus');
+        el.textContent = text;
+        el.style.color = tone === 'ok' ? 'var(--success)' : tone === 'warn' ? 'var(--warning)' : 'var(--text-muted)';
+    }
+
+    formatTime12(hhmm) {
+        const [h, m] = hhmm.split(':').map(Number);
+        return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+    }
+
+    async renderReminderStatus() {
+        const r = this.getReminderSettings();
+        let sub = null;
+        try { sub = await this.getPushSubscription(); } catch (e) { /* unsupported */ }
+        this._pushSubscribed = !!sub;
+        const granted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+        const on = r.enabled && !!sub && granted;
+        const btn = document.getElementById('enableRemindersBtn');
+        btn.textContent = on ? 'Turn off reminders' : 'Enable reminders';
+        btn.className = `btn ${on ? 'btn-secondary' : 'btn-primary'}`;
+        document.getElementById('testReminderBtn').style.display = on ? 'inline-block' : 'none';
+        if (on) {
+            this.setReminderStatus(`🔔 On for this device — ${this.formatTime12(r.morning)} nudge, ${this.formatTime12(r.evening)} "items left" (${r.timezone.replace(/_/g, ' ')}).`, 'ok');
+        } else if (r.enabled) {
+            this.setReminderStatus('Reminders are on, but not for this device. Tap Enable reminders to add it.');
+        } else {
+            this.setReminderStatus('Off.');
+        }
+    }
+
+    // Enable (or turn off) push reminders for this device. Called straight from the tap.
+    async toggleReminders() {
+        if (this.getReminderSettings().enabled && this._pushSubscribed) return this.disableReminders();
+
+        if (!this.convex) {
+            this.setReminderStatus('Connect Convex above first — reminders are sent from your Convex backend.', 'warn');
+            return;
+        }
+        if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
+            this.setReminderStatus('This browser can\'t receive push. On iPhone: Safari → Share → Add to Home Screen, then open Life OS from the Home Screen icon (iOS 16.4+) and tap again.', 'warn');
+            return;
+        }
+        // Must be the first await: iOS only shows the prompt in direct response to a tap
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            this.setReminderStatus('Notifications are blocked. Allow them in iPhone Settings → Notifications → Life OS, then tap again.', 'warn');
+            return;
+        }
+
+        const btn = document.getElementById('enableRemindersBtn');
+        btn.disabled = true;
+        this.setReminderStatus('Subscribing…');
+        try {
+            const key = await (this._vapidKeyPromise || this.prefetchVapidKey());
+            const reg = await Promise.race([
+                navigator.serviceWorker.ready,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('service worker not active — reload the app and try again')), 10000))
+            ]);
+            const appKey = this.base64UrlToBytes(key);
+            let sub = await reg.pushManager.getSubscription();
+            if (sub && !this.sameBytes(sub.options?.applicationServerKey, appKey)) {
+                await sub.unsubscribe(); // subscribed under an old key
+                sub = null;
+            }
+            if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
+            const json = sub.toJSON();
+            await this.convex.mutation('push:saveSubscription', {
+                subscription: { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } },
+                userAgent: navigator.userAgent.slice(0, 200)
+            });
+            this.saveReminderSettings({ ...this.readReminderInputs(), enabled: true });
+            this.logActivity('Turned on reminders');
+            this.updateAppBadge();
+        } catch (err) {
+            this.setReminderStatus('Could not enable reminders: ' + err.message, 'warn');
+            btn.disabled = false;
+            return;
+        }
+        btn.disabled = false;
+        this.renderReminderStatus();
+    }
+
+    async disableReminders() {
+        this.saveReminderSettings({ enabled: false });
+        try {
+            const sub = await this.getPushSubscription();
+            if (sub) {
+                if (this.convex) await this.convex.mutation('push:removeSubscription', { endpoint: sub.endpoint }).catch(() => {});
+                await sub.unsubscribe();
+            }
+        } catch (e) { /* already gone */ }
+        this.logActivity('Turned off reminders');
+        this.renderReminderStatus();
+    }
+
+    async sendTestReminder() {
+        const btn = document.getElementById('testReminderBtn');
+        btn.disabled = true;
+        try {
+            const res = await this.convex.action('pushNode:sendTest', { timezone: this.getReminderSettings().timezone });
+            this.setReminderStatus(`Test sent to ${res.sent} device${res.sent === 1 ? '' : 's'}${res.failed ? ` (${res.failed} failed)` : ''}.`, res.sent ? 'ok' : 'warn');
+        } catch (err) {
+            this.setReminderStatus('Test failed: ' + err.message, 'warn');
+        }
+        btn.disabled = false;
+    }
+
+    base64UrlToBytes(b64url) {
+        const b64 = (b64url + '='.repeat((4 - b64url.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+        return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    }
+
+    sameBytes(buf, bytes) {
+        if (!buf) return true; // browser doesn't expose the key — assume it matches
+        const a = new Uint8Array(buf);
+        return a.length === bytes.length && a.every((x, i) => x === bytes[i]);
     }
 
     updateConvexStatusUI() {
