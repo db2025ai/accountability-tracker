@@ -52,6 +52,7 @@ Bump `CACHE_NAME` in `sw.js` when the service worker changes.
 - Titles (h1/h2, card/section names, big numbers) use `--font-serif` (`ui-serif` = New York on Apple devices, no web font); body text uses `--font-sans`.
 - Icons are inline SVG line icons with `class="icon"` (stroke = currentColor). Don't use emoji/glyph icons for UI chrome.
 - Charts can't read CSS variables, so JS uses `this.themeColor('primary')` etc.; `applyChartTheme()` sets Chart.js font/colour defaults.
+- **Night mode**: dark tokens live in two identical blocks — `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }` and `:root[data-theme="dark"]` — change both together. Never hard-code a colour: use tokens (`--on-primary` for text on blue/terracotta fills, `--header-bg`, `--nav-bg`, `--overlay`, `--orb`…). Settings → Appearance is Auto / Light / Dark (`lifeOS_theme`, per device); an inline script in `<head>` sets `data-theme` before first paint, and `applyTheme()` updates the `theme-color` metas and redraws charts (they read colours when drawn).
 
 ### Frequency-Based Grouping (Today Tab)
 All goals are grouped by frequency in the Today tab, displayed in this order:
@@ -120,6 +121,7 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 ## Reflection (journal)
 - Evening reflection fields: went well, fell short, **3 highlights / things to remember** (`reflection.highlights[]`; older entries have `gratitude`, still displayed), values rating, intention. Reflections are dated with the local date.
 - Saving a reflection checks off today's cell for the goal whose name matches /evening reflection/i (`checkOffGoal(pattern, date)` — the same helper finished 3/5-minute meditations use for /meditat/i).
+- **Typing on a phone** (`bindTyping`): `textarea.autogrow` boxes grow with their text (`autoGrow`; hidden sections can't be measured, so `navigateTo` sizes them when shown); while a field has focus `body.typing` hides the bottom tab bar and `keepFieldVisible` keeps the field above the keyboard. Return in a highlight moves to the next. Saving shows a quiet note (`#stoicSaveNote`, `setSaveNote`) — no `alert()`. A half-written reflection is kept per device in `lifeOS_reflectionDraft` (24h) and cleared on save.
 - **Journal streak** (`getJournalStreak()`): consecutive local days with a saved reflection or an imported entry; today not done yet doesn't break it. Shows current, best, days journaled and the last 14 days.
 - **Import** (Settings → Import Journal Entries): PDF (pdf.js loaded from the CDN only when needed) or .txt/.md. `parseJournalEntries(pages)` drops lines repeated on most pages (headers/footers) and page numbers, then starts a new entry at each line that is just a date (+ optional time) — see `parseDateHeading`. Preview, then import: text goes to Convex `journalArchive` (or localStorage `lifeOS_journalArchive` without Convex); only the dates go in `data.journalImportDates` (for the streak). Shown read-only and searchable under "Journal archive" on the Reflection tab.
 
@@ -142,7 +144,7 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 ## Architecture Notes
 
 - **Single LifeOS class** contains all logic — no separate modules
-- **No test framework** — `tests/app.test.mjs` is a Playwright script (seeded data, stubbed Chart.js, fixed clock) covering scoring before/after the cutover, catch-up, badge, reminders settings and the service worker. Also covers highlights, journal streak, PDF import (generates a PDF, serves pdf.js from the `pdfjs-dist` dev dependency), the Today shrinking list, and every meditation session (stubbed speech, sped-up clock). Run `npm ci && python3 build_docs.py && node tests/app.test.mjs`
+- **No test framework** — `tests/app.test.mjs` is a Playwright script (seeded data, stubbed Chart.js, fixed clock) covering scoring before/after the cutover, catch-up, badge, reminders settings and the service worker. Also covers highlights, journal streak, PDF import (generates a PDF, serves pdf.js from the `pdfjs-dist` dev dependency), the Today shrinking list, every meditation session (stubbed speech, sped-up clock), night mode (Auto / Light / Dark) and journal typing (growing boxes, tab bar, Return, draft, save note). Run `npm ci && python3 build_docs.py && node tests/app.test.mjs`
 - **No build tools** beyond the Python inliner (no bundler, no transpiler)
 - **Chart.js 4.4** loaded from CDN for all charts
 - **CSS variables** in `:root` control theming (see Look & feel)

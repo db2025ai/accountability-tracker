@@ -56,8 +56,135 @@
     --shadow-md: 0 0 0 1px rgba(31, 35, 40, 0.09), 0 4px 10px rgba(31, 35, 40, 0.06);
     --shadow-lg: 0 0 0 1px rgba(31, 35, 40, 0.08), 0 16px 40px rgba(31, 35, 40, 0.14);
 
+    /* Tokens for the few places that used fixed colours */
+    --on-primary: #ffffff;    /* text on blue / terracotta fills */
+    --header-bg: rgba(246, 244, 239, 0.94);
+    --nav-bg: rgba(255, 255, 255, 0.96);
+    --border-strong: #cfcabd;
+    --danger-border: #ecd2c9;
+    --primary-border: var(--primary-border);
+    --overlay: rgba(0, 0, 0, 0.5);
+    --orb: #c9d8e8;
+    --orb-ring: rgba(47, 93, 140, 0.06);
+    --orb-ring-far: rgba(47, 93, 140, 0.03);
+    color-scheme: light;
+
     --transition: 0.2s ease;
 }
+
+/* Night mode: follows the phone's Dark Mode unless Settings → Appearance picks
+   Light or Dark (data-theme on <html>, set before first paint). */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        /* Night: dim warm charcoal, soft off-white text, the same ink blue lifted for contrast */
+        --bg: #15171b;
+        --card-bg: #1d2025;
+        --surface: #22252b;
+        --text: #e6e3dc;
+        --text-muted: #a4a29b;
+        --text-light: #75766f;
+        --border: #30343b;
+        --border-light: #282b31;
+
+        --primary: #84a9d8;
+        --primary-dark: #a3c0e4;
+        --primary-light: #4f6f95;
+        --primary-tint: #233142;
+        --secondary: #84a9d8;
+
+        --success: #84a9d8;
+        --success-light: #4f6f95;
+        --success-tint: #233142;
+        --danger: #dc8f77;
+        --danger-light: #93584a;
+        --danger-tint: #3a2723;
+        --warning: #d5ad62;
+        --warning-light: #8b6f3a;
+        --warning-tint: #352d1d;
+        --info: #84a9d8;
+
+        --sidebar-bg: #191b1f;
+        --sidebar-hover: #24272d;
+        --sidebar-active: #233142;
+        --sidebar-text: #a4a29b;
+        --sidebar-text-active: #e6e3dc;
+
+        --shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 10px rgba(0, 0, 0, 0.35);
+        --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 40px rgba(0, 0, 0, 0.5);
+
+        --on-primary: #12161b;
+        --header-bg: rgba(21, 23, 27, 0.92);
+        --nav-bg: rgba(29, 32, 37, 0.94);
+        --border-strong: #474c54;
+        --danger-border: #5b3b33;
+        --primary-border: #35485f;
+        --overlay: rgba(0, 0, 0, 0.65);
+        --orb: #2b3f57;
+        --orb-ring: rgba(132, 169, 216, 0.07);
+        --orb-ring-far: rgba(132, 169, 216, 0.035);
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    /* Night: dim warm charcoal, soft off-white text, the same ink blue lifted for contrast */
+    --bg: #15171b;
+    --card-bg: #1d2025;
+    --surface: #22252b;
+    --text: #e6e3dc;
+    --text-muted: #a4a29b;
+    --text-light: #75766f;
+    --border: #30343b;
+    --border-light: #282b31;
+
+    --primary: #84a9d8;
+    --primary-dark: #a3c0e4;
+    --primary-light: #4f6f95;
+    --primary-tint: #233142;
+    --secondary: #84a9d8;
+
+    --success: #84a9d8;
+    --success-light: #4f6f95;
+    --success-tint: #233142;
+    --danger: #dc8f77;
+    --danger-light: #93584a;
+    --danger-tint: #3a2723;
+    --warning: #d5ad62;
+    --warning-light: #8b6f3a;
+    --warning-tint: #352d1d;
+    --info: #84a9d8;
+
+    --sidebar-bg: #191b1f;
+    --sidebar-hover: #24272d;
+    --sidebar-active: #233142;
+    --sidebar-text: #a4a29b;
+    --sidebar-text-active: #e6e3dc;
+
+    --shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 10px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 40px rgba(0, 0, 0, 0.5);
+
+    --on-primary: #12161b;
+    --header-bg: rgba(21, 23, 27, 0.92);
+    --nav-bg: rgba(29, 32, 37, 0.94);
+    --border-strong: #474c54;
+    --danger-border: #5b3b33;
+    --primary-border: #35485f;
+    --overlay: rgba(0, 0, 0, 0.65);
+    --orb: #2b3f57;
+    --orb-ring: rgba(132, 169, 216, 0.07);
+    --orb-ring-far: rgba(132, 169, 216, 0.035);
+    color-scheme: dark;
+}
+
+/* Fields follow the theme (iOS draws them white otherwise). :where() keeps this at zero
+   specificity so any component's own field styling still wins. */
+:where(input:not([type=checkbox], [type=radio], [type=range], [type=file]), textarea, select) {
+    background-color: var(--card-bg);
+    color: var(--text);
+}
+
 
 * {
     margin: 0;
@@ -197,7 +324,7 @@ body {
     right: 0;
     height: calc(56px + env(safe-area-inset-top));
     padding: env(safe-area-inset-top) 8px 0;
-    background: rgba(246, 244, 239, 0.94);
+    background: var(--header-bg);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
@@ -305,7 +432,7 @@ h1, h2,
 
 .btn-primary {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
 }
 
 .btn-primary:hover {
@@ -324,7 +451,7 @@ h1, h2,
 
 .btn-danger {
     background: var(--danger);
-    color: white;
+    color: var(--on-primary);
 }
 
 .btn-nav {
@@ -469,7 +596,7 @@ h1, h2,
 
 .action-btn:hover {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -791,7 +918,7 @@ tr:hover .strike-dec { opacity: 1; }
 
 .goal-remove-btn {
     background: var(--danger);
-    color: white;
+    color: var(--on-primary);
     border: none;
     padding: 3px 8px;
     border-radius: 4px;
@@ -822,7 +949,7 @@ tr:hover .strike-dec { opacity: 1; }
 .day-chip.on {
     background: var(--primary);
     border-color: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .goals-list .goal-category-group h4 {
@@ -1179,7 +1306,7 @@ tr:hover .strike-dec { opacity: 1; }
 .energy-btn:hover,
 .energy-btn.active {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -1418,7 +1545,7 @@ tr:hover .strike-dec { opacity: 1; }
 .habit-checkbox.checked {
     background: var(--success);
     border-color: var(--success);
-    color: white;
+    color: var(--on-primary);
 }
 
 .habit-name {
@@ -1530,7 +1657,7 @@ tr:hover .strike-dec { opacity: 1; }
 
 .heatmap-cell.done {
     background: var(--success);
-    color: white;
+    color: var(--on-primary);
 }
 
 .heatmap-cell.missed {
@@ -1629,7 +1756,7 @@ button.habit-checkbox {
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    border-color: #cfcabd;
+    border-color: var(--border-strong);
 }
 
 .pending-item .habit-checkbox:active {
@@ -1696,7 +1823,7 @@ button.habit-checkbox {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: var(--on-primary);
     background: var(--danger);
     font-size: 0.8rem;
 }
@@ -1737,7 +1864,7 @@ button.habit-checkbox {
 
 .freq-group-count.all-done {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .freq-group-count.over {
@@ -1802,7 +1929,7 @@ button.habit-checkbox {
 .prompt-btn.active,
 .prompt-btn:hover {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -1815,7 +1942,7 @@ button.habit-checkbox {
 .prompt-btn.prompt-stoic:hover {
     background: var(--secondary);
     border-color: var(--secondary);
-    color: white;
+    color: var(--on-primary);
 }
 
 .journal-prompt-text {
@@ -1977,7 +2104,7 @@ button.habit-checkbox {
 
 .streak-dot.on {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .streak-dot.today {
@@ -2113,7 +2240,7 @@ button.habit-checkbox {
     align-items: flex-start;
     gap: 12px;
     background: var(--danger-tint);
-    border: 1px solid #ecd2c9;
+    border: 1px solid var(--danger-border);
     border-radius: var(--radius-sm);
     padding: 14px 16px;
     margin-bottom: 20px;
@@ -2121,7 +2248,7 @@ button.habit-checkbox {
 
 .strike-summary-card.strike-summary-clean {
     background: var(--primary-tint);
-    border-color: #cddbe9;
+    border-color: var(--primary-border);
 }
 
 .strike-summary-text {
@@ -2217,7 +2344,7 @@ button.habit-checkbox {
 
 .rating-btn.active {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -2248,7 +2375,7 @@ button.habit-checkbox {
 
 .review-history-rating {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     padding: 2px 10px;
     border-radius: 10px;
     font-size: 0.8rem;
@@ -2275,7 +2402,7 @@ button.habit-checkbox {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.5);
+    background: var(--overlay);
     z-index: 1000;
     align-items: center;
     justify-content: center;
@@ -2553,7 +2680,7 @@ button.habit-checkbox {
 
 .stoic-rating .rating-btn.active {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -2759,7 +2886,7 @@ button.habit-checkbox {
     height: calc(68px + env(safe-area-inset-bottom));
     padding: 0 4px;
     padding-bottom: env(safe-area-inset-bottom);
-    background: rgba(255, 255, 255, 0.96);
+    background: var(--nav-bg);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     border-top: 1px solid var(--border);
@@ -3136,7 +3263,7 @@ button.habit-checkbox {
 
 .travel-day-notice {
     background: var(--primary-tint);
-    border: 1px solid #cddbe9;
+    border: 1px solid var(--primary-border);
     border-radius: var(--radius-sm);
     padding: 16px;
     text-align: center;
@@ -3199,7 +3326,7 @@ button.habit-checkbox {
     background: var(--surface); color: var(--text-muted); font-size: 0.75rem;
     cursor: pointer; font-weight: 500;
 }
-.deepdive-period-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.deepdive-period-btn.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 .deepdive-period-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
 
 /* Goals grid subtotal / grand total rows */
@@ -3312,7 +3439,7 @@ button.habit-checkbox {
 
 .med-length.active {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .med-sessions {
@@ -3440,8 +3567,8 @@ body.med-open {
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: #c9d8e8;
-    box-shadow: 0 0 0 12px rgba(47, 93, 140, 0.06), 0 0 0 28px rgba(47, 93, 140, 0.03);
+    background: var(--orb);
+    box-shadow: 0 0 0 12px var(--orb-ring), 0 0 0 28px var(--orb-ring-far);
     transform: scale(0.75);
     transition: transform 4s ease-in-out;
 }
@@ -3511,9 +3638,69 @@ body.med-open {
     font-size: 1rem;
 }
 
+/* ========================================
+   Appearance switch (Settings)
+   ======================================== */
+.theme-choice {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.theme-choice button {
+    min-height: 40px;
+    padding: 8px 18px;
+    border: 0;
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.theme-choice button + button {
+    border-left: 1px solid var(--border);
+}
+
+.theme-choice button.active {
+    background: var(--primary);
+    color: var(--on-primary);
+}
+
+/* ========================================
+   Typing: growing boxes, quiet save note, tab bar out of the keyboard's way
+   ======================================== */
+textarea.autogrow {
+    resize: none;
+    overflow-y: hidden;
+}
+
+.save-note {
+    min-height: 1.4em;
+    margin: 10px 0 0;
+    font-size: 0.9rem;
+    color: var(--primary);
+    text-align: center;
+}
+
+.save-note.warn {
+    color: var(--danger);
+}
+
+@media (max-width: 768px) {
+    body.typing .mobile-bottom-nav {
+        display: none;
+    }
+}
+
 </style>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#f6f4ef">
+    <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#15171b" media="(prefers-color-scheme: dark)">
+    <meta name="color-scheme" content="light dark">
+    <!-- Appearance choice (Settings), applied before first paint so night mode never flashes white -->
+    <script>try { var t = localStorage.getItem('lifeOS_theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Life OS">
@@ -3842,19 +4029,19 @@ body.med-open {
             <!-- Stoic Evening Reflection Form -->
             <div class="journal-compose" id="eveningReflectionForm">
                 <div class="stoic-form-group">
-                    <label class="stoic-label">What went well today? What am I proud of?</label>
-                    <textarea id="stoicWentWell" rows="3" placeholder="Celebrate the wins, however small..."></textarea>
+                    <label class="stoic-label" for="stoicWentWell">What went well today? What am I proud of?</label>
+                    <textarea id="stoicWentWell" rows="3" class="autogrow" autocapitalize="sentences" placeholder="Celebrate the wins, however small..."></textarea>
                 </div>
                 <div class="stoic-form-group">
-                    <label class="stoic-label">Where did I fall short? What could I improve?</label>
-                    <textarea id="stoicFellShort" rows="3" placeholder="Be honest but compassionate with yourself..."></textarea>
+                    <label class="stoic-label" for="stoicFellShort">Where did I fall short? What could I improve?</label>
+                    <textarea id="stoicFellShort" rows="3" class="autogrow" autocapitalize="sentences" placeholder="Be honest but compassionate with yourself..."></textarea>
                 </div>
                 <div class="stoic-form-group">
                     <label class="stoic-label" for="stoicHighlight1">Highlights from today / things to remember</label>
                     <div class="highlight-inputs">
-                        <input type="text" class="highlight-input" id="stoicHighlight1" placeholder="1." autocomplete="off">
-                        <input type="text" class="highlight-input" id="stoicHighlight2" placeholder="2." autocomplete="off">
-                        <input type="text" class="highlight-input" id="stoicHighlight3" placeholder="3." autocomplete="off">
+                        <input type="text" class="highlight-input" id="stoicHighlight1" placeholder="1." autocomplete="off" autocapitalize="sentences" enterkeyhint="next">
+                        <input type="text" class="highlight-input" id="stoicHighlight2" placeholder="2." autocomplete="off" autocapitalize="sentences" enterkeyhint="next">
+                        <input type="text" class="highlight-input" id="stoicHighlight3" placeholder="3." autocomplete="off" autocapitalize="sentences" enterkeyhint="done">
                     </div>
                 </div>
                 <div class="stoic-form-group">
@@ -3873,10 +4060,11 @@ body.med-open {
                     </div>
                 </div>
                 <div class="stoic-form-group">
-                    <label class="stoic-label">What is my intention for tomorrow?</label>
-                    <textarea id="stoicIntention" rows="2" placeholder="What one thing will I focus on?"></textarea>
+                    <label class="stoic-label" for="stoicIntention">What is my intention for tomorrow?</label>
+                    <textarea id="stoicIntention" rows="2" class="autogrow" autocapitalize="sentences" placeholder="What one thing will I focus on?"></textarea>
                 </div>
                 <button class="btn btn-primary" id="saveEveningReflectionBtn" style="width:100%;margin-top:8px;">Save Evening Reflection</button>
+                <p class="save-note" id="stoicSaveNote" role="status" aria-live="polite"></p>
             </div>
 
             <!-- Past Reflections -->
@@ -3950,11 +4138,11 @@ body.med-open {
                 <div class="review-form">
                     <div class="review-question">
                         <label>What went well this week?</label>
-                        <textarea id="reviewWins" rows="4" placeholder="Celebrate your wins..."></textarea>
+                        <textarea id="reviewWins" rows="4" class="autogrow" autocapitalize="sentences" placeholder="Celebrate your wins..."></textarea>
                     </div>
                     <div class="review-question">
                         <label>What could have been better?</label>
-                        <textarea id="reviewImprovements" rows="4" placeholder="Be honest with yourself..."></textarea>
+                        <textarea id="reviewImprovements" rows="4" class="autogrow" autocapitalize="sentences" placeholder="Be honest with yourself..."></textarea>
                     </div>
                     <div class="review-question">
                         <label>Top 3 priorities for next week:</label>
@@ -4059,6 +4247,15 @@ body.med-open {
                 <button class="modal-close" data-modal="settingsModal">&times;</button>
             </div>
             <div class="settings-content">
+                <div class="setting-item">
+                    <label>Appearance</label>
+                    <p class="setting-desc">Auto follows your iPhone's Dark Mode. Set it to switch at sunset in iPhone Settings → Display &amp; Brightness → Automatic.</p>
+                    <div class="theme-choice" id="themeChoice" role="radiogroup" aria-label="Appearance">
+                        <button type="button" data-theme-choice="auto" role="radio">Auto</button>
+                        <button type="button" data-theme-choice="light" role="radio">Light</button>
+                        <button type="button" data-theme-choice="dark" role="radio">Dark</button>
+                    </div>
+                </div>
                 <div class="setting-item">
                     <label>Convex Backend</label>
                     <p class="setting-desc">Connect to Convex for cloud sync across devices. Enter your Convex deployment URL.</p>
@@ -4364,6 +4561,9 @@ const PLAY_ICON = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><pat
 // Guided meditation scripts
 // ========================================
 // Spoken by the Test button on the Meditate page
+// Evening reflection fields, in order (also kept as a per-device draft until saved)
+const REFLECTION_FIELDS = ['stoicWentWell', 'stoicFellShort', 'stoicHighlight1', 'stoicHighlight2', 'stoicHighlight3', 'stoicIntention'];
+
 const MED_TEST_LINE = 'Take a slow breath in, and let it go.';
 // Recordings of every line (tools/meditation_audio.py); manifest.json maps text → file
 const MED_AUDIO_BASE = 'audio/med/';
@@ -4683,7 +4883,9 @@ class LifeOS {
     // Initialization
     // ========================================
     init() {
+        this.bindAppearance();
         this.applyChartTheme();
+        this.bindTyping();
         this.bindNavigation();
         this.bindModals();
         this.bindForms();
@@ -4903,6 +5105,8 @@ class LifeOS {
 
         // Scroll to top on mobile
         window.scrollTo(0, 0);
+        // Growing text boxes can only be measured once their section is showing
+        document.querySelectorAll(`#section-${section} textarea.autogrow`).forEach(el => this.autoGrow(el));
 
         // Refresh the section
         switch (section) {
@@ -5310,6 +5514,105 @@ class LifeOS {
     // Theme color from life-os.css (charts can't read CSS variables themselves)
     themeColor(name) {
         return getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+    }
+
+    // ---- Appearance (night mode) ----
+    // 'auto' follows the phone's Dark Mode; 'light' / 'dark' pin it. Per device.
+    themeChoice() {
+        const t = this.getLocal('lifeOS_theme');
+        return t === 'light' || t === 'dark' ? t : 'auto';
+    }
+
+    isDarkTheme() {
+        const choice = this.themeChoice();
+        if (choice !== 'auto') return choice === 'dark';
+        return !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    }
+
+    bindAppearance() {
+        this.applyTheme();
+        document.getElementById('themeChoice').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-theme-choice]');
+            if (btn) this.setTheme(btn.dataset.themeChoice);
+        });
+        // In Auto, follow the phone switching at sunset/sunrise while the app is open
+        window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+            if (this.themeChoice() === 'auto') this.applyTheme(true);
+        });
+    }
+
+    setTheme(choice) {
+        this.setLocal('lifeOS_theme', choice === 'light' || choice === 'dark' ? choice : '');
+        this.applyTheme(true);
+    }
+
+    // Set data-theme, the status bar colour and the switch; redraw charts if asked
+    applyTheme(redraw = false) {
+        const choice = this.themeChoice();
+        const root = document.documentElement;
+        if (choice === 'auto') root.removeAttribute('data-theme');
+        else root.setAttribute('data-theme', choice);
+        const bg = this.themeColor('bg');
+        document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
+            // A pinned choice overrides both media variants; Auto restores them
+            meta.content = choice === 'auto'
+                ? (meta.media.includes('dark') ? '#15171b' : '#f6f4ef')
+                : bg;
+        });
+        document.querySelectorAll('#themeChoice [data-theme-choice]').forEach(b => {
+            const on = b.dataset.themeChoice === choice;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        if (redraw) {
+            this.applyChartTheme();
+            this.renderAll(); // charts read colours when they're drawn
+        }
+    }
+
+    // ---- Typing on a phone ----
+    // Text boxes grow with what you write, the tab bar steps aside for the keyboard, and the
+    // field you're in stays visible above it.
+    bindTyping() {
+        const isTextField = el => !!el?.matches?.('textarea, select, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=button]):not([type=submit])');
+        document.addEventListener('input', (e) => {
+            if (e.target.matches?.('textarea.autogrow')) this.autoGrow(e.target, true);
+        });
+        document.addEventListener('focusin', (e) => {
+            if (!isTextField(e.target)) return;
+            document.body.classList.add('typing');
+            clearTimeout(this._typingScroll);
+            this._typingScroll = setTimeout(() => this.keepFieldVisible(e.target), 350); // after the keyboard is up
+        });
+        document.addEventListener('focusout', () => {
+            // Focus may just be moving to the next field
+            setTimeout(() => { if (!isTextField(document.activeElement)) document.body.classList.remove('typing'); }, 60);
+        });
+    }
+
+    autoGrow(el, followCaret = false) {
+        if (!el.offsetParent) return; // hidden: sized when its section opens
+        const y = window.scrollY;
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+        if (window.scrollY !== y) window.scrollTo(0, y); // shrinking to 'auto' for a moment can jump the page
+        if (followCaret && el.selectionEnd === el.value.length) this.keepFieldVisible(el, true);
+    }
+
+    // Scroll so the field (or, while typing at its end, its last line) sits between the header and the keyboard
+    keepFieldVisible(el, lastLine = false) {
+        if (document.activeElement !== el || el.closest('.modal') || !window.matchMedia?.('(max-width: 768px)').matches) return;
+        const vv = window.visualViewport;
+        const top = (vv?.offsetTop || 0) + (document.querySelector('.mobile-header')?.offsetHeight || 0) + 8;
+        const bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 12;
+        const rect = el.getBoundingClientRect();
+        if (lastLine) {
+            if (rect.bottom > bottom) window.scrollBy(0, rect.bottom - bottom);
+        } else if (rect.top < top) {
+            window.scrollBy(0, rect.top - top);
+        } else if (rect.bottom > bottom) {
+            window.scrollBy(0, Math.min(rect.bottom - bottom, rect.top - top));
+        }
     }
 
     // Quiet chart defaults to match the paper theme
@@ -6826,8 +7129,26 @@ class LifeOS {
             if (e.target.classList.contains('rating-btn')) {
                 document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
+                this.saveReflectionDraft();
             }
         });
+
+        // Return in a highlight moves to the next one (the last one closes the keyboard)
+        const highlights = [1, 2, 3].map(i => document.getElementById(`stoicHighlight${i}`));
+        highlights.forEach((input, i) => input.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' || e.isComposing) return;
+            e.preventDefault();
+            if (highlights[i + 1]) highlights[i + 1].focus();
+            else input.blur();
+        }));
+
+        // Keep a half-written reflection on this device until it's saved
+        document.getElementById('eveningReflectionForm').addEventListener('input', () => {
+            if (document.getElementById('stoicSaveNote').textContent) this.setSaveNote('');
+            clearTimeout(this._draftTimer);
+            this._draftTimer = setTimeout(() => this.saveReflectionDraft(), 400);
+        });
+        this.restoreReflectionDraft();
 
         // Archive: load on first open, filter as you type, page through
         const archive = document.getElementById('journalArchive');
@@ -6869,7 +7190,8 @@ class LifeOS {
         const valuesRating = ratingBtn ? parseInt(ratingBtn.dataset.rating) : null;
 
         if (!wentWell && !fellShort && highlights.length === 0) {
-            alert('Please fill in at least one reflection field.');
+            this.setSaveNote('Write at least one line first.', true);
+            document.getElementById('stoicWentWell').focus();
             return;
         }
 
@@ -6900,18 +7222,48 @@ class LifeOS {
         this.saveData();
         this.logActivity('Completed evening reflection');
 
-        // Clear form
-        ['stoicWentWell', 'stoicFellShort', 'stoicHighlight1', 'stoicHighlight2', 'stoicHighlight3', 'stoicIntention'].forEach(id => {
+        // Clear form (and the draft)
+        clearTimeout(this._draftTimer);
+        this.setLocal('lifeOS_reflectionDraft', '');
+        REFLECTION_FIELDS.forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.value = '';
+            if (el) { el.value = ''; if (el.matches('textarea.autogrow')) this.autoGrow(el); }
         });
         document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
+        document.activeElement?.blur?.();
 
         this.renderJournal();
         if (checked) this.updateAppBadge();
         const streak = this.getJournalStreak().current;
-        alert((streak > 1 ? `Evening reflection saved — ${streak} days in a row!` : 'Evening reflection saved!')
-            + (checked ? ' Checked off for today ✓' : ''));
+        this.setSaveNote(['Saved', streak > 1 ? `${streak} days in a row` : '', checked ? 'checked off for today ✓' : '']
+            .filter(Boolean).join(' · '));
+    }
+
+    // Quiet status line under the Save button (replaces pop-ups)
+    setSaveNote(text, warn = false) {
+        const note = document.getElementById('stoicSaveNote');
+        note.textContent = text;
+        note.classList.toggle('warn', warn);
+    }
+
+    saveReflectionDraft() {
+        const fields = Object.fromEntries(REFLECTION_FIELDS.map(id => [id, document.getElementById(id)?.value || '']));
+        const rating = document.querySelector('#stoicValuesRating .rating-btn.active')?.dataset.rating || '';
+        const empty = !rating && Object.values(fields).every(v => !v.trim());
+        this.setLocal('lifeOS_reflectionDraft', empty ? '' : JSON.stringify({ savedAt: Date.now(), fields, rating }));
+    }
+
+    // Put back a reflection left half-written in the last 24 hours
+    restoreReflectionDraft() {
+        let draft = null;
+        try { draft = JSON.parse(this.getLocal('lifeOS_reflectionDraft') || 'null'); } catch (e) { /* ignore */ }
+        if (!draft?.fields || Date.now() - draft.savedAt > 24 * 3600e3) return;
+        REFLECTION_FIELDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && draft.fields[id]) el.value = draft.fields[id];
+        });
+        if (draft.rating) document.querySelector(`#stoicValuesRating .rating-btn[data-rating="${draft.rating}"]`)?.classList.add('active');
+        this.setSaveNote('Picked up where you left off.');
     }
 
     // ---- Journal streak ----

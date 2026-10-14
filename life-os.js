@@ -20,6 +20,9 @@ const PLAY_ICON = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><pat
 // Guided meditation scripts
 // ========================================
 // Spoken by the Test button on the Meditate page
+// Evening reflection fields, in order (also kept as a per-device draft until saved)
+const REFLECTION_FIELDS = ['stoicWentWell', 'stoicFellShort', 'stoicHighlight1', 'stoicHighlight2', 'stoicHighlight3', 'stoicIntention'];
+
 const MED_TEST_LINE = 'Take a slow breath in, and let it go.';
 // Recordings of every line (tools/meditation_audio.py); manifest.json maps text → file
 const MED_AUDIO_BASE = 'audio/med/';
@@ -339,7 +342,9 @@ class LifeOS {
     // Initialization
     // ========================================
     init() {
+        this.bindAppearance();
         this.applyChartTheme();
+        this.bindTyping();
         this.bindNavigation();
         this.bindModals();
         this.bindForms();
@@ -559,6 +564,8 @@ class LifeOS {
 
         // Scroll to top on mobile
         window.scrollTo(0, 0);
+        // Growing text boxes can only be measured once their section is showing
+        document.querySelectorAll(`#section-${section} textarea.autogrow`).forEach(el => this.autoGrow(el));
 
         // Refresh the section
         switch (section) {
@@ -966,6 +973,105 @@ class LifeOS {
     // Theme color from life-os.css (charts can't read CSS variables themselves)
     themeColor(name) {
         return getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+    }
+
+    // ---- Appearance (night mode) ----
+    // 'auto' follows the phone's Dark Mode; 'light' / 'dark' pin it. Per device.
+    themeChoice() {
+        const t = this.getLocal('lifeOS_theme');
+        return t === 'light' || t === 'dark' ? t : 'auto';
+    }
+
+    isDarkTheme() {
+        const choice = this.themeChoice();
+        if (choice !== 'auto') return choice === 'dark';
+        return !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    }
+
+    bindAppearance() {
+        this.applyTheme();
+        document.getElementById('themeChoice').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-theme-choice]');
+            if (btn) this.setTheme(btn.dataset.themeChoice);
+        });
+        // In Auto, follow the phone switching at sunset/sunrise while the app is open
+        window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+            if (this.themeChoice() === 'auto') this.applyTheme(true);
+        });
+    }
+
+    setTheme(choice) {
+        this.setLocal('lifeOS_theme', choice === 'light' || choice === 'dark' ? choice : '');
+        this.applyTheme(true);
+    }
+
+    // Set data-theme, the status bar colour and the switch; redraw charts if asked
+    applyTheme(redraw = false) {
+        const choice = this.themeChoice();
+        const root = document.documentElement;
+        if (choice === 'auto') root.removeAttribute('data-theme');
+        else root.setAttribute('data-theme', choice);
+        const bg = this.themeColor('bg');
+        document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
+            // A pinned choice overrides both media variants; Auto restores them
+            meta.content = choice === 'auto'
+                ? (meta.media.includes('dark') ? '#15171b' : '#f6f4ef')
+                : bg;
+        });
+        document.querySelectorAll('#themeChoice [data-theme-choice]').forEach(b => {
+            const on = b.dataset.themeChoice === choice;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        if (redraw) {
+            this.applyChartTheme();
+            this.renderAll(); // charts read colours when they're drawn
+        }
+    }
+
+    // ---- Typing on a phone ----
+    // Text boxes grow with what you write, the tab bar steps aside for the keyboard, and the
+    // field you're in stays visible above it.
+    bindTyping() {
+        const isTextField = el => !!el?.matches?.('textarea, select, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=button]):not([type=submit])');
+        document.addEventListener('input', (e) => {
+            if (e.target.matches?.('textarea.autogrow')) this.autoGrow(e.target, true);
+        });
+        document.addEventListener('focusin', (e) => {
+            if (!isTextField(e.target)) return;
+            document.body.classList.add('typing');
+            clearTimeout(this._typingScroll);
+            this._typingScroll = setTimeout(() => this.keepFieldVisible(e.target), 350); // after the keyboard is up
+        });
+        document.addEventListener('focusout', () => {
+            // Focus may just be moving to the next field
+            setTimeout(() => { if (!isTextField(document.activeElement)) document.body.classList.remove('typing'); }, 60);
+        });
+    }
+
+    autoGrow(el, followCaret = false) {
+        if (!el.offsetParent) return; // hidden: sized when its section opens
+        const y = window.scrollY;
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+        if (window.scrollY !== y) window.scrollTo(0, y); // shrinking to 'auto' for a moment can jump the page
+        if (followCaret && el.selectionEnd === el.value.length) this.keepFieldVisible(el, true);
+    }
+
+    // Scroll so the field (or, while typing at its end, its last line) sits between the header and the keyboard
+    keepFieldVisible(el, lastLine = false) {
+        if (document.activeElement !== el || el.closest('.modal') || !window.matchMedia?.('(max-width: 768px)').matches) return;
+        const vv = window.visualViewport;
+        const top = (vv?.offsetTop || 0) + (document.querySelector('.mobile-header')?.offsetHeight || 0) + 8;
+        const bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 12;
+        const rect = el.getBoundingClientRect();
+        if (lastLine) {
+            if (rect.bottom > bottom) window.scrollBy(0, rect.bottom - bottom);
+        } else if (rect.top < top) {
+            window.scrollBy(0, rect.top - top);
+        } else if (rect.bottom > bottom) {
+            window.scrollBy(0, Math.min(rect.bottom - bottom, rect.top - top));
+        }
     }
 
     // Quiet chart defaults to match the paper theme
@@ -2482,8 +2588,26 @@ class LifeOS {
             if (e.target.classList.contains('rating-btn')) {
                 document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
+                this.saveReflectionDraft();
             }
         });
+
+        // Return in a highlight moves to the next one (the last one closes the keyboard)
+        const highlights = [1, 2, 3].map(i => document.getElementById(`stoicHighlight${i}`));
+        highlights.forEach((input, i) => input.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' || e.isComposing) return;
+            e.preventDefault();
+            if (highlights[i + 1]) highlights[i + 1].focus();
+            else input.blur();
+        }));
+
+        // Keep a half-written reflection on this device until it's saved
+        document.getElementById('eveningReflectionForm').addEventListener('input', () => {
+            if (document.getElementById('stoicSaveNote').textContent) this.setSaveNote('');
+            clearTimeout(this._draftTimer);
+            this._draftTimer = setTimeout(() => this.saveReflectionDraft(), 400);
+        });
+        this.restoreReflectionDraft();
 
         // Archive: load on first open, filter as you type, page through
         const archive = document.getElementById('journalArchive');
@@ -2525,7 +2649,8 @@ class LifeOS {
         const valuesRating = ratingBtn ? parseInt(ratingBtn.dataset.rating) : null;
 
         if (!wentWell && !fellShort && highlights.length === 0) {
-            alert('Please fill in at least one reflection field.');
+            this.setSaveNote('Write at least one line first.', true);
+            document.getElementById('stoicWentWell').focus();
             return;
         }
 
@@ -2556,18 +2681,48 @@ class LifeOS {
         this.saveData();
         this.logActivity('Completed evening reflection');
 
-        // Clear form
-        ['stoicWentWell', 'stoicFellShort', 'stoicHighlight1', 'stoicHighlight2', 'stoicHighlight3', 'stoicIntention'].forEach(id => {
+        // Clear form (and the draft)
+        clearTimeout(this._draftTimer);
+        this.setLocal('lifeOS_reflectionDraft', '');
+        REFLECTION_FIELDS.forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.value = '';
+            if (el) { el.value = ''; if (el.matches('textarea.autogrow')) this.autoGrow(el); }
         });
         document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
+        document.activeElement?.blur?.();
 
         this.renderJournal();
         if (checked) this.updateAppBadge();
         const streak = this.getJournalStreak().current;
-        alert((streak > 1 ? `Evening reflection saved — ${streak} days in a row!` : 'Evening reflection saved!')
-            + (checked ? ' Checked off for today ✓' : ''));
+        this.setSaveNote(['Saved', streak > 1 ? `${streak} days in a row` : '', checked ? 'checked off for today ✓' : '']
+            .filter(Boolean).join(' · '));
+    }
+
+    // Quiet status line under the Save button (replaces pop-ups)
+    setSaveNote(text, warn = false) {
+        const note = document.getElementById('stoicSaveNote');
+        note.textContent = text;
+        note.classList.toggle('warn', warn);
+    }
+
+    saveReflectionDraft() {
+        const fields = Object.fromEntries(REFLECTION_FIELDS.map(id => [id, document.getElementById(id)?.value || '']));
+        const rating = document.querySelector('#stoicValuesRating .rating-btn.active')?.dataset.rating || '';
+        const empty = !rating && Object.values(fields).every(v => !v.trim());
+        this.setLocal('lifeOS_reflectionDraft', empty ? '' : JSON.stringify({ savedAt: Date.now(), fields, rating }));
+    }
+
+    // Put back a reflection left half-written in the last 24 hours
+    restoreReflectionDraft() {
+        let draft = null;
+        try { draft = JSON.parse(this.getLocal('lifeOS_reflectionDraft') || 'null'); } catch (e) { /* ignore */ }
+        if (!draft?.fields || Date.now() - draft.savedAt > 24 * 3600e3) return;
+        REFLECTION_FIELDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && draft.fields[id]) el.value = draft.fields[id];
+        });
+        if (draft.rating) document.querySelector(`#stoicValuesRating .rating-btn[data-rating="${draft.rating}"]`)?.classList.add('active');
+        this.setSaveNote('Picked up where you left off.');
     }
 
     // ---- Journal streak ----

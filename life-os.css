@@ -49,8 +49,135 @@
     --shadow-md: 0 0 0 1px rgba(31, 35, 40, 0.09), 0 4px 10px rgba(31, 35, 40, 0.06);
     --shadow-lg: 0 0 0 1px rgba(31, 35, 40, 0.08), 0 16px 40px rgba(31, 35, 40, 0.14);
 
+    /* Tokens for the few places that used fixed colours */
+    --on-primary: #ffffff;    /* text on blue / terracotta fills */
+    --header-bg: rgba(246, 244, 239, 0.94);
+    --nav-bg: rgba(255, 255, 255, 0.96);
+    --border-strong: #cfcabd;
+    --danger-border: #ecd2c9;
+    --primary-border: var(--primary-border);
+    --overlay: rgba(0, 0, 0, 0.5);
+    --orb: #c9d8e8;
+    --orb-ring: rgba(47, 93, 140, 0.06);
+    --orb-ring-far: rgba(47, 93, 140, 0.03);
+    color-scheme: light;
+
     --transition: 0.2s ease;
 }
+
+/* Night mode: follows the phone's Dark Mode unless Settings → Appearance picks
+   Light or Dark (data-theme on <html>, set before first paint). */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        /* Night: dim warm charcoal, soft off-white text, the same ink blue lifted for contrast */
+        --bg: #15171b;
+        --card-bg: #1d2025;
+        --surface: #22252b;
+        --text: #e6e3dc;
+        --text-muted: #a4a29b;
+        --text-light: #75766f;
+        --border: #30343b;
+        --border-light: #282b31;
+
+        --primary: #84a9d8;
+        --primary-dark: #a3c0e4;
+        --primary-light: #4f6f95;
+        --primary-tint: #233142;
+        --secondary: #84a9d8;
+
+        --success: #84a9d8;
+        --success-light: #4f6f95;
+        --success-tint: #233142;
+        --danger: #dc8f77;
+        --danger-light: #93584a;
+        --danger-tint: #3a2723;
+        --warning: #d5ad62;
+        --warning-light: #8b6f3a;
+        --warning-tint: #352d1d;
+        --info: #84a9d8;
+
+        --sidebar-bg: #191b1f;
+        --sidebar-hover: #24272d;
+        --sidebar-active: #233142;
+        --sidebar-text: #a4a29b;
+        --sidebar-text-active: #e6e3dc;
+
+        --shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 10px rgba(0, 0, 0, 0.35);
+        --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 40px rgba(0, 0, 0, 0.5);
+
+        --on-primary: #12161b;
+        --header-bg: rgba(21, 23, 27, 0.92);
+        --nav-bg: rgba(29, 32, 37, 0.94);
+        --border-strong: #474c54;
+        --danger-border: #5b3b33;
+        --primary-border: #35485f;
+        --overlay: rgba(0, 0, 0, 0.65);
+        --orb: #2b3f57;
+        --orb-ring: rgba(132, 169, 216, 0.07);
+        --orb-ring-far: rgba(132, 169, 216, 0.035);
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    /* Night: dim warm charcoal, soft off-white text, the same ink blue lifted for contrast */
+    --bg: #15171b;
+    --card-bg: #1d2025;
+    --surface: #22252b;
+    --text: #e6e3dc;
+    --text-muted: #a4a29b;
+    --text-light: #75766f;
+    --border: #30343b;
+    --border-light: #282b31;
+
+    --primary: #84a9d8;
+    --primary-dark: #a3c0e4;
+    --primary-light: #4f6f95;
+    --primary-tint: #233142;
+    --secondary: #84a9d8;
+
+    --success: #84a9d8;
+    --success-light: #4f6f95;
+    --success-tint: #233142;
+    --danger: #dc8f77;
+    --danger-light: #93584a;
+    --danger-tint: #3a2723;
+    --warning: #d5ad62;
+    --warning-light: #8b6f3a;
+    --warning-tint: #352d1d;
+    --info: #84a9d8;
+
+    --sidebar-bg: #191b1f;
+    --sidebar-hover: #24272d;
+    --sidebar-active: #233142;
+    --sidebar-text: #a4a29b;
+    --sidebar-text-active: #e6e3dc;
+
+    --shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 10px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 40px rgba(0, 0, 0, 0.5);
+
+    --on-primary: #12161b;
+    --header-bg: rgba(21, 23, 27, 0.92);
+    --nav-bg: rgba(29, 32, 37, 0.94);
+    --border-strong: #474c54;
+    --danger-border: #5b3b33;
+    --primary-border: #35485f;
+    --overlay: rgba(0, 0, 0, 0.65);
+    --orb: #2b3f57;
+    --orb-ring: rgba(132, 169, 216, 0.07);
+    --orb-ring-far: rgba(132, 169, 216, 0.035);
+    color-scheme: dark;
+}
+
+/* Fields follow the theme (iOS draws them white otherwise). :where() keeps this at zero
+   specificity so any component's own field styling still wins. */
+:where(input:not([type=checkbox], [type=radio], [type=range], [type=file]), textarea, select) {
+    background-color: var(--card-bg);
+    color: var(--text);
+}
+
 
 * {
     margin: 0;
@@ -190,7 +317,7 @@ body {
     right: 0;
     height: calc(56px + env(safe-area-inset-top));
     padding: env(safe-area-inset-top) 8px 0;
-    background: rgba(246, 244, 239, 0.94);
+    background: var(--header-bg);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
@@ -298,7 +425,7 @@ h1, h2,
 
 .btn-primary {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
 }
 
 .btn-primary:hover {
@@ -317,7 +444,7 @@ h1, h2,
 
 .btn-danger {
     background: var(--danger);
-    color: white;
+    color: var(--on-primary);
 }
 
 .btn-nav {
@@ -462,7 +589,7 @@ h1, h2,
 
 .action-btn:hover {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -784,7 +911,7 @@ tr:hover .strike-dec { opacity: 1; }
 
 .goal-remove-btn {
     background: var(--danger);
-    color: white;
+    color: var(--on-primary);
     border: none;
     padding: 3px 8px;
     border-radius: 4px;
@@ -815,7 +942,7 @@ tr:hover .strike-dec { opacity: 1; }
 .day-chip.on {
     background: var(--primary);
     border-color: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .goals-list .goal-category-group h4 {
@@ -1172,7 +1299,7 @@ tr:hover .strike-dec { opacity: 1; }
 .energy-btn:hover,
 .energy-btn.active {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -1411,7 +1538,7 @@ tr:hover .strike-dec { opacity: 1; }
 .habit-checkbox.checked {
     background: var(--success);
     border-color: var(--success);
-    color: white;
+    color: var(--on-primary);
 }
 
 .habit-name {
@@ -1523,7 +1650,7 @@ tr:hover .strike-dec { opacity: 1; }
 
 .heatmap-cell.done {
     background: var(--success);
-    color: white;
+    color: var(--on-primary);
 }
 
 .heatmap-cell.missed {
@@ -1622,7 +1749,7 @@ button.habit-checkbox {
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    border-color: #cfcabd;
+    border-color: var(--border-strong);
 }
 
 .pending-item .habit-checkbox:active {
@@ -1689,7 +1816,7 @@ button.habit-checkbox {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: var(--on-primary);
     background: var(--danger);
     font-size: 0.8rem;
 }
@@ -1730,7 +1857,7 @@ button.habit-checkbox {
 
 .freq-group-count.all-done {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .freq-group-count.over {
@@ -1795,7 +1922,7 @@ button.habit-checkbox {
 .prompt-btn.active,
 .prompt-btn:hover {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -1808,7 +1935,7 @@ button.habit-checkbox {
 .prompt-btn.prompt-stoic:hover {
     background: var(--secondary);
     border-color: var(--secondary);
-    color: white;
+    color: var(--on-primary);
 }
 
 .journal-prompt-text {
@@ -1970,7 +2097,7 @@ button.habit-checkbox {
 
 .streak-dot.on {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .streak-dot.today {
@@ -2106,7 +2233,7 @@ button.habit-checkbox {
     align-items: flex-start;
     gap: 12px;
     background: var(--danger-tint);
-    border: 1px solid #ecd2c9;
+    border: 1px solid var(--danger-border);
     border-radius: var(--radius-sm);
     padding: 14px 16px;
     margin-bottom: 20px;
@@ -2114,7 +2241,7 @@ button.habit-checkbox {
 
 .strike-summary-card.strike-summary-clean {
     background: var(--primary-tint);
-    border-color: #cddbe9;
+    border-color: var(--primary-border);
 }
 
 .strike-summary-text {
@@ -2210,7 +2337,7 @@ button.habit-checkbox {
 
 .rating-btn.active {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -2241,7 +2368,7 @@ button.habit-checkbox {
 
 .review-history-rating {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     padding: 2px 10px;
     border-radius: 10px;
     font-size: 0.8rem;
@@ -2268,7 +2395,7 @@ button.habit-checkbox {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.5);
+    background: var(--overlay);
     z-index: 1000;
     align-items: center;
     justify-content: center;
@@ -2546,7 +2673,7 @@ button.habit-checkbox {
 
 .stoic-rating .rating-btn.active {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -2752,7 +2879,7 @@ button.habit-checkbox {
     height: calc(68px + env(safe-area-inset-bottom));
     padding: 0 4px;
     padding-bottom: env(safe-area-inset-bottom);
-    background: rgba(255, 255, 255, 0.96);
+    background: var(--nav-bg);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     border-top: 1px solid var(--border);
@@ -3129,7 +3256,7 @@ button.habit-checkbox {
 
 .travel-day-notice {
     background: var(--primary-tint);
-    border: 1px solid #cddbe9;
+    border: 1px solid var(--primary-border);
     border-radius: var(--radius-sm);
     padding: 16px;
     text-align: center;
@@ -3192,7 +3319,7 @@ button.habit-checkbox {
     background: var(--surface); color: var(--text-muted); font-size: 0.75rem;
     cursor: pointer; font-weight: 500;
 }
-.deepdive-period-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.deepdive-period-btn.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 .deepdive-period-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
 
 /* Goals grid subtotal / grand total rows */
@@ -3305,7 +3432,7 @@ button.habit-checkbox {
 
 .med-length.active {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .med-sessions {
@@ -3433,8 +3560,8 @@ body.med-open {
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: #c9d8e8;
-    box-shadow: 0 0 0 12px rgba(47, 93, 140, 0.06), 0 0 0 28px rgba(47, 93, 140, 0.03);
+    background: var(--orb);
+    box-shadow: 0 0 0 12px var(--orb-ring), 0 0 0 28px var(--orb-ring-far);
     transform: scale(0.75);
     transition: transform 4s ease-in-out;
 }
@@ -3502,4 +3629,60 @@ body.med-open {
     min-width: 160px;
     padding: 12px 20px;
     font-size: 1rem;
+}
+
+/* ========================================
+   Appearance switch (Settings)
+   ======================================== */
+.theme-choice {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.theme-choice button {
+    min-height: 40px;
+    padding: 8px 18px;
+    border: 0;
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.theme-choice button + button {
+    border-left: 1px solid var(--border);
+}
+
+.theme-choice button.active {
+    background: var(--primary);
+    color: var(--on-primary);
+}
+
+/* ========================================
+   Typing: growing boxes, quiet save note, tab bar out of the keyboard's way
+   ======================================== */
+textarea.autogrow {
+    resize: none;
+    overflow-y: hidden;
+}
+
+.save-note {
+    min-height: 1.4em;
+    margin: 10px 0 0;
+    font-size: 0.9rem;
+    color: var(--primary);
+    text-align: center;
+}
+
+.save-note.warn {
+    color: var(--danger);
+}
+
+@media (max-width: 768px) {
+    body.typing .mobile-bottom-nav {
+        display: none;
+    }
 }

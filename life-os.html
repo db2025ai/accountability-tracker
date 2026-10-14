@@ -6,7 +6,11 @@
     <title>Life OS - Personal Operating System</title>
     <link rel="stylesheet" href="life-os.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#f6f4ef">
+    <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#15171b" media="(prefers-color-scheme: dark)">
+    <meta name="color-scheme" content="light dark">
+    <!-- Appearance choice (Settings), applied before first paint so night mode never flashes white -->
+    <script>try { var t = localStorage.getItem('lifeOS_theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Life OS">
@@ -335,19 +339,19 @@
             <!-- Stoic Evening Reflection Form -->
             <div class="journal-compose" id="eveningReflectionForm">
                 <div class="stoic-form-group">
-                    <label class="stoic-label">What went well today? What am I proud of?</label>
-                    <textarea id="stoicWentWell" rows="3" placeholder="Celebrate the wins, however small..."></textarea>
+                    <label class="stoic-label" for="stoicWentWell">What went well today? What am I proud of?</label>
+                    <textarea id="stoicWentWell" rows="3" class="autogrow" autocapitalize="sentences" placeholder="Celebrate the wins, however small..."></textarea>
                 </div>
                 <div class="stoic-form-group">
-                    <label class="stoic-label">Where did I fall short? What could I improve?</label>
-                    <textarea id="stoicFellShort" rows="3" placeholder="Be honest but compassionate with yourself..."></textarea>
+                    <label class="stoic-label" for="stoicFellShort">Where did I fall short? What could I improve?</label>
+                    <textarea id="stoicFellShort" rows="3" class="autogrow" autocapitalize="sentences" placeholder="Be honest but compassionate with yourself..."></textarea>
                 </div>
                 <div class="stoic-form-group">
                     <label class="stoic-label" for="stoicHighlight1">Highlights from today / things to remember</label>
                     <div class="highlight-inputs">
-                        <input type="text" class="highlight-input" id="stoicHighlight1" placeholder="1." autocomplete="off">
-                        <input type="text" class="highlight-input" id="stoicHighlight2" placeholder="2." autocomplete="off">
-                        <input type="text" class="highlight-input" id="stoicHighlight3" placeholder="3." autocomplete="off">
+                        <input type="text" class="highlight-input" id="stoicHighlight1" placeholder="1." autocomplete="off" autocapitalize="sentences" enterkeyhint="next">
+                        <input type="text" class="highlight-input" id="stoicHighlight2" placeholder="2." autocomplete="off" autocapitalize="sentences" enterkeyhint="next">
+                        <input type="text" class="highlight-input" id="stoicHighlight3" placeholder="3." autocomplete="off" autocapitalize="sentences" enterkeyhint="done">
                     </div>
                 </div>
                 <div class="stoic-form-group">
@@ -366,10 +370,11 @@
                     </div>
                 </div>
                 <div class="stoic-form-group">
-                    <label class="stoic-label">What is my intention for tomorrow?</label>
-                    <textarea id="stoicIntention" rows="2" placeholder="What one thing will I focus on?"></textarea>
+                    <label class="stoic-label" for="stoicIntention">What is my intention for tomorrow?</label>
+                    <textarea id="stoicIntention" rows="2" class="autogrow" autocapitalize="sentences" placeholder="What one thing will I focus on?"></textarea>
                 </div>
                 <button class="btn btn-primary" id="saveEveningReflectionBtn" style="width:100%;margin-top:8px;">Save Evening Reflection</button>
+                <p class="save-note" id="stoicSaveNote" role="status" aria-live="polite"></p>
             </div>
 
             <!-- Past Reflections -->
@@ -443,11 +448,11 @@
                 <div class="review-form">
                     <div class="review-question">
                         <label>What went well this week?</label>
-                        <textarea id="reviewWins" rows="4" placeholder="Celebrate your wins..."></textarea>
+                        <textarea id="reviewWins" rows="4" class="autogrow" autocapitalize="sentences" placeholder="Celebrate your wins..."></textarea>
                     </div>
                     <div class="review-question">
                         <label>What could have been better?</label>
-                        <textarea id="reviewImprovements" rows="4" placeholder="Be honest with yourself..."></textarea>
+                        <textarea id="reviewImprovements" rows="4" class="autogrow" autocapitalize="sentences" placeholder="Be honest with yourself..."></textarea>
                     </div>
                     <div class="review-question">
                         <label>Top 3 priorities for next week:</label>
@@ -552,6 +557,15 @@
                 <button class="modal-close" data-modal="settingsModal">&times;</button>
             </div>
             <div class="settings-content">
+                <div class="setting-item">
+                    <label>Appearance</label>
+                    <p class="setting-desc">Auto follows your iPhone's Dark Mode. Set it to switch at sunset in iPhone Settings → Display &amp; Brightness → Automatic.</p>
+                    <div class="theme-choice" id="themeChoice" role="radiogroup" aria-label="Appearance">
+                        <button type="button" data-theme-choice="auto" role="radio">Auto</button>
+                        <button type="button" data-theme-choice="light" role="radio">Light</button>
+                        <button type="button" data-theme-choice="dark" role="radio">Dark</button>
+                    </div>
+                </div>
                 <div class="setting-item">
                     <label>Convex Backend</label>
                     <p class="setting-desc">Connect to Convex for cloud sync across devices. Enter your Convex deployment URL.</p>
