@@ -451,8 +451,6 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
             tracking: ['', '', '', '', '', '', '']
         };
     });
-    const alerts = [];
-    page.on('dialog', d => alerts.push(d.message()));
     await page.fill('#stoicWentWell', 'Good focus block');
     await page.fill('#stoicHighlight1', 'Long walk with Chelsey');
     await page.fill('#stoicHighlight3', 'Remember: book the dentist');
@@ -461,7 +459,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     check('saved under the local date', await page.evaluate(() => lifeOS.data.eveningReflections[0].date), '2026-10-13');
     check('saving checks off the Evening reflection goal for today', [await page.evaluate(() =>
         Object.values(lifeOS.getWeekForDate(new Date()).entries).find(e => /Evening reflection/.test(e.goal.name)).tracking[2]),
-        alerts.at(-1)?.endsWith('Checked off for today ✓')], ['X', true]);
+        await page.textContent('#stoicSaveNote')], ['X', 'Saved · 6 days in a row · checked off for today ✓']);
     check('past reflection shows highlights', await page.$$eval('#journalEntriesList .journal-entry-card:first-child .highlight-list li', els => els.map(e => e.textContent)),
         ['Long walk with Chelsey', 'Remember: book the dentist']);
     check('streak counts today', await page.evaluate(() => [lifeOS.getJournalStreak().current, document.querySelector('.journal-streak-note').textContent]), [6, 'Done for today.']);
@@ -705,6 +703,89 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     });
     check('all 12 sessions end on time', timings.filter(t => !t.endsWith(':ok')), []);
     check('stats line', await page.textContent('#medStats'), 'This week: 14 sessions · 40 min. 3- and 5-minute sessions check off Meditate in Today.');
+    check('no page errors', errors, []);
+    await context.close();
+}
+
+// ================= Scenario 9: night mode + typing in the journal (phone) =================
+{
+    const { context, page, errors } = await newPage({ width: 390, time: '2026-10-13T21:30:00-04:00' });
+    console.log('\n— Night mode + journal typing —');
+    await page.evaluate(() => lifeOS.closeModal('catchUpModal'));
+    const look = () => page.evaluate(() => ({
+        bg: getComputedStyle(document.body).backgroundColor,
+        theme: document.documentElement.getAttribute('data-theme'),
+        metas: [...document.querySelectorAll('meta[name="theme-color"]')].map(m => m.content),
+        active: document.querySelector('#themeChoice .active')?.dataset.themeChoice
+    }));
+    const LIGHT = 'rgb(246, 244, 239)', DARK = 'rgb(21, 23, 27)';
+    check('Auto: light when the phone is light', (await look()).bg, LIGHT);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    check('Auto: dark when the phone switches to Dark Mode', await look(), { bg: DARK, theme: null, metas: ['#f6f4ef', '#15171b'], active: 'auto' });
+    await page.evaluate(() => lifeOS.openModal('settingsModal'));
+    await page.click('#themeChoice [data-theme-choice="light"]');
+    check('Light pins light even in Dark Mode (status bar too)', await look(), { bg: LIGHT, theme: 'light', metas: ['#f6f4ef', '#f6f4ef'], active: 'light' });
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS);
+    check('the choice survives a reload, before first paint', [(await look()).bg, await page.evaluate(() => localStorage.getItem('lifeOS_theme'))], [LIGHT, 'light']);
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.openModal('settingsModal'); });
+    await page.click('#themeChoice [data-theme-choice="dark"]');
+    check('Dark pins dark in light mode', await look(), { bg: DARK, theme: 'dark', metas: ['#15171b', '#15171b'], active: 'dark' });
+    check('buttons keep readable text on blue in the dark', await page.evaluate(() =>
+        getComputedStyle(document.querySelector('#themeChoice .active')).color), 'rgb(18, 22, 27)');
+    await page.click('#themeChoice [data-theme-choice="auto"]');
+    check('Auto again follows the phone', await look(), { bg: LIGHT, theme: null, metas: ['#f6f4ef', '#15171b'], active: 'auto' });
+    await page.evaluate(() => lifeOS.closeModal('settingsModal'));
+
+    // Journal typing on a phone
+    await page.click('.mobile-nav-btn[data-section="journal"]');
+    const wentWell = page.locator('#stoicWentWell');
+    const h0 = await wentWell.evaluate(el => el.offsetHeight);
+    await wentWell.focus();
+    check('typing hides the tab bar so the keyboard has room', await page.evaluate(() =>
+        [document.body.classList.contains('typing'), getComputedStyle(document.querySelector('.mobile-bottom-nav')).display]), [true, 'none']);
+    await page.keyboard.type('Long walk.\nGood focus block.\nCalled Mom.\nCooked a new meal.\nRead 20 pages.\nSlept on time.');
+    const h1 = await wentWell.evaluate(el => [el.offsetHeight, el.scrollHeight, el.clientHeight]);
+    check('the box grows with the text (no scrolling inside it)', [h1[0] > h0, h1[1] <= h1[2]], [true, true]);
+    await page.click('#stoicHighlight1');
+    await page.keyboard.type('Sunset run');
+    await page.keyboard.press('Enter');
+    check('Return moves to the next highlight', await page.evaluate(() => document.activeElement.id), 'stoicHighlight2');
+    await page.click('#stoicHighlight3');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(120);
+    check('Return on the last highlight closes the keyboard, tab bar returns', await page.evaluate(() =>
+        [document.activeElement.id, document.body.classList.contains('typing')]), ['', false]);
+
+    // Leave mid-entry: the draft comes back
+    await page.click('#stoicValuesRating [data-rating="8"]');
+    await page.waitForTimeout(500);
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS);
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('journal'); });
+    check('a half-written reflection is still there after leaving', await page.evaluate(() => [
+        document.getElementById('stoicWentWell').value.split('\n').length,
+        document.getElementById('stoicHighlight1').value,
+        document.querySelector('#stoicValuesRating .rating-btn.active')?.dataset.rating,
+        document.getElementById('stoicSaveNote').textContent,
+        document.getElementById('stoicWentWell').offsetHeight > 120
+    ]), [6, 'Sunset run', '8', 'Picked up where you left off.', true]);
+
+    // Save: quiet note instead of a pop-up; form and draft cleared
+    const dialogs = [];
+    page.on('dialog', d => { dialogs.push(d.message()); d.accept(); });
+    await page.click('#saveEveningReflectionBtn');
+    check('saving shows a quiet note, no pop-up', [await page.textContent('#stoicSaveNote'), dialogs], ['Saved', []]);
+    check('form, draft and box size reset', await page.evaluate(() => [
+        document.getElementById('stoicWentWell').value, localStorage.getItem('lifeOS_reflectionDraft'),
+        document.getElementById('stoicWentWell').offsetHeight < 120
+    ]), ['', '', true]);
+    await page.click('#saveEveningReflectionBtn');
+    check('saving an empty form says what to do', await page.evaluate(() => {
+        const n = document.getElementById('stoicSaveNote');
+        return [n.textContent, n.classList.contains('warn'), document.activeElement.id];
+    }), ['Write at least one line first.', true, 'stoicWentWell']);
     check('no page errors', errors, []);
     await context.close();
 }
