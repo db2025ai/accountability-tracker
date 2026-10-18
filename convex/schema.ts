@@ -1,6 +1,15 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const mealItem = v.object({
+  name: v.string(),
+  qty: v.optional(v.string()),
+  calories: v.number(),
+  protein: v.number(),
+  carbs: v.number(),
+  fat: v.number(),
+});
+
 export default defineSchema({
   // Single document stores the entire Life OS data blob.
   // userId is a static key so there's only ever one row per user.
@@ -56,4 +65,56 @@ export default defineSchema({
   })
     .index("by_user_date", ["userId", "date"])
     .index("by_user_key", ["userId", "key"]),
+
+  // ---- Nutrition (written by Claude through the /mcp connector; see nutrition.ts) ----
+  // One row per logged meal. Kept out of the userData blob for the same size reason as
+  // journalArchive.
+  meals: defineTable({
+    userId: v.string(),
+    date: v.string(), // local YYYY-MM-DD
+    time: v.optional(v.string()), // "7:45 AM"
+    label: v.string(), // Breakfast | Lunch | Pre-lift | Dinner | Snack
+    name: v.string(),
+    items: v.array(mealItem),
+    calories: v.number(),
+    protein: v.number(),
+    carbs: v.number(),
+    fat: v.number(),
+    source: v.optional(v.string()), // photo | voice | text | saved
+    confidence: v.optional(v.string()), // high | medium | low
+    createdAt: v.string(),
+  }).index("by_user_date", ["userId", "date"]),
+
+  // Meals Claude can log by name ("had my smoothie")
+  savedMeals: defineTable({
+    userId: v.string(),
+    key: v.string(), // slug of the name
+    name: v.string(),
+    items: v.array(mealItem),
+    calories: v.number(),
+    protein: v.number(),
+    carbs: v.number(),
+    fat: v.number(),
+    updatedAt: v.string(),
+  }).index("by_user_key", ["userId", "key"]),
+
+  // Daily targets (one row)
+  nutritionSettings: defineTable({
+    userId: v.string(),
+    calories: v.number(),
+    protein: v.number(),
+    carbs: v.number(),
+    fat: v.number(),
+    updatedAt: v.string(),
+  }).index("by_userId", ["userId"]),
+
+  // Weigh-ins sent from Claude. The app copies them into data.healthLog on load and marks
+  // them applied, so the server never rewrites the userData blob the app also saves.
+  weighIns: defineTable({
+    userId: v.string(),
+    date: v.string(), // local YYYY-MM-DD
+    lb: v.number(),
+    createdAt: v.string(),
+    applied: v.boolean(),
+  }).index("by_user_applied", ["userId", "applied"]),
 });

@@ -1998,6 +1998,136 @@ class LifeOS {
     renderHealth() {
         this.renderHealthRings();
         this.renderHealthCharts();
+        this.renderNutrition();
+    }
+
+    // ========================================
+    // Nutrition (meals come from Claude through the Convex connector; this side only reads)
+    // ========================================
+    // A daily goal whose name matches this is checked off on days protein hits the target
+    get PROTEIN_GOAL() { return /protein target/i; }
+
+    renderNutrition() {
+        const body = document.getElementById('nutritionBody');
+        if (!body) return;
+        if (!this.convex) {
+            body.innerHTML = '<p class="nutrition-note">Connect Convex in Settings to see meals you log with Claude.</p>';
+            return;
+        }
+        const n = this._nutrition;
+        const stale = !n || Date.now() - n.loadedAt > 60e3 || n.today !== this.localDateKey(new Date());
+        if (stale) this.loadNutrition();
+        if (!n) {
+            body.innerHTML = '<p class="nutrition-note">Loading meals&hellip;</p>';
+            return;
+        }
+        if (n.error) {
+            body.innerHTML = '<p class="nutrition-note">Couldn\'t load meals. They\'ll appear when the connection is back.</p>';
+            return;
+        }
+        const T = n.targets;
+        const byDate = new Map(n.days.map(d => [d.date, d]));
+        const t = byDate.get(n.today) || { calories: 0, protein: 0, carbs: 0, fat: 0, meals: 0 };
+        const fmt = x => Math.round(x).toLocaleString('en-US');
+        const bar = (label, val, target, unit, over) => {
+            const pct = target ? Math.min(val / target, 1) * 100 : 0;
+            const left = target - val;
+            const note = left >= 0 ? `${fmt(left)}${unit} to go` : `${fmt(-left)}${unit} over`;
+            return `<div class="nutrition-row">
+                <div class="nutrition-row-top"><b>${label}</b><span><span class="nutrition-num">${fmt(val)}</span> / ${fmt(target)}${unit}</span></div>
+                <div class="nutrition-bar"><i class="${over && left < 0 ? 'over' : ''}" style="width:${pct}%"></i></div>
+                <div class="nutrition-row-note">${note}</div>
+            </div>`;
+        };
+        // Last 14 days of protein, oldest first
+        const days = [];
+        for (let i = 13; i >= 0; i--) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            days.push(this.localDateKey(d));
+        }
+        const hits = days.filter(d => (byDate.get(d)?.protein || 0) >= T.protein).length;
+        const cells = days.map(d => {
+            const day = byDate.get(d);
+            const cls = !day ? 'none' : day.protein >= T.protein ? 'hit' : 'short';
+            const label = `${d}: ${day ? fmt(day.protein) + 'g protein' : 'nothing logged'}`;
+            return `<span class="nutrition-day ${cls}" title="${label}" aria-label="${label}"></span>`;
+        }).join('');
+        body.innerHTML = `
+            ${t.meals ? '' : '<p class="nutrition-note">Nothing logged today yet. Tell Claude what you ate, or send a photo.</p>'}
+            ${bar('Calories', t.calories, T.calories, '', true)}
+            ${bar('Protein', t.protein, T.protein, 'g', false)}
+            <div class="nutrition-small">Carbs ${fmt(t.carbs)}g &middot; Fat ${fmt(t.fat)}g &middot; ${t.meals} ${t.meals === 1 ? 'meal' : 'meals'}</div>
+            <div class="nutrition-streak">
+                <div class="nutrition-days">${cells}</div>
+                <div class="nutrition-row-note">Protein target hit ${hits} of the last 14 days</div>
+            </div>`;
+    }
+
+    async loadNutrition() {
+        if (!this.convex || this._nutritionLoading) return;
+        this._nutritionLoading = true;
+        const today = this.localDateKey(new Date());
+        const from = new Date(); from.setDate(from.getDate() - 13);
+        try {
+            const res = await this.convex.query('nutrition:getRange', { from: this.localDateKey(from), to: today });
+            this._nutrition = { ...res, today, loadedAt: Date.now() };
+            const ticked = this.applyProteinCheckoffs();
+            const weighInIds = await this.applyWeighIns();
+            if (ticked || weighInIds.length) {
+                this.saveData();
+                this.renderAll(); // includes this card, now fresh
+                // After the Health log is saved, so a weigh-in can't be lost in between
+                if (weighInIds.length) {
+                    this.convex.mutation('nutrition:markWeighInsApplied', { ids: weighInIds })
+                        .catch(() => { /* applied again next load, harmlessly */ });
+                }
+            } else {
+                this.renderNutrition();
+            }
+        } catch (e) {
+            console.error('[LifeOS] nutrition load failed:', e);
+            this._nutrition = { error: true, today, loadedAt: Date.now() };
+            this.renderNutrition();
+        } finally {
+            this._nutritionLoading = false;
+        }
+    }
+
+    // Tick the protein goal on each loaded day that reached the target. Leaves "doesn't apply"
+    // days alone. Returns true if any cell changed.
+    applyProteinCheckoffs() {
+        const n = this._nutrition;
+        if (!n || n.error) return false;
+        let changed = false;
+        for (const day of n.days) {
+            if (day.protein < n.targets.protein) continue;
+            const [y, m, d] = day.date.split('-').map(Number);
+            const date = new Date(y, m - 1, d);
+            const week = this.getWeekForDate(date);
+            const entry = week && Object.values(week.entries).find(e => this.PROTEIN_GOAL.test(e.goal.name));
+            const cell = entry && entry.tracking[date.getDay()];
+            if (!entry || cell === 'X' || cell === 'x' || cell === '-') continue;
+            entry.tracking[date.getDay()] = 'X';
+            changed = true;
+        }
+        return changed;
+    }
+
+    // Copy weigh-ins sent from Claude into the Health log; returns their ids to mark applied
+    async applyWeighIns() {
+        let pending = [];
+        try { pending = await this.convex.query('nutrition:pendingWeighIns'); } catch { return []; }
+        if (!pending.length) return [];
+        for (const w of pending) {
+            let entry = this.data.healthLog.find(e => e.date === w.date);
+            if (!entry) {
+                entry = { date: w.date };
+                this.data.healthLog.push(entry);
+            }
+            entry.weight = w.lb;
+        }
+        this.data.healthLog.sort((a, b) => (a.date < b.date ? -1 : 1));
+        return pending.map(w => w.id);
     }
 
     renderHealthRings() {

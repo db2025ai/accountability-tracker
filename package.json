@@ -4,7 +4,13 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@types/web-push": "^3.6.4",
-    "pdfjs-dist": "^4.10.38"
+    "convex-test": "^0.0.62",
+    "pdfjs-dist": "^4.10.38",
+    "vitest": "^5.0.5"
+  },
+  "scripts": {
+    "test:convex": "vitest run tests/convex.test.ts --environment edge-runtime"
   }
 }

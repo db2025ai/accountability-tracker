@@ -790,6 +790,68 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await context.close();
 }
 
+// ================= Nutrition card (meals logged from Claude via Convex) =================
+{
+    console.log('\n— Nutrition card —');
+    // Without Convex the card says how to turn it on
+    {
+        const { context, page } = await newPage();
+        await page.evaluate(() => lifeOS.navigateTo('health'));
+        check('no Convex: card explains how to connect', /Connect Convex/.test(await page.textContent('#nutritionBody')), true);
+        await context.close();
+    }
+    const nGoal = { category: 'Physical Health', name: 'Protein target (190g)', target: 'daily' };
+    const nSeed = JSON.parse(JSON.stringify(seed));
+    nSeed.goals.push(nGoal);
+    nSeed.weeks[1].entries[goals.length] = { goal: { ...nGoal }, tracking: ['', '', '', '', '', '', ''] };
+    nSeed.healthLog = [{ date: '2026-10-10', weight: 207 }];
+    const calls = [];
+    let weighInsServed = false;
+    const ok = value => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', value }) });
+    const { context, page, errors } = await newPage({
+        seedData: nSeed,
+        init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud'),
+    });
+    await context.route('https://fake-test.convex.cloud/**', r => {
+        const { path, args } = JSON.parse(r.request().postData() || '{}');
+        calls.push([path, args]);
+        if (path === 'nutrition:getRange') return r.fulfill(ok({
+            targets: { calories: 2400, protein: 190, carbs: 240, fat: 75 },
+            days: [
+                { date: '2026-10-12', meals: 4, calories: 2350, protein: 196, carbs: 220, fat: 70 },
+                { date: '2026-10-13', meals: 2, calories: 1500, protein: 120, carbs: 100, fat: 50 },
+            ],
+        }));
+        if (path === 'nutrition:pendingWeighIns') {
+            const v = weighInsServed ? [] : [{ id: 'w1', date: '2026-10-13', lb: 205.4 }];
+            weighInsServed = true;
+            return r.fulfill(ok(v));
+        }
+        return r.fulfill(ok(null));
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS);
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('health'); });
+    await page.waitForFunction(() => lifeOS._nutrition && !lifeOS._nutrition.error && !lifeOS._nutritionLoading);
+    await page.waitForTimeout(200);
+    const text = await page.textContent('#nutritionBody');
+    check('today: calories and protein left', [/1,500/.test(text), /900 to go/.test(text), /70g to go/.test(text)], [true, true, true]);
+    check('protein streak counts hit days', /hit 1 of the last 14 days/.test(text), true);
+    check('protein goal ticked on the day it was hit, not today', await page.evaluate(() => {
+        const e = Object.values(lifeOS.data.weeks[1].entries).find(x => /protein target/i.test(x.goal.name));
+        return [e.tracking[1], e.tracking[2]];
+    }), ['X', '']);
+    check('"High protein" breakfast goal is not mistaken for it', await page.evaluate(() =>
+        Object.values(lifeOS.data.weeks[1].entries).filter(x => lifeOS.PROTEIN_GOAL.test(x.goal.name)).length), 1);
+    check('weigh-in from Claude lands in the Health log', await page.evaluate(() =>
+        lifeOS.data.healthLog.map(e => [e.date, e.weight])), [['2026-10-10', 207], ['2026-10-13', 205.4]]);
+    check('weigh-in marked applied after saving', calls.filter(c => c[0] === 'nutrition:markWeighInsApplied').map(c => c[1]), [{ ids: ['w1'] }]);
+    check('day cells: hit, short, empty', await page.evaluate(() =>
+        [...document.querySelectorAll('.nutrition-day')].slice(-3).map(d => d.className.replace('nutrition-day ', ''))), ['none', 'hit', 'short']);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASSED');
