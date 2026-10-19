@@ -5300,6 +5300,7 @@ class LifeOS {
                 });
                 this.updateConvexStatusUI();
                 this.maybeShowCatchUp(); // after the freshest data is in
+                this.syncSleep(true);
             });
         }
 
@@ -6923,7 +6924,10 @@ class LifeOS {
             this.data.healthLog.sort((a, b) => (a.date < b.date ? -1 : 1));
         }
         if (weight !== null) entry.weight = weight;
-        if (sleep !== null) entry.sleep = sleep;
+        if (sleep !== null && sleep !== entry.sleep) {
+            entry.sleep = sleep;
+            delete entry.sleepSource; // typed over the watch's number: it's yours now
+        }
         if (energy !== null) entry.energy = energy;
         this.saveData();
         this.logActivity('Saved daily check-in');
@@ -6948,13 +6952,69 @@ class LifeOS {
         });
         const parts = [];
         if (entry.weight != null) parts.push(`${entry.weight} lb`);
-        if (entry.sleep != null) parts.push(`${entry.sleep} h sleep`);
+        if (entry.sleep != null) parts.push(`${entry.sleep} h sleep${entry.sleepSource === 'watch' ? ' (Apple Watch)' : ''}`);
         if (entry.energy != null) parts.push(`energy ${entry.energy}/5`);
         status.textContent = parts.length ? `Saved for today: ${parts.join(' · ')}` : 'Nothing saved yet today.';
         document.getElementById('saveCheckinBtn').textContent = parts.length ? 'Update check-in' : 'Save check-in';
     }
 
+    // ========================================
+    // Apple Watch sleep: an iPhone Shortcut posts each night to Convex (/ingest/sleep, health.ts);
+    // here it's copied into the Health log like weigh-ins, and an early enough bedtime ticks the
+    // "In bed by …" goal for that night
+    // ========================================
+    get BEDTIME_GOAL() { return /in bed by/i; }
+
+    async syncSleep(force = false) {
+        if (!this.convex || this._sleepSyncing) return;
+        if (!force && Date.now() - (this._sleepSyncedAt || 0) < 60e3) return;
+        this._sleepSyncing = true;
+        this._sleepSyncedAt = Date.now();
+        try {
+            const pending = await this.convex.query('health:pendingSleep');
+            if (!pending || !pending.length) return;
+            for (const night of pending) {
+                let entry = this.data.healthLog.find(e => e.date === night.date);
+                if (!entry) {
+                    entry = { date: night.date };
+                    this.data.healthLog.push(entry);
+                }
+                entry.sleep = night.hours;
+                entry.sleepSource = 'watch';
+                if (night.bedtime) entry.bedtime = night.bedtime;
+                if (night.bedtime && night.nightOf) this.tickBedtime(night.nightOf, night.bedtime);
+            }
+            this.data.healthLog.sort((a, b) => (a.date < b.date ? -1 : 1));
+            this.saveData();
+            this.renderAll();
+            // After the Health log is saved, so a night can't be lost in between
+            this.convex.mutation('health:markSleepApplied', { ids: pending.map(n => n.id) })
+                .catch(() => { /* applied again next time, harmlessly */ });
+        } catch (e) {
+            /* offline, locked or not deployed yet: try again on the next render */
+        } finally {
+            this._sleepSyncing = false;
+        }
+    }
+
+    // Tick "In bed by 11:15PM" on the night's day when the bedtime ("HH:MM", 24h) beat the time in
+    // its name. After midnight is always late; unscheduled, skipped and vacation days are left alone.
+    tickBedtime(nightOf, bedtime) {
+        const [bh, bm] = bedtime.split(':').map(Number);
+        if (!(bh >= 12)) return false;
+        const [y, m, d] = nightOf.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
+        const week = this.getWeekForDate(date);
+        const entry = week && Object.values(week.entries).find(e => this.BEDTIME_GOAL.test(e.goal.name));
+        const target = entry && entry.goal.name.match(/in bed by\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+        if (!target || !this.isExpected(week, entry, date.getDay())) return false;
+        const th = (Number(target[1]) % 12) + (/am/i.test(target[3] || '') ? 0 : 12);
+        if (bh * 60 + bm > th * 60 + Number(target[2] || 0)) return false;
+        return this.autoTickGoal(this.BEDTIME_GOAL, nightOf);
+    }
+
     renderHealth() {
+        this.syncSleep();
         this.renderCheckin();
         this.renderHealthRings();
         this.renderHealthCharts();

@@ -7,6 +7,7 @@ import { httpAction, ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { WORKOUT_TYPES, LIFTS, MUSCLES, DISTANCE_UNITS } from "./workouts";
 import { sameSecret } from "./lib/auth";
+import { parseSamples, summarizeNight, prevDate, dayLabel, timeLabel } from "./lib/sleep";
 
 const PROTOCOL_VERSION = "2025-06-18";
 
@@ -215,6 +216,12 @@ const TOOLS: Tool[] = [
     run: (ctx, a) => ctx.runQuery(internal.workouts.liftProgress, { from: String(a.from), to: String(a.to) }),
   },
   {
+    name: "get_sleep",
+    description: "Nights between two dates (by wake-up date): hours asleep, bedtime and wake time from the Apple Watch, or hours typed into the app's check-in, plus the average.",
+    inputSchema: { type: "object", properties: { from: date, to: date }, required: ["from", "to"] },
+    run: (ctx, a) => ctx.runQuery(internal.health.listSleep, { from: String(a.from), to: String(a.to) }),
+  },
+  {
     name: "get_training_profile",
     description: "What to remember when planning workouts: injuries and how they're going, equipment, schedule, goals. Read it before plan_workout.",
     inputSchema: { type: "object", properties: {} },
@@ -238,7 +245,8 @@ const TOOLS: Tool[] = [
       "First read get_training_profile, the last 2-3 weeks of get_workouts (including exercise notes like \"Felt discomfort\" and session notes) and get_lift_progress. " +
       "Build full-body sessions around bench, squat, deadlift and overhead press (set `lift` on those) plus accessories for muscle groups that went untrained. " +
       "Progress from his last numbers: if every working set reached the top of its rep range, add about 5 lb (upper body) or 10 lb (lower body); if he missed reps or flagged discomfort, hold or switch to a friendlier variation. " +
-      "Work within the profile's injury notes. Put form cues and pain rules in each exercise's note. Replaces an unstarted plan on the same date.",
+      "Work within the profile's injury notes, and check get_sleep for last night: after under 6 hours, keep top sets lighter or drop a set. " +
+      "Put form cues and pain rules in each exercise's note. Replaces an unstarted plan on the same date.",
     inputSchema: {
       type: "object",
       properties: {
@@ -361,6 +369,7 @@ function pick(a: any, keys: string[]) {
 
 const INSTRUCTIONS =
   "Life OS is Daniel's accountability app. Use these tools to log meals, weigh-ins and workouts he describes, " +
+  "read his sleep (from his Apple Watch, get_sleep), " +
   "photographs or dictates, and to answer how his day, week or training is going. Always confirm an estimate before " +
   "log_meal. For lifting, bench, squat, deadlift and overhead press are the focus: say when one hits a new best " +
   "or hasn't been trained in a while. When he asks for a workout, plan it with plan_workout so he can run it in the " +
@@ -435,7 +444,61 @@ const noStream = httpAction(async (_ctx, req) =>
   authorized(req) ? new Response("Method not allowed", { status: 405, headers: { Allow: "POST" } }) : new Response("Not found", { status: 404 }),
 );
 
+// ---- Apple Watch sleep: the iPhone Shortcut posts last night's samples here ----
+// POST /ingest/sleep with "Authorization: Bearer <SHORTCUT_KEY>". That key can only add sleep, so
+// a shared or leaked Shortcut exposes nothing else. Body: JSON { samples: "START|END|VALUE" lines }
+// (or the lines as plain text), or { date, hours, bedtime? } typed by hand. The reply is one line
+// of plain text the Shortcut can show.
+const text = (body: string, status = 200) =>
+  new Response(body, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+
+const ingestSleep = httpAction(async (ctx, req) => {
+  const key = process.env.SHORTCUT_KEY;
+  const given = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!key || key.length < 24 || !sameSecret(given, key)) return text("Unauthorized", 401);
+  const raw = await req.text();
+  if (raw.length > 200_000) return text("Too much data: send the last 24 hours of sleep.", 413);
+  let body: any;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    body = { samples: raw };
+  }
+  let night;
+  let skipped = 0;
+  if (typeof body?.samples === "string" || Array.isArray(body?.samples)) {
+    const parsed = parseSamples(Array.isArray(body.samples) ? body.samples.join("\n") : body.samples);
+    skipped = parsed.skipped;
+    night = summarizeNight(parsed.samples);
+    if (!night) {
+      return text(`No sleep found in what was sent${skipped ? ` (${skipped} lines couldn't be read)` : ""}. ` +
+        "The Shortcut should send Sleep Analysis samples as START|END|VALUE lines, with ISO 8601 dates.", 400);
+    }
+  } else if (body?.hours !== undefined) {
+    const date = String(body.date || "");
+    night = { date, hours: Number(body.hours), bedtime: body.bedtime ? String(body.bedtime) : undefined, wake: undefined, nightOf: /^\d{4}-\d{2}-\d{2}$/.test(date) ? prevDate(date) : undefined };
+  } else {
+    return text('Send { "samples": "START|END|VALUE lines" } or { "date": "YYYY-MM-DD", "hours": 7.5 }.', 400);
+  }
+  try {
+    const { replaced } = await ctx.runMutation(internal.health.saveSleep, {
+      date: night.date,
+      hours: night.hours,
+      ...(night.bedtime ? { bedtime: night.bedtime } : {}),
+      ...(night.wake ? { wake: night.wake } : {}),
+      ...(night.nightOf ? { nightOf: night.nightOf } : {}),
+      source: body?.samples !== undefined ? "watch" : "manual",
+    });
+    const times = night.bedtime ? ` (in bed ${timeLabel(night.bedtime)}${night.wake ? `, up ${timeLabel(night.wake)}` : ""})` : "";
+    return text(`Logged ${night.hours} h of sleep for ${dayLabel(night.date)}${times}.${replaced ? " Replaced the earlier entry." : ""}` +
+      `${skipped ? ` ${skipped} ${skipped === 1 ? "line" : "lines"} skipped.` : ""}`);
+  } catch (e: any) {
+    return text(`Couldn't log it: ${e?.message || e}`, 400);
+  }
+});
+
 const http = httpRouter();
+http.route({ path: "/ingest/sleep", method: "POST", handler: ingestSleep });
 http.route({ pathPrefix: "/mcp/", method: "POST", handler: mcp });
 http.route({ pathPrefix: "/mcp/", method: "GET", handler: noStream });
 http.route({ pathPrefix: "/mcp/", method: "DELETE", handler: noStream });

@@ -171,6 +171,22 @@ export default defineSchema({
     updatedAt: v.string(),
   }).index("by_user_date", ["userId", "date"]),
 
+  // Sleep from the Apple Watch Shortcut (see health.ts): one row per wake-up date. The app copies
+  // it into data.healthLog and marks it applied, like weighIns.
+  sleepLogs: defineTable({
+    userId: v.string(),
+    date: v.string(), // local YYYY-MM-DD the night ended
+    nightOf: v.optional(v.string()), // the evening it began (the "In bed by" goal's day)
+    hours: v.number(), // asleep, not in bed
+    bedtime: v.optional(v.string()), // "HH:MM" 24-hour, local
+    wake: v.optional(v.string()),
+    source: v.string(), // watch | manual
+    applied: v.boolean(),
+    updatedAt: v.string(),
+  })
+    .index("by_user_date", ["userId", "date"])
+    .index("by_user_applied", ["userId", "applied"]),
+
   // What Claude should remember when planning: injuries, equipment, schedule, goals (one row)
   trainingProfile: defineTable({
     userId: v.string(),

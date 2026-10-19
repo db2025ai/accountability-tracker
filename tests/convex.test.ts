@@ -215,6 +215,8 @@ test("the app key locks every public function", async () => {
     ["query", api.workouts.getRange, { from: "2026-10-01", to: "2026-10-31" }],
     ["mutation", api.workouts.finishSession, { externalId: "x", date: "2026-10-19", name: "x", exercises: [] }],
     ["query", api.workouts.lastSets, { names: ["Bench press"] }],
+    ["query", api.health.pendingSleep, {}],
+    ["mutation", api.health.markSleepApplied, { ids: [] }],
   ];
   const run = (kind: string, fn: any, args: any) => (t as any)[kind](fn, args);
   const refused = async (kind: string, fn: any, args: any) => {
@@ -237,4 +239,65 @@ test("the app key locks every public function", async () => {
   process.env.APP_KEY = "short";
   expect(await refused("query", api.functions.getData, { appKey: "short" })).toBe(true);
   process.env.APP_KEY = APP_KEY;
+});
+
+test("Apple Watch sleep: Shortcut endpoint, the night's math, app pickup, get_sleep", async () => {
+  process.env.MCP_TOKEN = TOKEN;
+  process.env.APP_KEY = APP_KEY;
+  process.env.SHORTCUT_KEY = "s".repeat(32);
+  const t = convexTest(schema, modules);
+  const post = async (body: string, key: string | null = "s".repeat(32)) => {
+    const r = await t.fetch("/ingest/sleep", { method: "POST", headers: key === null ? {} : { Authorization: `Bearer ${key}` }, body });
+    return { status: r.status, text: await r.text() };
+  };
+  // Only the Shortcut's own key gets in (not the app key), and nothing without SHORTCUT_KEY set
+  expect((await post("{}", null)).status).toBe(401);
+  expect((await post("{}", APP_KEY)).status).toBe(401);
+
+  // Monday night from the watch (Eastern time): a nap Sunday afternoon, In Bed, stages, an awake gap
+  const night = [
+    "2026-10-18T14:00:00-04:00|2026-10-18T14:30:00-04:00|Asleep (Core)",
+    "2026-10-19T22:55:00-04:00|2026-10-20T06:45:00-04:00|In Bed",
+    "2026-10-19T23:05:00-04:00|2026-10-20T01:00:00-04:00|Asleep (Core)",
+    "2026-10-20T01:00:00-04:00|2026-10-20T02:00:00-04:00|Asleep (Deep)",
+    "2026-10-20T02:00:00-04:00|2026-10-20T03:00:00-04:00|Asleep (REM)",
+    "2026-10-20T03:00:00-04:00|2026-10-20T03:10:00-04:00|Awake",
+    "2026-10-20T03:10:00-04:00|2026-10-20T06:40:00-04:00|Core",
+    "2026-10-20T03:30:00-04:00|2026-10-20T04:00:00-04:00|Asleep (Core)", // a second source overlapping: not double counted
+    "not a sample",
+  ].join("\n");
+  const first = await post(JSON.stringify({ samples: night }));
+  expect(first).toEqual({ status: 200, text: "Logged 7.4 h of sleep for Tue, Oct 20 (in bed 10:55 PM, up 6:40 AM). 1 line skipped." });
+  // Plain text body works too, and re-sending replaces rather than duplicates
+  expect((await post(night)).text).toMatch(/Replaced the earlier entry/);
+  // HealthKit's numeric codes (0 in bed, 3 core) and a bedtime after midnight
+  const late = await post(JSON.stringify({ samples: "2026-10-21T00:40:00-04:00|2026-10-21T06:50:00-04:00|3\n2026-10-21T00:30:00-04:00|2026-10-21T06:55:00-04:00|0" }));
+  expect(late.text).toBe("Logged 6.2 h of sleep for Wed, Oct 21 (in bed 12:30 AM, up 6:50 AM).");
+  // Typed by hand
+  expect((await post(JSON.stringify({ date: "2026-10-22", hours: 8, bedtime: "22:30" }))).text).toBe("Logged 8 h of sleep for Thu, Oct 22 (in bed 10:30 PM).");
+  expect((await post(JSON.stringify({ date: "2026-10-22", hours: 30 }))).status).toBe(400);
+  expect((await post(JSON.stringify({ samples: "garbage" }))).text).toMatch(/^No sleep found/);
+  expect((await post(JSON.stringify({ hello: 1 }))).status).toBe(400);
+
+  // The app picks them up once
+  const pending = await t.query(api.health.pendingSleep, { appKey });
+  expect(pending.map((p: any) => [p.date, p.hours, p.bedtime, p.nightOf])).toEqual([
+    ["2026-10-20", 7.4, "22:55", "2026-10-19"],
+    ["2026-10-21", 6.2, "00:30", "2026-10-20"],
+    ["2026-10-22", 8, "22:30", "2026-10-21"],
+  ]);
+  await t.mutation(api.health.markSleepApplied, { ids: pending.map((p: any) => p.id), appKey });
+  expect(await t.query(api.health.pendingSleep, { appKey })).toEqual([]);
+
+  // Claude: watch nights plus check-in sleep on other days
+  await t.mutation(api.functions.setData, { payload: JSON.stringify({ healthLog: [{ date: "2026-10-19", sleep: 6.5 }, { date: "2026-10-20", sleep: 7.4, sleepSource: "watch" }] }), appKey });
+  const res = await t.fetch(`/mcp/${TOKEN}`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_sleep", arguments: { from: "2026-10-19", to: "2026-10-22" } } }) });
+  const sleep = JSON.parse((await res.json()).result.content[0].text);
+  expect(sleep.nights.map((n: any) => [n.date, n.hours, n.source])).toEqual([
+    ["2026-10-19", 6.5, "check-in"], ["2026-10-20", 7.4, "watch"], ["2026-10-21", 6.2, "watch"], ["2026-10-22", 8, "watch"],
+  ]);
+  expect(sleep.averageHours).toBe(7);
+  delete process.env.SHORTCUT_KEY;
+  expect((await post("{}")).status).toBe(401);
 });
