@@ -1999,6 +1999,7 @@ class LifeOS {
         this.renderHealthRings();
         this.renderHealthCharts();
         this.renderNutrition();
+        this.renderTraining();
     }
 
     // ========================================
@@ -2100,17 +2101,23 @@ class LifeOS {
         if (!n || n.error) return false;
         let changed = false;
         for (const day of n.days) {
-            if (day.protein < n.targets.protein) continue;
-            const [y, m, d] = day.date.split('-').map(Number);
-            const date = new Date(y, m - 1, d);
-            const week = this.getWeekForDate(date);
-            const entry = week && Object.values(week.entries).find(e => this.PROTEIN_GOAL.test(e.goal.name));
-            const cell = entry && entry.tracking[date.getDay()];
-            if (!entry || cell === 'X' || cell === 'x' || cell === '-') continue;
-            entry.tracking[date.getDay()] = 'X';
-            changed = true;
+            if (day.protein >= n.targets.protein && this.autoTickGoal(this.PROTEIN_GOAL, day.date)) changed = true;
         }
         return changed;
+    }
+
+    // Tick from synced data (protein, workouts): the goal's cell on that local date, unless it's
+    // already done or marked "doesn't apply". Unlike checkOffGoal, which follows a tap, it never
+    // overrides a '-'. Returns true if the cell changed.
+    autoTickGoal(pattern, dateKey) {
+        const [y, m, d] = dateKey.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
+        const week = this.getWeekForDate(date);
+        const entry = week && Object.values(week.entries).find(e => pattern.test(e.goal.name));
+        const cell = entry && entry.tracking[date.getDay()];
+        if (!entry || this.isDone(cell) || cell === '-') return false;
+        entry.tracking[date.getDay()] = 'X';
+        return true;
     }
 
     // Copy weigh-ins sent from Claude into the Health log; returns their ids to mark applied
@@ -2128,6 +2135,143 @@ class LifeOS {
         }
         this.data.healthLog.sort((a, b) => (a.date < b.date ? -1 : 1));
         return pending.map(w => w.id);
+    }
+
+    // ========================================
+    // Training (workouts come from Claude through the Convex connector; this side only reads)
+    // ========================================
+    // Goals ticked on each day a matching session was logged. Core moves inside a lift don't
+    // tick the core goal: only a session Claude logs as type "core" does.
+    get WORKOUT_GOALS() {
+        return [
+            { pattern: /strength training/i, hit: s => s.type === 'strength' },
+            { pattern: /cardio training/i, hit: s => s.type === 'cardio' || s.type === 'swim' },
+            { pattern: /core work ?out/i, hit: s => s.type === 'core' },
+        ];
+    }
+
+    renderTraining() {
+        const body = document.getElementById('trainingBody');
+        if (!body) return;
+        if (!this.convex) {
+            body.innerHTML = '<p class="training-note">Connect Convex in Settings to see workouts you log with Claude.</p>';
+            return;
+        }
+        const t = this._training;
+        const stale = !t || Date.now() - t.loadedAt > 60e3 || t.today !== this.localDateKey(new Date());
+        if (stale) this.loadTraining();
+        if (!t) {
+            body.innerHTML = '<p class="training-note">Loading workouts&hellip;</p>';
+            return;
+        }
+        if (t.error) {
+            body.innerHTML = '<p class="training-note">Couldn\'t load workouts. They\'ll appear when the connection is back.</p>';
+            return;
+        }
+        const fmt = x => Math.round(x).toLocaleString('en-US');
+        const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return this.localDateKey(d); };
+        const shortDate = (key, weekday) => {
+            const [y, m, d] = key.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString('en-US', weekday ? { weekday: 'short', month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric' });
+        };
+
+        // This week runs Sunday to Saturday, like the Goals grid
+        const week = t.sessions.filter(s => s.date >= daysAgo(new Date().getDay()));
+        const minutes = week.reduce((n, s) => n + (s.minutes || 0), 0);
+        const types = ['strength', 'cardio', 'swim', 'core', 'mobility', 'other']
+            .map(type => [type, week.filter(s => s.type === type).length])
+            .filter(([, n]) => n)
+            .map(([type, n]) => `${n} ${type}`)
+            .join(' &middot; ');
+        const summary = week.length
+            ? `<div class="training-summary"><span class="training-big">${week.length}</span> <span>${week.length === 1 ? 'session' : 'sessions'}${minutes ? ` &middot; ${fmt(minutes)} min` : ''}</span></div>
+               <div class="training-meta">${types}</div>`
+            : '<p class="training-note">No workouts logged this week yet. Tell Claude about one, or send a screenshot from your watch.</p>';
+
+        // Muscle groups worked this week
+        const groups = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core'];
+        const hit = new Set(week.flatMap(s => s.muscles || []));
+        const missing = groups.filter(g => !hit.has(g));
+        const chips = groups.map(g => `<span class="training-muscle${hit.has(g) ? ' hit' : ''}">${g[0].toUpperCase() + g.slice(1)}</span>`).join('');
+
+        // Key lifts: best estimated 1-rep max of the last 4 weeks against the 4 weeks before
+        const recentFrom = daysAgo(27), priorFrom = daysAgo(55);
+        const best = list => list.reduce((a, s) => (!a || s.e1rm > a.e1rm ? s : a), null);
+        const lifts = [['bench', 'Bench press'], ['squat', 'Squat'], ['deadlift', 'Deadlift'], ['ohp', 'Overhead press']].map(([key, label]) => {
+            const sets = t.sessions.filter(s => s.lifts && s.lifts[key]).map(s => ({ date: s.date, ...s.lifts[key] }));
+            const recent = best(sets.filter(s => s.date >= recentFrom));
+            const prior = best(sets.filter(s => s.date >= priorFrom && s.date < recentFrom));
+            const last = sets[sets.length - 1];
+            let value = '&ndash;', meta = 'Not logged in the last 12 weeks';
+            if (recent) {
+                const d = prior ? recent.e1rm - prior.e1rm : null;
+                const change = d === null ? ''
+                    : d > 0 ? ` &middot; <span class="training-up">+${fmt(d)} lb</span> vs the 4 weeks before`
+                    : d < 0 ? ` &middot; <span class="training-down">&minus;${fmt(-d)} lb</span> vs the 4 weeks before`
+                    : ' &middot; same as the 4 weeks before';
+                value = `${fmt(recent.e1rm)} lb`;
+                meta = `Best set ${fmt(recent.weight)} &times; ${recent.reps} on ${shortDate(recent.date)}${change}`;
+            } else if (last) {
+                meta = `<span class="training-stale">Not trained in 4 weeks</span> &middot; last ${fmt(last.weight)} &times; ${last.reps} on ${shortDate(last.date)}`;
+            }
+            return `<div class="training-lift" data-lift="${key}">
+                <b>${label}</b> <span class="training-e1rm">${value}</span>
+                <span class="training-meta">${meta}</span>
+            </div>`;
+        }).join('');
+
+        // Last two weeks, newest first
+        const rows = t.sessions.filter(s => s.date >= daysAgo(13)).slice(-5).reverse().map(s => {
+            const bits = [this.escapeHtml(s.name)];
+            if (s.minutes) bits.push(`${fmt(s.minutes)} min`);
+            if (s.distance) bits.push(`${s.distance.toLocaleString('en-US')} ${this.escapeHtml(s.distanceUnit || '')}`.trim());
+            return `<li><span class="training-day">${shortDate(s.date, true)}</span> <span class="training-what">${bits.join(' &middot; ')}</span></li>`;
+        }).join('');
+
+        body.innerHTML = `
+            ${summary}
+            <div class="training-label">Muscle groups this week</div>
+            <div class="training-muscles">${chips}</div>
+            ${week.length && missing.length ? `<div class="training-meta training-gap">Not yet: ${missing.join(', ')}</div>` : ''}
+            <div class="training-label">Key lifts &middot; estimated 1-rep max</div>
+            <div class="training-lifts">${lifts}</div>
+            ${rows ? `<div class="training-label">Last 2 weeks</div><ul class="training-recent">${rows}</ul>` : ''}`;
+    }
+
+    async loadTraining() {
+        if (!this.convex || this._trainingLoading) return;
+        this._trainingLoading = true;
+        const today = this.localDateKey(new Date());
+        const from = new Date(); from.setDate(from.getDate() - 83); // 12 weeks, for the lift trends
+        try {
+            const res = await this.convex.query('workouts:getRange', { from: this.localDateKey(from), to: today });
+            this._training = { sessions: (res && res.sessions) || [], today, loadedAt: Date.now() };
+            if (this.applyWorkoutCheckoffs()) {
+                this.saveData();
+                this.renderAll(); // includes this card, now fresh
+            } else {
+                this.renderTraining();
+            }
+        } catch (e) {
+            console.error('[LifeOS] training load failed:', e);
+            this._training = { error: true, today, loadedAt: Date.now() };
+            this.renderTraining();
+        } finally {
+            this._trainingLoading = false;
+        }
+    }
+
+    // Tick the workout goals on each day a matching session was logged. Returns true if any cell changed.
+    applyWorkoutCheckoffs() {
+        const t = this._training;
+        if (!t || t.error) return false;
+        let changed = false;
+        for (const s of t.sessions) {
+            for (const g of this.WORKOUT_GOALS) {
+                if (g.hit(s) && this.autoTickGoal(g.pattern, s.date)) changed = true;
+            }
+        }
+        return changed;
     }
 
     renderHealthRings() {

@@ -16,6 +16,7 @@ import type * as lib_reminders from "../lib/reminders.js";
 import type * as nutrition from "../nutrition.js";
 import type * as push from "../push.js";
 import type * as pushNode from "../pushNode.js";
+import type * as workouts from "../workouts.js";
 
 import type {
   ApiFromModules,
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   nutrition: typeof nutrition;
   push: typeof push;
   pushNode: typeof pushNode;
+  workouts: typeof workouts;
 }>;
 
 /**
