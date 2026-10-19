@@ -10,8 +10,10 @@
 
 import type * as crons from "../crons.js";
 import type * as functions from "../functions.js";
+import type * as http from "../http.js";
 import type * as journal from "../journal.js";
 import type * as lib_reminders from "../lib/reminders.js";
+import type * as nutrition from "../nutrition.js";
 import type * as push from "../push.js";
 import type * as pushNode from "../pushNode.js";
 
@@ -24,8 +26,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   functions: typeof functions;
+  http: typeof http;
   journal: typeof journal;
   "lib/reminders": typeof lib_reminders;
+  nutrition: typeof nutrition;
   push: typeof push;
   pushNode: typeof pushNode;
 }>;

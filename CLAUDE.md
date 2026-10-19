@@ -29,8 +29,10 @@ Single-page web app (PWA) for personal goal tracking, health monitoring, and dai
 - `convex/pushNode.ts` — `"use node"` actions using `web-push`: `sendReminders` (cron) and `sendTest` (Settings button)
 - `convex/crons.ts` — runs `sendReminders` every 15 minutes
 - `convex/journal.ts` — importEntries (dedupes by date + text hash), listArchive, clearArchive for imported journal entries. **Keep large text out of the `userData` blob** — Convex documents max out at 1 MB and the blob is ~0.5 MB
+- `convex/nutrition.ts` — meals, saved meals, daily targets and weigh-ins (tables `meals`, `savedMeals`, `nutritionSettings`, `weighIns`). Public: `getRange` (per-day totals for the app), `pendingWeighIns`, `markWeighInsApplied`. Everything that writes meals is `internal` and only reachable through the connector
+- `convex/http.ts` — **Claude connector**: a minimal MCP server (JSON-RPC over POST) at `https://energetic-fly-308.convex.site/mcp/<MCP_TOKEN>`. Tools: log_meal, update_meal, delete_meal, get_day, get_summary, list/save/delete saved meals, set_targets, log_weight, get_weights. The token in the path is the only key (404 without it)
 - `convex/lib/reminders.ts` — "what's left today" + message text. **Mirrors the schedule rules in life-os.js** (classifyFrequency, scoringKind, getGoalDays, isExpected) — change both together
-- Env vars: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (site URL). Never print the private key
+- Env vars: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (site URL), `MCP_TOKEN` (connector key, 24+ chars). Never print the private key or the token
 - Deploy: `npx convex deploy` (uses `CONVEX_DEPLOY_KEY`)
 
 ## Build & Deploy Process
@@ -140,6 +142,13 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
   - Test button (`medSoundCheck`) and the in-player hint (`medVoiceProblem`) say *why* there's no voice: "Speak the guidance" off (the Test button plays regardless, so it warns), a download/decode error, or the iPhone pausing the sound (Pause → Resume wakes it). The generic volume hint shows only when there's no specific reason.
 - Finished sessions go in `data.meditationLog` (`{ date, ts, kind, minutes }`); 3- and 5-minute sessions also check off the goal whose name matches /meditat/i for today. Ending early (<90%) logs nothing.
 - The session clock is pause-aware (`medElapsed`, `medSleepUntil`); tests speed it up with `lifeOS._medTimeScale`.
+
+## Nutrition (meals logged from Claude)
+- **Claude does the work, the app keeps score.** The user tells Claude what they ate (photo, dictation, text); Claude logs it through the connector. The app never writes meals and has no meal forms: keep it that way, it's what keeps this feature small.
+- The Health tab **Nutrition card** (`renderNutrition` / `loadNutrition`) reads `nutrition:getRange` for the last 14 days: today's calories and protein against target, carbs/fat line, and a 14-day protein strip. Data is cached in `this._nutrition` and refetched when older than 60s or the day changed.
+- **Protein goal**: a goal whose name matches `PROTEIN_GOAL` (/protein target/i, e.g. "Protein target (190g)") is ticked `'X'` on each loaded day protein reached the target (`applyProteinCheckoffs`). "Doesn't apply" `'-'` days are left alone. Don't widen the pattern: "High protein/fat breakfast" must not match.
+- **Weigh-ins** from Claude land in `weighIns`; on load `applyWeighIns` copies them into `data.healthLog`, saves, then calls `markWeighInsApplied`. The server never rewrites the `userData` blob, so it can't race the app's own saves.
+- Tests: `tests/app.test.mjs` (Nutrition card scenario, Convex stubbed with `context.route`) and `npm run test:convex` (connector end to end in memory with convex-test).
 
 ## Architecture Notes
 
