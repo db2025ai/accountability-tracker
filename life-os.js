@@ -13,7 +13,7 @@ const DEFAULT_REMINDERS = { enabled: false, morning: '08:00', evening: '21:00', 
 // Imported journal entries (text) when Convex isn't connected; see loadArchive()
 const ARCHIVE_STORAGE_KEY = 'lifeOS_journalArchive';
 const ARCHIVE_PAGE = 30;
-const PDFJS_CDN = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build';
+const PDFJS_BASE = './vendor/pdfjs'; // pdfjs-dist 4.10.38, served from this site (vendor/README.md)
 const PLAY_ICON = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
 
 // ========================================
@@ -3718,8 +3718,8 @@ class LifeOS {
     // pdf.js is only loaded when a PDF is imported
     loadPdfJs() {
         if (!this._pdfjs) {
-            this._pdfjs = import(`${PDFJS_CDN}/pdf.min.mjs`).then(lib => {
-                lib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.mjs`;
+            this._pdfjs = import(`${PDFJS_BASE}/pdf.min.mjs`).then(lib => {
+                lib.GlobalWorkerOptions.workerSrc = new URL(`${PDFJS_BASE}/pdf.worker.min.mjs`, document.baseURI).href;
                 return lib;
             });
             this._pdfjs.catch(() => { this._pdfjs = null; });
