@@ -41,6 +41,8 @@ open('docs/index.html', 'w', encoding='utf-8').write(html)
 # Copy manifest.json and sw.js into docs/ so GitHub Pages can serve them
 import shutil, json
 shutil.copy('sw.js', 'docs/sw.js')
+# Libraries the page loads from this site (vendor/README.md)
+shutil.copytree('vendor', 'docs/vendor', dirs_exist_ok=True)
 manifest = json.load(open('manifest.json'))
 json.dump(manifest, open('docs/manifest.json', 'w'), indent=2)
 

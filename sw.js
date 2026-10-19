@@ -1,8 +1,8 @@
-const CACHE_NAME = 'life-os-v4';
+const CACHE_NAME = 'life-os-v5';
 const ASSETS_TO_CACHE = [
   '/accountability-tracker/',
   '/accountability-tracker/index.html',
-  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
+  '/accountability-tracker/vendor/chart.umd.js'
 ];
 
 // Install - cache core assets

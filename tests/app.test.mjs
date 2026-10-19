@@ -15,8 +15,7 @@ const { chromium } = playwright;
 
 // Serve docs/ at /accountability-tracker/ like GitHub Pages
 const DOCS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'docs');
-const PDFJS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'node_modules', 'pdfjs-dist', 'build');
-const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.json': 'application/json' };
+const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.mjs': 'application/javascript', '.json': 'application/json' };
 const server = http.createServer((req, res) => {
     const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/accountability-tracker\/?/, '') || 'index.html';
     const file = path.join(DOCS, rel);
@@ -99,7 +98,7 @@ async function newPage({ width = 1280, seedData = seed, time = '2026-10-13T15:00
     const context = await browser.newContext({ timezoneId: TZ, viewport: { width, height: 900 } });
     if (init) await context.addInitScript(init);
     if (notifications) await context.grantPermissions(['notifications'], { origin: ORIGIN });
-    await context.route('**/chart.umd.min.js', r => r.fulfill({ contentType: 'application/javascript', body: CHART_STUB }));
+    await context.route('**/vendor/chart.umd.js', r => r.fulfill({ contentType: 'application/javascript', body: CHART_STUB }));
     await context.addInitScript(([data]) => {
         if (!localStorage.getItem('__seeded')) {
             localStorage.setItem('lifeOSData', data);
@@ -308,7 +307,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     // Service worker: push shows a notification + sets badge; tap opens Today
     await page.evaluate(() => navigator.serviceWorker.ready);
     const sw = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
-    check('cache bumped', await sw.evaluate(() => caches.keys()), ['life-os-v4']);
+    check('cache bumped', await sw.evaluate(() => caches.keys()), ['life-os-v5']);
     const pushed = await sw.evaluate(async () => {
         const badge = [];
         self.navigator.setAppBadge = (n) => { badge.push(n); return Promise.resolve(); };
@@ -395,10 +394,6 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     const reflection = (ts) => ({ date: ts.slice(0, 10), timestamp: new Date(ts).toISOString(), wentWell: 'ok' });
     const journalSeed = { ...seed, eveningReflections: [reflection('2026-10-12T21:30:00-04:00'), reflection('2026-10-11T22:00:00-04:00')] };
     const { context, page, errors } = await newPage({ seedData: journalSeed, time: '2026-10-13T21:00:00-04:00' });
-    await context.route('**/pdfjs-dist@*/build/*', r => r.fulfill({
-        contentType: 'application/javascript',
-        body: fs.readFileSync(path.join(PDFJS_DIR, path.basename(new URL(r.request().url()).pathname)))
-    }));
     page.on('dialog', d => d.accept());
     console.log('\n— Journal: highlights, streak, import —');
     await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('journal'); });
@@ -848,6 +843,31 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     check('weigh-in marked applied after saving', calls.filter(c => c[0] === 'nutrition:markWeighInsApplied').map(c => c[1]), [{ ids: ['w1'] }]);
     check('day cells: hit, short, empty', await page.evaluate(() =>
         [...document.querySelectorAll('.nutrition-day')].slice(-3).map(d => d.className.replace('nutrition-day ', ''))), ['none', 'hit', 'short']);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
+// ================= Content Security Policy (only this site's code; data only to Convex) =================
+{
+    console.log('\n— Content Security Policy —');
+    const { context, page, errors } = await newPage();
+    const result = await page.evaluate(async () => {
+        const blocked = [];
+        document.addEventListener('securitypolicyviolation', e => blocked.push(e.effectiveDirective));
+        const script = await new Promise(res => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            s.onload = () => res('loaded'); s.onerror = () => res('blocked');
+            document.head.appendChild(s);
+        });
+        const send = await fetch('https://example.com/collect', { method: 'POST', body: 'x' }).then(() => 'sent', () => 'blocked');
+        await new Promise(r => setTimeout(r, 100));
+        return { script, send, blocked: [...new Set(blocked)].sort() };
+    });
+    check('an outside script is refused', result.script, 'blocked');
+    check('sending data to an outside site is refused', result.send, 'blocked');
+    check('both reported as policy violations', result.blocked, ['connect-src', 'script-src-elem']);
+    check('the app itself still runs (Chart.js from vendor/)', await page.evaluate(() => typeof window.Chart), 'function');
     check('no page errors', errors, []);
     await context.close();
 }
