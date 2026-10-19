@@ -3811,3 +3811,197 @@ textarea.autogrow {
 .training-recent li:first-child { border-top: 0; padding-top: 0; }
 .training-day { flex: 0 0 auto; min-width: 7.5em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .training-what { min-width: 0; overflow-wrap: anywhere; }
+
+/* ========================================
+   Workout mode: full screen like the Meditate player. A session Claude planned, set by set.
+   ======================================== */
+.workout-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+}
+.workout-screen[hidden] { display: none; }
+body.workout-open { overflow: hidden; }
+.workout-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--border-light);
+}
+.workout-top-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.workout-title {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.workout-clock { font-size: 0.8rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.workout-body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 12px 16px calc(96px + env(safe-area-inset-bottom));
+}
+.wk-plan-note { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 12px; }
+.wk-ex {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px;
+    margin-bottom: 12px;
+    min-width: 0;
+}
+.wk-ex.skipped { opacity: 0.6; }
+.wk-ex-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.wk-ex-head h3 { font-size: 1rem; margin: 0; min-width: 0; }
+.wk-tag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-tint);
+    border-radius: 999px;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+.wk-ex-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.wk-ex-note {
+    font-size: 0.82rem;
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+}
+.wk-sets { margin-top: 10px; }
+.wk-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) 68px 56px 40px;
+    gap: 6px;
+    align-items: center;
+    padding: 4px 0;
+    border-radius: var(--radius-sm);
+}
+.wk-head {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0;
+}
+.wk-head span:nth-child(3), .wk-head span:nth-child(4) { text-align: center; }
+.wk-set-n { text-align: center; font-weight: 600; font-size: 0.85rem; }
+.wk-row.warmup .wk-set-n { color: var(--warning); }
+.wk-prev {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+}
+.wk-in {
+    width: 100%;
+    min-width: 0;
+    font-size: 16px; /* iOS zooms into smaller fields */
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    color: var(--text);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.wk-check {
+    width: 40px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+.wk-row.done { background: var(--primary-tint); }
+.wk-row.done .wk-check { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.wk-ex-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; }
+.wk-link {
+    background: none;
+    border: 0;
+    padding: 6px 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--primary);
+    cursor: pointer;
+}
+.wk-flag.on { color: var(--danger); font-weight: 600; }
+.wk-discard { color: var(--danger); align-self: center; }
+.wk-add { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; margin-top: 4px; }
+.wk-add input, .wk-add select {
+    min-width: 0;
+    font-size: 16px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    color: var(--text);
+}
+.workout-rest {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--card-bg);
+    border-top: 1px solid var(--border-light);
+    box-shadow: var(--shadow);
+}
+.workout-rest[hidden] { display: none; }
+.workout-rest-label { font-size: 0.85rem; color: var(--text-muted); }
+.workout-rest-time { flex: 1; font-family: var(--font-serif); font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.workout-rest.over .workout-rest-label, .workout-rest.over .workout-rest-time { color: var(--primary); font-weight: 600; }
+.wk-finish { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
+.wk-finish h2 { font-family: var(--font-serif); margin: 0; }
+.wk-finish-stats { margin: 0; color: var(--text-muted); }
+.wk-finish label { font-weight: 600; font-size: 0.85rem; margin-top: 6px; }
+.wk-finish textarea {
+    font: inherit;
+    font-size: 16px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    color: var(--text);
+    resize: none;
+}
+.wk-finish-msg { font-size: 0.85rem; color: var(--text-muted); margin: 0; min-height: 1.2em; }
+.wk-bests { background: var(--primary-tint); border-radius: var(--radius-sm); padding: 10px 12px; }
+.wk-bests ul { margin: 4px 0 0; padding-left: 18px; }
+
+/* Training card: the session to start or resume */
+.wk-today {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 14px;
+    border-radius: var(--radius-sm);
+    background: var(--primary-tint);
+}
+.wk-today.empty, .wk-today.done { background: var(--surface); }
+.wk-today-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.88rem; }
+.wk-today-text small { color: var(--text-muted); font-size: 0.78rem; }

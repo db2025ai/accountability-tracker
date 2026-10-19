@@ -946,6 +946,92 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await context.close();
 }
 
+// ================= Workout mode (a session Claude planned, set by set) =================
+{
+    console.log('\n— Workout mode —');
+    const plan = { id: 'p1', date: '2026-10-13', name: 'Full body A', note: 'Bench focus, shoulder-friendly', status: 'planned',
+        exercises: [
+            { name: 'Bench press', lift: 'bench', muscles: ['chest'], restSec: 150, note: 'Stop if the shoulder goes past 3/10',
+              sets: [{ reps: 10, weight: 95, warmup: true }, { reps: 8, repsMax: 10, weight: 190 }, { reps: 8, repsMax: 10, weight: 190 }] },
+            { name: 'Romanian deadlift "RDL"', muscles: ['legs'], sets: [{ reps: 10, weight: 135 }] },
+        ] };
+    const ok = value => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', value }) });
+    let saved = null;
+    const { context, page, errors } = await newPage({
+        width: 390,
+        init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud'),
+    });
+    await context.route('https://fake-test.convex.cloud/**', r => {
+        const { path, args } = JSON.parse(r.request().postData() || '{}');
+        if (path === 'plans:forRange') return r.fulfill(ok(saved ? [{ ...plan, status: 'done' }] : [plan]));
+        if (path === 'workouts:getRange') return r.fulfill(ok({ sessions: [] }));
+        if (path === 'workouts:lastSets') return r.fulfill(ok({ 'bench press': { date: '2026-10-09', sets: [{ reps: 8, weight: 185 }, { reps: 7, weight: 185 }] } }));
+        if (path === 'workouts:finishSession') { saved = args; return r.fulfill(ok({ id: 'w1', newBests: [{ lift: 'bench', e1rm: 253, set: '190 × 10', previous: 234 }] })); }
+        if (path === 'nutrition:getRange') return r.fulfill(ok({ targets: { calories: 2400, protein: 190, carbs: 240, fat: 75 }, days: [] }));
+        return r.fulfill(ok([]));
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS);
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('health'); });
+    await page.waitForFunction(() => lifeOS._training && !lifeOS._trainingLoading && lifeOS._training.plans);
+    const flat = s => s.replace(/\s+/g, ' ').trim();
+    check('Training card offers today\'s plan', flat(await page.textContent('.wk-today')), 'Today’s workout Full body A · 2 exercises Bench focus, shoulder-friendly Start');
+
+    await page.click('.wk-today [data-wk="start"]');
+    check('workout screen opens over the app', [await page.isVisible('#workoutScreen'), await page.evaluate(() => document.body.classList.contains('workout-open'))], [true, true]);
+    await page.waitForFunction(() => lifeOS._workout.exercises[0].prev);
+    const bench = '.wk-ex[data-ex="0"]';
+    check('rows: warm-up, then Previous from last time', await page.$$eval(`${bench} .wk-row:not(.wk-head)`, rows => rows.map(r =>
+        [r.querySelector('.wk-set-n').textContent, r.querySelector('.wk-prev').textContent])), [['W', '–'], ['1', '185×8'], ['2', '185×7']]);
+    check('planned weight and reps filled in, range as placeholder', await page.$eval(`${bench} [data-set="1"]`, r =>
+        [...r.querySelectorAll('input')].map(i => [i.value, i.placeholder])), [['190', ''], ['8', '8–10']]);
+    check('coach note and targets shown', flat(await page.textContent(`${bench} .wk-ex-meta`)) + ' | ' + await page.textContent(`${bench} .wk-ex-note`),
+        '2 sets × 8–10 · rest 2:30 | Stop if the shoulder goes past 3/10');
+    check('a quote in a name stays inside its label', await page.getAttribute('.wk-ex[data-ex="1"] [data-set="0"] .wk-check', 'aria-label'), 'Romanian deadlift "RDL" set 1 done');
+
+    await page.fill(`${bench} [data-set="1"] [data-field="reps"]`, '10');
+    await page.click(`${bench} [data-set="1"] .wk-check`);
+    check('ticked set turns blue and starts the rest timer', [await page.getAttribute(`${bench} [data-set="1"]`, 'class'), await page.isVisible('#workoutRest'),
+        await page.textContent('#workoutRestTime')], ['wk-row done', true, '2:30']);
+    await page.click('[data-wk="rest-plus"]');
+    check('+15 adds to the rest', await page.textContent('#workoutRestTime'), '2:45');
+    await page.click('[data-wk="rest-skip"]');
+    check('Skip ends the rest', await page.isVisible('#workoutRest'), false);
+    await page.fill(`${bench} [data-set="2"] [data-field="reps"]`, '');
+    await page.click(`${bench} [data-set="2"] .wk-check`);
+    check('an empty reps box takes the target', await page.inputValue(`${bench} [data-set="2"] [data-field="reps"]`), '8');
+    await page.click(`${bench} [data-wk="flag"]`);
+    await page.click('.wk-ex[data-ex="1"] [data-wk="skip"]');
+    check('flag and skip', [await page.getAttribute(`${bench} [data-wk="flag"]`, 'aria-pressed'), await page.getAttribute('.wk-ex[data-ex="1"]', 'class')], ['true', 'wk-ex skipped']);
+
+    // A reload mid-workout loses nothing
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS);
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('health'); });
+    await page.waitForFunction(() => lifeOS._training && !lifeOS._trainingLoading);
+    check('card offers Resume', flat(await page.textContent('.wk-today')), 'Workout in progress Full body A · 0 min Resume');
+    await page.click('.wk-today [data-wk="resume"]');
+    check('sets come back as they were', [await page.inputValue(`${bench} [data-set="1"] [data-field="reps"]`),
+        await page.getAttribute(`${bench} [data-set="2"]`, 'class')], ['10', 'wk-row done']);
+
+    await page.click('#workoutFinishBtn');
+    check('finish summary', flat(await page.textContent('.wk-finish-stats')), '1 min · 2 sets · 3,420 lb lifted');
+    await page.fill('#wkNotes', 'Shoulder fine, 2/10');
+    await page.click('[data-wk="save"]');
+    await page.waitForFunction(() => lifeOS._workoutView === 'saved');
+    check('Finish sends only the ticked working sets', [saved.externalId.startsWith('app-'), saved.planId, saved.date, saved.name, saved.minutes],
+        [true, 'p1', '2026-10-13', 'Full body A', 1]);
+    check('…with the flag and the skipped exercise', [saved.exercises, saved.notes], [[{ name: 'Bench press', muscles: ['chest'],
+        sets: [{ reps: 10, weight: 190 }, { reps: 8, weight: 190 }], lift: 'bench', note: 'Felt discomfort' }], 'Shoulder fine, 2/10\nSkipped: Romanian deadlift "RDL"']);
+    check('new best shown', /Bench press: 253 lb estimated 1-rep max \(190 × 10\)/.test(await page.textContent('.wk-bests')), true);
+    check('session cleared from the phone', await page.evaluate(() => localStorage.getItem('lifeOS_activeWorkout')), null);
+    await page.click('[data-wk="close"]');
+    await page.waitForFunction(() => lifeOS._training && !lifeOS._trainingLoading);
+    check('screen closes; card shows it done', [await page.isVisible('#workoutScreen'), flat(await page.textContent('.wk-today'))], [false, 'Done today Full body A']);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASSED');

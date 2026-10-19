@@ -28,6 +28,7 @@ const exercise = {
         "Only for the key lifts: barbell bench press, back squat, deadlift (conventional or sumo), standing barbell overhead press. Leave out for everything else",
     },
     muscles: { type: "array", items: { type: "string", enum: MUSCLES }, description: "1-2 primary muscle groups" },
+    note: { type: "string", description: 'How it felt, e.g. "Felt discomfort at the bottom"' },
     sets: {
       type: "array",
       items: {
@@ -212,7 +213,99 @@ const TOOLS: Tool[] = [
     inputSchema: { type: "object", properties: { from: date, to: date }, required: ["from", "to"] },
     run: (ctx, a) => ctx.runQuery(internal.workouts.liftProgress, { from: String(a.from), to: String(a.to) }),
   },
+  {
+    name: "get_training_profile",
+    description: "What to remember when planning workouts: injuries and how they're going, equipment, schedule, goals. Read it before plan_workout.",
+    inputSchema: { type: "object", properties: {} },
+    run: (ctx) => ctx.runQuery(internal.plans.getProfile, {}),
+  },
+  {
+    name: "set_training_profile",
+    description:
+      "Save the training profile. It replaces the old one, so include everything still true (update injury notes as they change).",
+    inputSchema: {
+      type: "object",
+      properties: { notes: { type: "string", description: "Plain text: injuries, equipment, schedule, goals, preferences" }, daysPerWeek: num },
+      required: ["notes"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.plans.setProfile, pick(a, ["notes", "daysPerWeek"])),
+  },
+  {
+    name: "plan_workout",
+    description:
+      "Plan one lifting session for Life OS workout mode; Daniel runs it in the app, ticking off each set, and Finish logs it. " +
+      "First read get_training_profile, the last 2-3 weeks of get_workouts (including exercise notes like \"Felt discomfort\" and session notes) and get_lift_progress. " +
+      "Build full-body sessions around bench, squat, deadlift and overhead press (set `lift` on those) plus accessories for muscle groups that went untrained. " +
+      "Progress from his last numbers: if every working set reached the top of its rep range, add about 5 lb (upper body) or 10 lb (lower body); if he missed reps or flagged discomfort, hold or switch to a friendlier variation. " +
+      "Work within the profile's injury notes. Put form cues and pain rules in each exercise's note. Replaces an unstarted plan on the same date.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        date,
+        name: { type: "string", description: 'e.g. "Full body A"' },
+        note: { type: "string", description: "The day's focus in a sentence or two" },
+        exercises: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: str,
+              lift: exercise.properties.lift,
+              muscles: exercise.properties.muscles,
+              note: { type: "string", description: "Form cue or pain rule shown under the exercise" },
+              restSec: { type: "number", description: "Rest after each set; about 150-180 for key lifts, 60-90 for accessories" },
+              sets: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    reps: { type: "number", description: "Target reps (the bottom of the range if repsMax is set)" },
+                    repsMax: { type: "number", description: "Top of the rep range" },
+                    weight: { type: "number", description: "lb, 0 for bodyweight" },
+                    warmup: { type: "boolean" },
+                  },
+                  required: ["reps", "weight"],
+                },
+              },
+            },
+            required: ["name", "muscles", "sets"],
+          },
+        },
+      },
+      required: ["date", "name", "exercises"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.plans.planWorkout, pickPlan(a)),
+  },
+  {
+    name: "get_plans",
+    description: "Planned sessions between two dates with their status (planned or done).",
+    inputSchema: { type: "object", properties: { from: date, to: date }, required: ["from", "to"] },
+    run: (ctx, a) => ctx.runQuery(internal.plans.listPlans, { from: String(a.from), to: String(a.to) }),
+  },
+  {
+    name: "delete_plan",
+    description: "Delete a planned session by id (from get_plans).",
+    inputSchema: { type: "object", properties: { id: str }, required: ["id"] },
+    run: (ctx, a) => ctx.runMutation(internal.plans.deletePlan, { id: String(a.id) }),
+  },
 ];
+
+// Same clean-up as pickWorkout, for a plan's exercises and their target sets
+function pickPlan(a: any) {
+  const out = pick(a, ["date", "name", "note"]);
+  out.exercises = (Array.isArray(a?.exercises) ? a.exercises : []).map((e: any) => {
+    const [ex] = pickWorkout({ exercises: [e] }, ["exercises"]).exercises;
+    if (e?.restSec !== undefined && Number.isFinite(Number(e.restSec))) ex.restSec = Number(e.restSec);
+    ex.sets = (Array.isArray(e?.sets) ? e.sets : []).map((s: any) => {
+      const set: Record<string, unknown> = { reps: Number(s?.reps) || 0, weight: Number(s?.weight) || 0 };
+      if (s?.repsMax !== undefined && s?.repsMax !== null && Number.isFinite(Number(s.repsMax))) set.repsMax = Number(s.repsMax);
+      if (s?.warmup) set.warmup = true;
+      return set;
+    });
+    return ex;
+  });
+  return out;
+}
 
 const WORKOUT_KEYS = ["date", "time", "type", "name", "minutes", "exercises", "distance", "distanceUnit", "calories", "avgHr", "source", "externalId", "notes"];
 
@@ -236,6 +329,7 @@ function pickWorkout(a: any, keys: string[]) {
         sets: (Array.isArray(e?.sets) ? e.sets : []).map((s: any) => ({ reps: Number(s?.reps) || 0, weight: Number(s?.weight) || 0 })),
       };
       if (e?.lift !== undefined && e?.lift !== null && e?.lift !== "") ex.lift = String(e.lift).toLowerCase();
+      if (e?.note) ex.note = String(e.note);
       return ex;
     });
   }
@@ -268,7 +362,8 @@ const INSTRUCTIONS =
   "Life OS is Daniel's accountability app. Use these tools to log meals, weigh-ins and workouts he describes, " +
   "photographs or dictates, and to answer how his day, week or training is going. Always confirm an estimate before " +
   "log_meal. For lifting, bench, squat, deadlift and overhead press are the focus: say when one hits a new best " +
-  "or hasn't been trained in a while. Dates are local (America/New_York) YYYY-MM-DD.";
+  "or hasn't been trained in a while. When he asks for a workout, plan it with plan_workout so he can run it in the " +
+  "app's workout mode, and keep the training profile current. Dates are local (America/New_York) YYYY-MM-DD.";
 
 type Rpc = { jsonrpc: "2.0"; id?: string | number | null; method: string; params?: any };
 

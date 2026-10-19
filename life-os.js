@@ -350,6 +350,7 @@ class LifeOS {
         this.bindForms();
         this.bindQuickActions();
         this.bindHealthLog();
+        this.bindWorkout();
         this.bindHabits();
         this.bindJournal();
         this.bindReview();
@@ -2273,6 +2274,7 @@ class LifeOS {
         }).join('');
 
         body.innerHTML = `
+            ${this.workoutTodayHtml(t)}
             ${summary}
             <div class="training-label">Muscle groups this week</div>
             <div class="training-muscles">${chips}</div>
@@ -2287,9 +2289,14 @@ class LifeOS {
         this._trainingLoading = true;
         const today = this.localDateKey(new Date());
         const from = new Date(); from.setDate(from.getDate() - 83); // 12 weeks, for the lift trends
+        const weekAhead = new Date(); weekAhead.setDate(weekAhead.getDate() + 6);
         try {
-            const res = await this.convex.query('workouts:getRange', { from: this.localDateKey(from), to: today });
-            this._training = { sessions: (res && res.sessions) || [], today, loadedAt: Date.now() };
+            const [res, plans] = await Promise.all([
+                this.convex.query('workouts:getRange', { from: this.localDateKey(from), to: today }),
+                // Plans Claude made for workout mode; the card still works if this fails
+                this.convex.query('plans:forRange', { from: today, to: this.localDateKey(weekAhead) }).catch(() => []),
+            ]);
+            this._training = { sessions: (res && res.sessions) || [], plans: plans || [], today, loadedAt: Date.now() };
             if (this.applyWorkoutCheckoffs()) {
                 this.saveData();
                 this.renderAll(); // includes this card, now fresh
@@ -2316,6 +2323,422 @@ class LifeOS {
             }
         }
         return changed;
+    }
+
+    // ========================================
+    // Workout mode (Strong/Hevy-style): run a session Claude planned, set by set. The session in
+    // progress lives in localStorage (lifeOS_activeWorkout), so a locked phone or a reload loses
+    // nothing; Finish saves the ticked sets through workouts:finishSession.
+    // ========================================
+    get WORKOUT_KEY() { return 'lifeOS_activeWorkout'; }
+
+    loadActiveWorkout() {
+        if (this._workout === undefined) {
+            try { this._workout = JSON.parse(this.getLocal(this.WORKOUT_KEY)) || null; } catch { this._workout = null; }
+        }
+        return this._workout;
+    }
+
+    saveActiveWorkout() {
+        if (this._workout) this.setLocal(this.WORKOUT_KEY, JSON.stringify(this._workout));
+        else try { localStorage.removeItem(this.WORKOUT_KEY); } catch { /* storage unavailable */ }
+    }
+
+    fmtClock(sec) {
+        sec = Math.max(0, Math.round(sec));
+        const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = String(sec % 60).padStart(2, '0');
+        return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+    }
+
+    dayLabel(key) {
+        const [y, m, d] = key.split('-').map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+
+    // Top of the Training card: resume, today's plan (or the next one), or how to get one
+    workoutTodayHtml(t) {
+        const esc = s => this.escapeHtml(s);
+        const active = this.loadActiveWorkout();
+        if (active) {
+            const mins = Math.round((Date.now() - active.startedAt) / 60000);
+            return `<div class="wk-today">
+                <div class="wk-today-text"><b>Workout in progress</b> <span>${esc(active.name)} &middot; ${mins} min</span></div>
+                <button class="btn btn-primary" data-wk="resume">Resume</button>
+            </div>`;
+        }
+        const plans = t.plans || [];
+        const todays = plans.find(p => p.date === t.today);
+        if (todays && todays.status === 'done') {
+            return `<div class="wk-today done"><div class="wk-today-text"><b>Done today</b> <span>${esc(todays.name)}</span></div></div>`;
+        }
+        const next = todays || plans.find(p => p.status === 'planned' && p.date > t.today);
+        if (next) {
+            return `<div class="wk-today">
+                <div class="wk-today-text">
+                    <b>${next.date === t.today ? 'Today&rsquo;s workout' : `Next: ${this.dayLabel(next.date)}`}</b>
+                    <span>${esc(next.name)} &middot; ${next.exercises.length} ${next.exercises.length === 1 ? 'exercise' : 'exercises'}</span>
+                    ${next.note ? `<small>${esc(next.note)}</small>` : ''}
+                </div>
+                <button class="btn btn-primary" data-wk="start" data-plan="${this.escapeAttr(next.id)}">Start</button>
+            </div>`;
+        }
+        return `<div class="wk-today empty">
+            <div class="wk-today-text"><span>Ask Claude to plan your next session and it shows up here, ready to start.</span></div>
+            <button class="btn btn-secondary btn-sm" data-wk="start">Empty workout</button>
+        </div>`;
+    }
+
+    // Key lifts in an exercise someone adds by hand, so they still count for progress
+    guessLift(name) {
+        const n = name.trim().toLowerCase();
+        if (/^(barbell )?bench( press)?$/.test(n)) return 'bench';
+        if (/^(barbell )?(back )?squats?$/.test(n)) return 'squat';
+        if (/deadlift/.test(n) && !/romanian|rdl|stiff/.test(n)) return 'deadlift';
+        if (/^(standing )?(barbell )?(overhead|military|ohp)( press)?$/.test(n)) return 'ohp';
+        return null;
+    }
+
+    newWorkoutExercise(e) {
+        const sets = e.sets && e.sets.length ? e.sets : [{ reps: '', weight: '' }, { reps: '', weight: '' }, { reps: '', weight: '' }];
+        return {
+            name: e.name, lift: e.lift || null, muscles: e.muscles || [], note: e.note || '',
+            restSec: e.restSec ?? (e.lift ? 150 : 90),
+            prev: null, flagged: false, skipped: false,
+            sets: sets.map(s => ({ weight: s.weight, reps: s.reps, target: s.reps === '' ? null : s.reps, repsMax: s.repsMax || null, warmup: !!s.warmup, done: false })),
+        };
+    }
+
+    startWorkout(planId) {
+        if (this.loadActiveWorkout()) return this.openWorkout();
+        const plan = planId ? (this._training?.plans || []).find(p => p.id === planId) : null;
+        this._workout = {
+            id: `app-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            planId: plan ? plan.id : null,
+            date: this.localDateKey(new Date()),
+            name: plan ? plan.name : 'Workout',
+            note: plan?.note || '',
+            notes: '',
+            startedAt: Date.now(),
+            restEndsAt: null,
+            exercises: (plan ? plan.exercises : []).map(e => this.newWorkoutExercise(e)),
+        };
+        this.saveActiveWorkout();
+        this.openWorkout();
+        this.loadPreviousSets();
+    }
+
+    // Fill the Previous column (and empty weight/reps) from the last time each exercise was done
+    async loadPreviousSets() {
+        const w = this._workout;
+        const names = w ? w.exercises.filter(e => !e.prev).map(e => e.name) : [];
+        if (!names.length || !this.convex) return;
+        try {
+            const prev = await this.convex.query('workouts:lastSets', { names });
+            if (this._workout !== w || !prev) return;
+            for (const e of w.exercises) {
+                const p = prev[e.name.trim().toLowerCase()];
+                if (!p || e.prev) continue;
+                e.prev = p.sets.map(x => `${x.weight || 'BW'}×${x.reps}`);
+                e.sets.filter(x => !x.warmup).forEach((x, i) => {
+                    const last = p.sets[Math.min(i, p.sets.length - 1)];
+                    if (x.weight === '' || x.weight == null) x.weight = last.weight;
+                    if (x.reps === '' || x.reps == null) x.reps = last.reps;
+                });
+            }
+            this.saveActiveWorkout();
+            this.renderWorkout();
+        } catch (e) { /* offline: Previous stays blank */ }
+    }
+
+    openWorkout() {
+        if (!this.loadActiveWorkout()) return;
+        this._workoutView = 'sets';
+        document.getElementById('workoutScreen').hidden = false;
+        document.body.classList.add('workout-open');
+        this.renderWorkout();
+        clearInterval(this._workoutTick);
+        this._workoutTick = setInterval(() => this.tickWorkout(), 500);
+        this.tickWorkout();
+        // Keeps the screen on between sets. Never awaited: it can hang in Home Screen apps
+        if (!this._workoutLock) navigator.wakeLock?.request('screen').then(l => { this._workoutLock = l; }).catch(() => {});
+    }
+
+    // Hide leaves the session running; the Training card offers Resume
+    hideWorkout() {
+        document.getElementById('workoutScreen').hidden = true;
+        document.body.classList.remove('workout-open');
+        clearInterval(this._workoutTick);
+        this._workoutLock?.release?.().catch(() => {});
+        this._workoutLock = null;
+        this._discardArmed = false;
+        this.renderTraining();
+    }
+
+    renderWorkout() {
+        const body = document.getElementById('workoutBody');
+        if (this._workoutView === 'saved') return this.renderWorkoutSaved(body);
+        const w = this._workout;
+        if (!w) return;
+        document.getElementById('workoutTitle').textContent = w.name;
+        document.getElementById('workoutFinishBtn').hidden = false;
+        if (this._workoutView === 'finish') return this.renderWorkoutFinish(body);
+        const esc = s => this.escapeHtml(s);
+        const check = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+        const cards = w.exercises.map((e, i) => {
+            const working = e.sets.filter(x => !x.warmup);
+            const range = working[0]?.repsMax ? `${working[0].target}&ndash;${working[0].repsMax}` : (working[0]?.target ?? '');
+            const meta = [`${working.length} ${working.length === 1 ? 'set' : 'sets'}${range !== '' ? ` &times; ${range}` : ''}`, `rest ${this.fmtClock(e.restSec)}`].join(' &middot; ');
+            let n = 0;
+            const rows = e.sets.map((x, j) => {
+                const label = x.warmup ? 'W' : String(++n);
+                const prev = x.warmup ? '' : (e.prev && e.prev[Math.min(n - 1, e.prev.length - 1)]) || '';
+                const placeholder = x.repsMax ? `${x.target}–${x.repsMax}` : (x.target ?? '');
+                const what = `${this.escapeAttr(e.name)} set ${label}`;
+                return `<div class="wk-row${x.done ? ' done' : ''}${x.warmup ? ' warmup' : ''}" data-set="${j}">
+                    <span class="wk-set-n">${label}</span>
+                    <span class="wk-prev">${prev ? esc(prev) : '&ndash;'}</span>
+                    <input class="wk-in" data-field="weight" type="number" inputmode="decimal" step="any" min="0" value="${x.weight ?? ''}" aria-label="${what} weight, lb">
+                    <input class="wk-in" data-field="reps" type="number" inputmode="numeric" min="0" value="${x.reps ?? ''}" placeholder="${placeholder}" aria-label="${what} reps">
+                    <button class="wk-check" data-wk="done" aria-pressed="${x.done}" aria-label="${what} done">${check}</button>
+                </div>`;
+            }).join('');
+            return `<section class="wk-ex${e.skipped ? ' skipped' : ''}" data-ex="${i}">
+                <div class="wk-ex-head"><h3>${esc(e.name)}</h3>${e.lift ? '<span class="wk-tag">Key lift</span>' : ''}</div>
+                <div class="wk-ex-meta">${meta}</div>
+                ${e.note ? `<p class="wk-ex-note">${esc(e.note)}</p>` : ''}
+                ${e.skipped ? '<p class="wk-ex-note">Skipped</p>' : `<div class="wk-sets">
+                    <div class="wk-row wk-head" aria-hidden="true"><span>Set</span><span>Previous</span><span>lb</span><span>Reps</span><span></span></div>
+                    ${rows}
+                </div>`}
+                <div class="wk-ex-actions">${e.skipped
+                    ? '<button class="wk-link" data-wk="unskip">Undo skip</button>'
+                    : `<button class="wk-link" data-wk="add-set">+ Add set</button>
+                       <button class="wk-link wk-flag${e.flagged ? ' on' : ''}" data-wk="flag" aria-pressed="${e.flagged}">Felt discomfort</button>
+                       <button class="wk-link" data-wk="skip">Skip</button>`}
+                </div>
+            </section>`;
+        }).join('');
+        const muscles = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core'].map(m => `<option value="${m}">${m[0].toUpperCase() + m.slice(1)}</option>`).join('');
+        body.innerHTML = `
+            ${w.note ? `<p class="wk-plan-note">${esc(w.note)}</p>` : ''}
+            ${cards || '<p class="training-note">Add your first exercise below.</p>'}
+            <div class="wk-add">
+                <input id="wkAddName" type="text" placeholder="Add an exercise" aria-label="Exercise name" autocomplete="off">
+                <select id="wkAddMuscle" aria-label="Muscle group"><option value="">Muscle</option>${muscles}</select>
+                <button class="btn btn-secondary btn-sm" data-wk="add-ex">Add</button>
+            </div>`;
+    }
+
+    workoutTotals(w) {
+        const sets = w.exercises.filter(e => !e.skipped).flatMap(e => e.sets.filter(x => x.done && !x.warmup));
+        return {
+            minutes: Math.max(1, Math.round((Date.now() - w.startedAt) / 60000)),
+            sets: sets.length,
+            volume: sets.reduce((n, x) => n + (Number(x.weight) || 0) * (Number(x.reps) || 0), 0),
+        };
+    }
+
+    renderWorkoutFinish(body) {
+        const w = this._workout;
+        const esc = s => this.escapeHtml(s);
+        const t = this.workoutTotals(w);
+        const skipped = w.exercises.filter(e => e.skipped).map(e => e.name);
+        document.getElementById('workoutFinishBtn').hidden = true;
+        body.innerHTML = `<div class="wk-finish">
+            <h2>Finish workout?</h2>
+            <p class="wk-finish-stats">${t.minutes} min &middot; ${t.sets} ${t.sets === 1 ? 'set' : 'sets'} &middot; ${Math.round(t.volume).toLocaleString('en-US')} lb lifted</p>
+            ${skipped.length ? `<p class="training-meta">Skipped: ${skipped.map(esc).join(', ')}</p>` : ''}
+            <label for="wkNotes">Notes for your coach</label>
+            <textarea id="wkNotes" class="autogrow" rows="2" placeholder="How did it feel? How was the shoulder?">${esc(w.notes || '')}</textarea>
+            <button class="btn btn-primary" data-wk="save">Save workout</button>
+            <button class="btn btn-secondary" data-wk="back">Back to workout</button>
+            <button class="wk-link wk-discard" data-wk="discard">${this._discardArmed ? 'Tap again to discard' : 'Discard workout'}</button>
+            <p class="wk-finish-msg" id="wkFinishMsg" aria-live="polite"></p>
+        </div>`;
+        this.autoGrow(document.getElementById('wkNotes'));
+    }
+
+    renderWorkoutSaved(body) {
+        const r = this._workoutResult;
+        const esc = s => this.escapeHtml(s);
+        const names = { bench: 'Bench press', squat: 'Squat', deadlift: 'Deadlift', ohp: 'Overhead press' };
+        document.getElementById('workoutFinishBtn').hidden = true;
+        body.innerHTML = `<div class="wk-finish">
+            <h2>Workout saved</h2>
+            <p class="wk-finish-stats">${esc(r.name)} &middot; ${r.minutes} min &middot; ${r.sets} ${r.sets === 1 ? 'set' : 'sets'}</p>
+            ${r.newBests.length ? `<div class="wk-bests"><b>New best${r.newBests.length > 1 ? 's' : ''}</b><ul>${r.newBests.map(b =>
+                `<li>${names[b.lift] || esc(b.lift)}: ${b.e1rm} lb estimated 1-rep max (${esc(b.set)})</li>`).join('')}</ul></div>` : ''}
+            <p class="training-meta">Claude sees this session and your notes when it plans the next one.</p>
+            <button class="btn btn-primary" data-wk="close">Done</button>
+        </div>`;
+    }
+
+    async saveWorkout() {
+        const w = this._workout;
+        const msg = document.getElementById('wkFinishMsg');
+        const exercises = w.exercises.filter(e => !e.skipped).map(e => {
+            const ex = { name: e.name, muscles: e.muscles, sets: e.sets.filter(x => x.done && !x.warmup).map(x => ({ reps: Number(x.reps), weight: Number(x.weight) || 0 })) };
+            if (e.lift) ex.lift = e.lift;
+            if (e.flagged) ex.note = 'Felt discomfort';
+            return ex;
+        }).filter(e => e.sets.length);
+        if (!exercises.length) {
+            msg.textContent = 'Tick off at least one set, or discard the workout.';
+            return;
+        }
+        const skipped = w.exercises.filter(e => e.skipped).map(e => e.name);
+        const notes = [(w.notes || '').trim(), skipped.length ? `Skipped: ${skipped.join(', ')}` : ''].filter(Boolean).join('\n');
+        const totals = this.workoutTotals(w);
+        const payload = { externalId: w.id, date: w.date, name: w.name, minutes: totals.minutes, exercises };
+        if (w.planId) payload.planId = w.planId;
+        if (notes) payload.notes = notes;
+        const btn = document.querySelector('[data-wk="save"]');
+        btn.disabled = true;
+        msg.textContent = 'Saving…';
+        try {
+            const res = await this.convex.mutation('workouts:finishSession', payload);
+            this._workoutResult = { name: w.name, minutes: totals.minutes, sets: totals.sets, newBests: (res && res.newBests) || [] };
+            this._workout = null;
+            this.saveActiveWorkout();
+            this._workoutView = 'saved';
+            this.renderWorkout();
+            this.tickWorkout();
+            // Refetch: the card shows the session and the workout goals tick
+            this._training = null;
+            this.loadTraining();
+        } catch (e) {
+            console.error('[LifeOS] workout save failed:', e);
+            btn.disabled = false;
+            msg.textContent = 'Couldn’t save. The workout is kept on this phone; try again when you’re online.';
+        }
+    }
+
+    startRest(sec) {
+        const w = this._workout;
+        if (!w || !sec) return;
+        w.restEndsAt = Date.now() + sec * 1000;
+        this._restChimed = false;
+        this.saveActiveWorkout();
+        this.tickWorkout();
+    }
+
+    // Every 500ms while the screen is open: elapsed clock and the rest countdown (both from
+    // timestamps, so they're right again the moment the phone wakes)
+    tickWorkout() {
+        const w = this._workout;
+        const bar = document.getElementById('workoutRest');
+        if (!w) { bar.hidden = true; return; }
+        document.getElementById('workoutClock').textContent = this.fmtClock((Date.now() - w.startedAt) / 1000);
+        if (!w.restEndsAt || this._workoutView !== 'sets') { bar.hidden = true; return; }
+        const left = (w.restEndsAt - Date.now()) / 1000;
+        bar.hidden = false;
+        bar.classList.toggle('over', left <= 0);
+        document.getElementById('workoutRestLabel').textContent = left > 0 ? 'Rest' : 'Rest over';
+        document.getElementById('workoutRestTime').textContent = this.fmtClock(Math.ceil(Math.max(0, left)));
+        if (left <= 0 && !this._restChimed) {
+            this._restChimed = true;
+            this.medChime(true);
+            navigator.vibrate?.(200);
+        }
+        if (left < -20) { w.restEndsAt = null; this.saveActiveWorkout(); bar.hidden = true; }
+    }
+
+    bindWorkout() {
+        document.getElementById('trainingBody')?.addEventListener('click', e => {
+            const btn = e.target.closest('[data-wk]');
+            if (!btn) return;
+            if (btn.dataset.wk === 'resume') this.openWorkout();
+            if (btn.dataset.wk === 'start') this.startWorkout(btn.dataset.plan);
+        });
+        document.getElementById('workoutMinimizeBtn').addEventListener('click', () => this.hideWorkout());
+        document.getElementById('workoutFinishBtn').addEventListener('click', () => {
+            this._workoutView = 'finish';
+            this._discardArmed = false;
+            this.renderWorkout();
+            this.tickWorkout();
+        });
+        const screen = document.getElementById('workoutScreen');
+        screen.addEventListener('input', e => {
+            const w = this._workout;
+            if (!w) return;
+            if (e.target.id === 'wkNotes') { w.notes = e.target.value; this.saveActiveWorkout(); return; }
+            if (!e.target.matches('.wk-in')) return;
+            const ex = w.exercises[e.target.closest('[data-ex]').dataset.ex];
+            const set = ex.sets[e.target.closest('[data-set]').dataset.set];
+            set[e.target.dataset.field] = e.target.value === '' ? '' : Number(e.target.value);
+            this.saveActiveWorkout();
+        });
+        screen.addEventListener('click', e => {
+            const btn = e.target.closest('[data-wk]');
+            if (!btn) return;
+            const w = this._workout;
+            const action = btn.dataset.wk;
+            if (action === 'close') { this._workoutView = 'sets'; this.hideWorkout(); return; }
+            if (!w) return;
+            const exEl = btn.closest('[data-ex]');
+            const ex = exEl && w.exercises[exEl.dataset.ex];
+            if (action === 'done') {
+                // Unlock audio from the tap, so the end-of-rest chime can play
+                try { (this._medAudio || (this._medAudio = new (window.AudioContext || window.webkitAudioContext)())).resume(); } catch { /* no audio */ }
+                const set = ex.sets[btn.closest('[data-set]').dataset.set];
+                if (!set.done) {
+                    if (set.reps === '' || set.reps == null) set.reps = set.target ?? '';
+                    if (set.reps === '' || !(Number(set.reps) > 0)) {
+                        btn.closest('[data-set]').querySelector('[data-field="reps"]').focus();
+                        return;
+                    }
+                    if (set.weight === '' || set.weight == null) set.weight = 0;
+                    set.done = true;
+                    this.startRest(set.warmup ? Math.min(60, ex.restSec) : ex.restSec);
+                } else {
+                    set.done = false;
+                }
+            } else if (action === 'add-set') {
+                const last = ex.sets[ex.sets.length - 1] || { weight: '', reps: '', target: null, repsMax: null };
+                ex.sets.push({ weight: last.weight, reps: last.reps, target: last.target, repsMax: last.repsMax, warmup: false, done: false });
+            } else if (action === 'flag') {
+                ex.flagged = !ex.flagged;
+            } else if (action === 'skip' || action === 'unskip') {
+                ex.skipped = action === 'skip';
+            } else if (action === 'add-ex') {
+                const name = document.getElementById('wkAddName').value.trim();
+                if (!name) { document.getElementById('wkAddName').focus(); return; }
+                const muscle = document.getElementById('wkAddMuscle').value;
+                w.exercises.push(this.newWorkoutExercise({ name, lift: this.guessLift(name), muscles: muscle ? [muscle] : [] }));
+                this.saveActiveWorkout();
+                this.renderWorkout();
+                this.loadPreviousSets();
+                return;
+            } else if (action === 'rest-minus' || action === 'rest-plus') {
+                if (!w.restEndsAt) return;
+                w.restEndsAt = Math.max(Date.now(), w.restEndsAt) + (action === 'rest-plus' ? 15e3 : -15e3);
+                this._restChimed = w.restEndsAt <= Date.now();
+                this.saveActiveWorkout();
+                this.tickWorkout();
+                return;
+            } else if (action === 'rest-skip') {
+                w.restEndsAt = null;
+                this.saveActiveWorkout();
+                this.tickWorkout();
+                return;
+            } else if (action === 'back') {
+                this._workoutView = 'sets';
+                this._discardArmed = false;
+            } else if (action === 'save') {
+                this.saveWorkout();
+                return;
+            } else if (action === 'discard') {
+                if (!this._discardArmed) { this._discardArmed = true; this.renderWorkout(); return; }
+                this._workout = null;
+                this.saveActiveWorkout();
+                this._workoutView = 'sets';
+                this.hideWorkout();
+                return;
+            }
+            this.saveActiveWorkout();
+            this.renderWorkout();
+            this.tickWorkout();
+        });
     }
 
     renderHealthRings() {
@@ -4825,6 +5248,11 @@ class LifeOS {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    // For attribute values: escapeHtml leaves quotes alone
+    escapeAttr(str) {
+        return this.escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     timeAgo(date) {
