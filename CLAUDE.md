@@ -33,9 +33,16 @@ Single-page web app (PWA) for personal goal tracking, health monitoring, and dai
 - `convex/workouts.ts` — workout sessions (table `workouts`): exercises with sets, the key lifts (bench, squat, deadlift, ohp) and muscle groups. Public: `getRange` (session summaries for the app), `lastSets` (workout mode's Previous column), `finishSession` (workout mode's Finish). Everything else writes through the connector
 - `convex/plans.ts` — workout mode: `workoutPlans` (sessions Claude plans) and `trainingProfile` (injuries, equipment, schedule, goals Claude should remember). Public: `forRange`. Writes are `internal`, through the connector
 - `convex/http.ts` — **Claude connector**: a minimal MCP server (JSON-RPC over POST) at `https://energetic-fly-308.convex.site/mcp/<MCP_TOKEN>`. Tools: log_meal, update_meal, delete_meal, get_day, get_summary, list/save/delete saved meals, set_targets, log_weight, get_weights, log_workout, update_workout, delete_workout, get_workouts, get_lift_progress, get/set_training_profile, plan_workout, get_plans, delete_plan. The token in the path is the only key (404 without it)
+- `convex/lib/auth.ts` — `requireAppKey(appKey)`: every public function calls it first (see Security)
 - `convex/lib/reminders.ts` — "what's left today" + message text. **Mirrors the schedule rules in life-os.js** (classifyFrequency, scoringKind, getGoalDays, isExpected) — change both together
-- Env vars: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (site URL), `MCP_TOKEN` (connector key, 24+ chars). Never print the private key or the token
+- Env vars: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (site URL), `MCP_TOKEN` (connector key, 24+ chars), `APP_KEY` (the app's key, 24+ chars). Never print the private key, the token or the app key
 - Deploy: `npx convex deploy` (uses `CONVEX_DEPLOY_KEY`)
+
+## Security (app key)
+- **This repo is public and names the deployment, so the URL is not a secret.** What protects the data is `APP_KEY`: every public Convex function (query, mutation, action) takes `appKey: v.optional(v.string())` and calls `requireAppKey(appKey)` before anything else. It throws `ConvexError("Unauthorized")` on a missing or wrong key, and refuses everything if `APP_KEY` is unset or shorter than 24 characters. **Any new public function must do the same and be added to the list in the "the app key locks every public function" test.** Internal functions (cron, connector) don't need it.
+- The app keeps the key per device (`lifeOS_appKey`, Settings → Convex Backend, a password field). `ConvexDataLayer.call` adds it to every request. A refusal sets `convex.unauthorized`, which shows `#syncBanner` ("Cloud sync is paused") and a red status line in Settings; Connect with a wrong key never writes to Convex.
+- The Claude connector has its own key (`MCP_TOKEN`, in the URL path). Rotate either by setting a new value with `npx convex env set`, then re-entering the app key on each device or re-adding the connector in Claude.
+- **Rollout order** when the server starts requiring something new from the app: set the env var, deploy Convex, then merge the app (GitHub Pages publishes on merge, and the service worker is network-first). A device without the key keeps working locally but doesn't sync until the key is entered, and the next sync takes the cloud copy, so enter the key before logging anything new.
 
 ## Build & Deploy Process
 

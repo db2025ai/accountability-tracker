@@ -161,7 +161,7 @@ class LifeOS {
         this.convex = null;
         const savedConvexUrl = localStorage.getItem('lifeOS_convexUrl');
         if (savedConvexUrl && window.ConvexDataLayer) {
-            this.convex = new ConvexDataLayer(savedConvexUrl);
+            this.convex = new ConvexDataLayer(savedConvexUrl, localStorage.getItem('lifeOS_appKey'));
         }
         this._convexInitialized = false;
 
@@ -4679,6 +4679,13 @@ class LifeOS {
     // Settings
     // ========================================
     bindSettings() {
+        document.getElementById('syncBannerBtn').addEventListener('click', () => {
+            this.openModal('settingsModal');
+            this.updateConvexStatusUI();
+            this.renderReminderSettings();
+            document.getElementById('convexKeyInput').focus();
+        });
+
         ['settingsBtn', 'mobileSettingsBtn'].forEach(id => {
             document.getElementById(id).addEventListener('click', () => {
                 this.openModal('settingsModal');
@@ -4700,13 +4707,20 @@ class LifeOS {
         // Convex connection
         document.getElementById('connectConvexBtn').addEventListener('click', async () => {
             const url = document.getElementById('convexUrlInput').value.trim();
+            const appKey = document.getElementById('convexKeyInput').value.trim();
             if (!url) { alert('Please enter a Convex deployment URL'); return; }
             localStorage.setItem('lifeOS_convexUrl', url);
+            localStorage.setItem('lifeOS_appKey', appKey);
             if (this.convex) this.convex.unsubscribe();
-            this.convex = new ConvexDataLayer(url);
+            this.convex = new ConvexDataLayer(url, appKey);
             this.updateConvexStatusUI();
             // Load remote first — only push if local has more data
             const remote = await this.convex.load();
+            if (this.convex.unauthorized) {
+                // Wrong key: don't touch the cloud copy; say so and stop here
+                this.updateConvexStatusUI();
+                return;
+            }
             const remoteWeeks = (remote?.weeks || []).length;
             const localWeeks = (this.data.weeks || []).length;
             if (remote && remoteWeeks >= localWeeks) {
@@ -5021,9 +5035,17 @@ class LifeOS {
         const savedUrl = localStorage.getItem('lifeOS_convexUrl');
 
         if (savedUrl) urlInput.value = savedUrl;
+        const keyInput = document.getElementById('convexKeyInput');
+        if (document.activeElement !== keyInput) keyInput.value = localStorage.getItem('lifeOS_appKey') || '';
+        document.getElementById('syncBanner').hidden = !this.convex?.unauthorized;
 
         const pullBtn = document.getElementById('pullFromConvexBtn');
-        if (this.convex && this.convex.isConnected()) {
+        if (this.convex?.unauthorized) {
+            statusEl.textContent = 'Sync paused: the app key is missing or wrong. Paste it above and tap Connect.';
+            statusEl.style.color = 'var(--danger)';
+            syncBtn.style.display = 'none';
+            pullBtn.style.display = 'none';
+        } else if (this.convex && this.convex.isConnected()) {
             statusEl.textContent = '🟢 Syncing across devices';
             statusEl.style.color = 'var(--success)';
             syncBtn.style.display = 'inline-block';

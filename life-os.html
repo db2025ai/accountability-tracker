@@ -47,6 +47,12 @@
     <!-- Main Content -->
     <main class="main-content" id="mainContent">
 
+        <!-- Shown when Convex refuses this device's app key (convex/lib/auth.ts) -->
+        <div class="sync-banner" id="syncBanner" role="status" hidden>
+            <span>Cloud sync is paused: this device needs your app key.</span>
+            <button class="btn btn-primary btn-sm" id="syncBannerBtn">Add key</button>
+        </div>
+
         <!-- ===== DASHBOARD SECTION ===== -->
         <section class="section active" id="section-dashboard">
             <div class="section-header">
@@ -590,11 +596,12 @@
                 </div>
                 <div class="setting-item">
                     <label>Convex Backend</label>
-                    <p class="setting-desc">Connect to Convex for cloud sync across devices. Enter your Convex deployment URL.</p>
+                    <p class="setting-desc">Connect to Convex for cloud sync across devices. Enter your Convex deployment URL and app key (Convex dashboard &rarr; Settings &rarr; Environment Variables &rarr; APP_KEY). The key stays on this device; keep it private.</p>
                     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-                        <input type="text" id="convexUrlInput" placeholder="https://your-app.convex.cloud" style="flex:1;min-width:0;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
+                        <input type="text" id="convexUrlInput" placeholder="https://your-app.convex.cloud" aria-label="Convex deployment URL" style="flex:1;min-width:0;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
                         <button class="btn btn-primary" id="connectConvexBtn">Connect</button>
                     </div>
+                    <input type="password" id="convexKeyInput" placeholder="App key" aria-label="Convex app key" autocomplete="off" spellcheck="false" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;margin-bottom:8px;">
                     <div id="convexStatus" style="font-size:0.8rem;color:var(--text-muted);">Not connected - using local storage</div>
                     <div style="display:flex;gap:8px;margin-top:8px;">
                         <button class="btn btn-secondary" id="syncToConvexBtn" style="display:none;">Push to Convex</button>

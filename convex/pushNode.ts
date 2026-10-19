@@ -12,6 +12,7 @@ import {
   reminderMessage,
   uncheckedToday,
 } from "./lib/reminders";
+import { requireAppKey } from "./lib/auth";
 
 type Subscription = { endpoint: string; p256dh: string; auth: string };
 
@@ -116,8 +117,9 @@ export const sendReminders = internalAction({
 
 // "Send test" button in Settings: sends the evening message right now to every device
 export const sendTest = action({
-  args: { timezone: v.optional(v.string()) },
-  handler: async (ctx, { timezone }): Promise<{ sent: number; failed: number }> => {
+  args: { timezone: v.optional(v.string()), appKey: v.optional(v.string()) },
+  handler: async (ctx, { timezone, appKey }): Promise<{ sent: number; failed: number }> => {
+    requireAppKey(appKey);
     configureVapid();
     const { settings, subscriptions } = await ctx.runQuery(internal.push.getReminderState, {});
     const tz = timezone || settings?.timezone || "UTC";

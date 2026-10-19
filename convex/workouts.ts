@@ -5,6 +5,7 @@ import { query, mutation, internalQuery, internalMutation, QueryCtx, MutationCtx
 import { Doc } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { DEFAULT_USER } from "./lib/reminders";
+import { requireAppKey } from "./lib/auth";
 
 export const WORKOUT_TYPES = ["strength", "cardio", "swim", "core", "mobility", "other"];
 export const LIFTS = ["bench", "squat", "deadlift", "ohp"];
@@ -122,10 +123,11 @@ function newBests(row: Workout, others: Workout[]) {
 
 // Session summaries for the Health tab card and the goal ticks
 export const getRange = query({
-  args: { from: v.string(), to: v.string() },
-  handler: async (ctx, { from, to }) => ({
-    sessions: (await workoutsBetween(ctx, from, to)).map(summarize),
-  }),
+  args: { from: v.string(), to: v.string(), appKey: v.optional(v.string()) },
+  handler: async (ctx, { from, to, appKey }) => {
+    requireAppKey(appKey);
+    return { sessions: (await workoutsBetween(ctx, from, to)).map(summarize) };
+  },
 });
 
 // ---- Called by the Claude connector (http.ts) ----
@@ -174,8 +176,10 @@ export const finishSession = mutation({
     minutes: v.optional(v.number()),
     exercises: v.array(exercise),
     notes: v.optional(v.string()),
+    appKey: v.optional(v.string()),
   },
-  handler: async (ctx, { planId, ...w }) => {
+  handler: async (ctx, { planId, appKey, ...w }) => {
+    requireAppKey(appKey);
     const res = await insertWorkout(ctx, { ...w, type: "strength", source: "app" });
     const plan = planId ? ctx.db.normalizeId("workoutPlans", planId) : null;
     if (plan && (await ctx.db.get(plan))) await ctx.db.patch(plan, { status: "done", workoutId: res.id, updatedAt: new Date().toISOString() });
@@ -186,8 +190,9 @@ export const finishSession = mutation({
 // The last time each named exercise was done (the "Previous" column in workout mode).
 // Names match case-insensitively; returns { [lowercased name]: { date, sets } }.
 export const lastSets = query({
-  args: { names: v.array(v.string()) },
-  handler: async (ctx, { names }) => {
+  args: { names: v.array(v.string()), appKey: v.optional(v.string()) },
+  handler: async (ctx, { names, appKey }) => {
+    requireAppKey(appKey);
     const wanted = new Set(names.map((n) => n.trim().toLowerCase()));
     const out: Record<string, { date: string; sets: { reps: number; weight: number }[] }> = {};
     for (const w of (await allWorkouts(ctx)).sort(byDate).reverse()) {

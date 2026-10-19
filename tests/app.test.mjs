@@ -946,6 +946,65 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await context.close();
 }
 
+// ================= App key (Convex refuses requests without it) =================
+{
+    console.log('\n— App key —');
+    const KEY = 'k'.repeat(32);
+    const sent = [];
+    const fakeConvex = async (context) => context.route('https://fake-test.convex.cloud/**', r => {
+        const { path, args } = JSON.parse(r.request().postData() || '{}');
+        sent.push([path, args.appKey]);
+        if (args.appKey !== KEY) {
+            return r.fulfill({ status: 400, contentType: 'application/json',
+                body: JSON.stringify({ status: 'error', errorMessage: 'Uncaught ConvexError: Unauthorized', errorData: 'Unauthorized' }) });
+        }
+        const value = path === 'nutrition:getRange' ? { targets: { calories: 2400, protein: 190, carbs: 240, fat: 75 }, days: [] }
+            : path === 'workouts:getRange' ? { sessions: [] } : path.endsWith(':getData') ? null : [];
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', value }) });
+    });
+    // Right key saved on the device: every request carries it, no banner
+    {
+        const { context, page, errors } = await newPage({ init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud') });
+        await context.addInitScript(k => localStorage.setItem('lifeOS_appKey', k), KEY);
+        await fakeConvex(context);
+        await page.reload();
+        await page.waitForFunction(() => window.lifeOS);
+        await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('health'); });
+        await page.waitForFunction(() => lifeOS._training && !lifeOS._trainingLoading && lifeOS._nutrition && !lifeOS._nutritionLoading);
+        check('every request carries the key', [sent.length > 2, sent.every(([, k]) => k === KEY)], [true, true]);
+        check('no banner with the right key', await page.isVisible('#syncBanner'), false);
+        check('no page errors', errors, []);
+        await context.close();
+    }
+    // Wrong key: sync pauses visibly, nothing is written, and the right key resumes it
+    sent.length = 0;
+    {
+        const { context, page, errors } = await newPage({ init: () => {
+            localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud');
+            if (!localStorage.getItem('lifeOS_appKey')) localStorage.setItem('lifeOS_appKey', 'wrong-key');
+        } });
+        await fakeConvex(context);
+        await page.reload();
+        await page.waitForFunction(() => window.lifeOS && lifeOS.convex.unauthorized);
+        await page.evaluate(() => lifeOS.closeModal('catchUpModal'));
+        check('wrong key: banner says sync is paused', [await page.isVisible('#syncBanner'),
+            (await page.textContent('#syncBanner')).replace(/\s+/g, ' ').trim()], [true, 'Cloud sync is paused: this device needs your app key. Add key']);
+        await page.click('#syncBannerBtn');
+        check('Add key opens Settings with the reason', /Sync paused: the app key is missing or wrong/.test(await page.textContent('#convexStatus')), true);
+        await page.fill('#convexKeyInput', 'still-wrong');
+        await page.click('#connectConvexBtn');
+        await page.waitForFunction(() => lifeOS.convex.appKey === 'still-wrong' && lifeOS.convex.unauthorized);
+        check('a wrong key never writes to the cloud', sent.filter(([p]) => p === 'functions:setData').length, 0);
+        await page.fill('#convexKeyInput', KEY);
+        await page.click('#connectConvexBtn');
+        await page.waitForFunction(() => lifeOS.convex.appKey.length === 32 && !lifeOS.convex.unauthorized);
+        check('right key: sync resumes, banner gone, key kept on the device', [await page.isVisible('#syncBanner'),
+            await page.evaluate(() => localStorage.getItem('lifeOS_appKey')), /Sync paused/.test(await page.textContent('#convexStatus'))], [false, KEY, false]);
+        check('no page errors', errors, []);
+        await context.close();
+    }
+}
+
 // ================= Workout mode (a session Claude planned, set by set) =================
 {
     console.log('\n— Workout mode —');
