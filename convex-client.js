@@ -5,9 +5,13 @@
    ======================================== */
 
 class ConvexDataLayer {
-    constructor(convexUrl) {
+    constructor(convexUrl, appKey) {
         this.convexUrl = convexUrl ? convexUrl.replace(/\/$/, '') : null;
         this.connected = !!convexUrl;
+        // Every app function on the server checks this key (Convex env var APP_KEY). Without
+        // the right one nothing loads or saves, and `unauthorized` says why.
+        this.appKey = appKey || '';
+        this.unauthorized = false;
     }
 
     isConnected() {
@@ -20,28 +24,34 @@ class ConvexDataLayer {
     }
 
     unsubscribe() {
-        // No-op — HTTP API has no persistent subscription
+        clearInterval(this._pollInterval);
+    }
+
+    // One function call over the HTTP API, with the app key. Notes an "Unauthorized" reply.
+    async call(kind, path, args = {}) {
+        const resp = await fetch(`${this.convexUrl}/api/${kind}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, args: this.appKey ? { ...args, appKey: this.appKey } : args, format: 'json' })
+        });
+        const result = await resp.json().catch(() => null);
+        const ok = resp.ok && result?.status === 'success';
+        const error = ok ? '' : String(result?.errorData ?? result?.errorMessage ?? `HTTP ${resp.status}`);
+        if (ok) this.unauthorized = false;
+        else if (/Unauthorized/.test(error)) this.unauthorized = true;
+        return { ok, error, value: ok ? result.value : undefined };
     }
 
     // Load data from Convex via HTTP query API
     async load() {
         if (!this.convexUrl) return null;
         try {
-            const resp = await fetch(`${this.convexUrl}/api/query`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: 'functions:getData', args: {}, format: 'json' })
-            });
-            if (!resp.ok) {
-                console.error('[LifeOS] Convex load HTTP error:', resp.status);
+            const r = await this.call('query', 'functions:getData');
+            if (!r.ok) {
+                console.error('[LifeOS] Convex load failed:', r.error);
                 return null;
             }
-            const result = await resp.json();
-            if (result.status !== 'success') {
-                console.error('[LifeOS] Convex load failed:', result);
-                return null;
-            }
-            const data = result.value;
+            const data = r.value;
             if (!data) return null;
             return typeof data === 'string' ? JSON.parse(data) : data;
         } catch (e) {
@@ -54,16 +64,8 @@ class ConvexDataLayer {
     async save(payload) {
         if (!this.convexUrl) return;
         try {
-            const resp = await fetch(`${this.convexUrl}/api/mutation`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    path: 'functions:setData',
-                    args: { payload: JSON.stringify(payload) },
-                    format: 'json'
-                })
-            });
-            if (!resp.ok) console.error('[LifeOS] Convex save HTTP error:', resp.status);
+            const r = await this.call('mutation', 'functions:setData', { payload: JSON.stringify(payload) });
+            if (!r.ok) console.error('[LifeOS] Convex save failed:', r.error);
         } catch (e) {
             console.error('[LifeOS] Convex save error:', e);
         }
@@ -72,16 +74,9 @@ class ConvexDataLayer {
     // Call any Convex function over HTTP; throws on failure (unlike load/save)
     async run(kind, path, args = {}) {
         if (!this.convexUrl) throw new Error('Convex is not connected');
-        const resp = await fetch(`${this.convexUrl}/api/${kind}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path, args, format: 'json' })
-        });
-        const result = await resp.json().catch(() => null);
-        if (!resp.ok || !result || result.status !== 'success') {
-            throw new Error(result?.errorMessage || `Convex ${kind} ${path} failed (HTTP ${resp.status})`);
-        }
-        return result.value;
+        const r = await this.call(kind, path, args);
+        if (!r.ok) throw new Error(r.error || `Convex ${kind} ${path} failed`);
+        return r.value;
     }
 
     query(path, args) { return this.run('query', path, args); }
@@ -94,15 +89,9 @@ class ConvexDataLayer {
         let lastUpdatedAt = null;
         this._pollInterval = setInterval(async () => {
             try {
-                const resp = await fetch(`${this.convexUrl}/api/query`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: 'functions:getUpdatedAt', args: {}, format: 'json' })
-                });
-                if (!resp.ok) return;
-                const result = await resp.json();
-                if (result.status !== 'success') return;
-                const updatedAt = result.value;
+                const r = await this.call('query', 'functions:getUpdatedAt');
+                if (!r.ok) return;
+                const updatedAt = r.value;
                 if (updatedAt && updatedAt !== lastUpdatedAt) {
                     if (lastUpdatedAt !== null) {
                         // Something changed — load full data

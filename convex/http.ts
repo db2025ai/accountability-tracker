@@ -6,6 +6,7 @@ import { httpRouter } from "convex/server";
 import { httpAction, ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { WORKOUT_TYPES, LIFTS, MUSCLES, DISTANCE_UNITS } from "./workouts";
+import { sameSecret } from "./lib/auth";
 
 const PROTOCOL_VERSION = "2025-06-18";
 
@@ -397,18 +398,10 @@ async function handle(ctx: ActionCtx, msg: Rpc) {
   }
 }
 
-// Constant-time string compare so the token can't be guessed by timing
-function sameToken(a: string, b: string) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
 const authorized = (req: Request) => {
   const token = process.env.MCP_TOKEN;
   const given = new URL(req.url).pathname.replace(/^\/mcp\//, "").replace(/\/$/, "");
-  return !!token && token.length >= 24 && sameToken(given, token);
+  return !!token && token.length >= 24 && sameSecret(given, token);
 };
 
 const json = (body: unknown, status = 200) =>

@@ -2,11 +2,15 @@ import { query, mutation, internalQuery, internalMutation } from "./_generated/s
 import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { DEFAULT_USER } from "./lib/reminders";
+import { requireAppKey } from "./lib/auth";
 
 // Public key the browser needs for pushManager.subscribe (the private key never leaves Convex)
 export const getVapidPublicKey = query({
-  args: {},
-  handler: async () => process.env.VAPID_PUBLIC_KEY ?? null,
+  args: { appKey: v.optional(v.string()) },
+  handler: async (_ctx, { appKey }) => {
+    requireAppKey(appKey);
+    return process.env.VAPID_PUBLIC_KEY ?? null;
+  },
 });
 
 export const saveSubscription = mutation({
@@ -16,8 +20,10 @@ export const saveSubscription = mutation({
       keys: v.object({ p256dh: v.string(), auth: v.string() }),
     }),
     userAgent: v.optional(v.string()),
+    appKey: v.optional(v.string()),
   },
-  handler: async (ctx, { subscription, userAgent }) => {
+  handler: async (ctx, { subscription, userAgent, appKey }) => {
+    requireAppKey(appKey);
     const fields = {
       userId: DEFAULT_USER,
       endpoint: subscription.endpoint,
@@ -38,8 +44,9 @@ export const saveSubscription = mutation({
 });
 
 export const removeSubscription = mutation({
-  args: { endpoint: v.string() },
-  handler: async (ctx, { endpoint }) => {
+  args: { endpoint: v.string(), appKey: v.optional(v.string()) },
+  handler: async (ctx, { endpoint, appKey }) => {
+    requireAppKey(appKey);
     const rows = await ctx.db
       .query("pushSubscriptions")
       .withIndex("by_endpoint", (q) => q.eq("endpoint", endpoint))

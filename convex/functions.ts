@@ -1,9 +1,12 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { DEFAULT_USER, syncReminderSettings } from "./lib/reminders";
+import { requireAppKey } from "./lib/auth";
 
 export const getUpdatedAt = query({
-  handler: async (ctx) => {
+  args: { appKey: v.optional(v.string()) },
+  handler: async (ctx, { appKey }) => {
+    requireAppKey(appKey);
     const row = await ctx.db
       .query("userData")
       .withIndex("by_userId", (q) => q.eq("userId", DEFAULT_USER))
@@ -13,7 +16,9 @@ export const getUpdatedAt = query({
 });
 
 export const getData = query({
-  handler: async (ctx) => {
+  args: { appKey: v.optional(v.string()) },
+  handler: async (ctx, { appKey }) => {
+    requireAppKey(appKey);
     const row = await ctx.db
       .query("userData")
       .withIndex("by_userId", (q) => q.eq("userId", DEFAULT_USER))
@@ -26,8 +31,9 @@ export const getData = query({
 });
 
 export const setData = mutation({
-  args: { payload: v.string() }, // expects JSON string
-  handler: async (ctx, args) => {
+  args: { payload: v.string(), appKey: v.optional(v.string()) }, // expects JSON string
+  handler: async (ctx, { appKey, ...args }) => {
+    requireAppKey(appKey);
     const existing = await ctx.db
       .query("userData")
       .withIndex("by_userId", (q) => q.eq("userId", DEFAULT_USER))

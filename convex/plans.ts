@@ -5,6 +5,7 @@ import { query, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { DEFAULT_USER } from "./lib/reminders";
 import { validate } from "./workouts";
+import { requireAppKey } from "./lib/auth";
 
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
@@ -21,8 +22,9 @@ const plannedExercise = v.object({
 
 // Plans between two dates, oldest first
 export const forRange = query({
-  args: { from: v.string(), to: v.string() },
-  handler: async (ctx, { from, to }) => {
+  args: { from: v.string(), to: v.string(), appKey: v.optional(v.string()) },
+  handler: async (ctx, { from, to, appKey }) => {
+    requireAppKey(appKey);
     if (!isDate(from) || !isDate(to)) throw new Error("Dates must be YYYY-MM-DD");
     const rows = await ctx.db
       .query("workoutPlans")

@@ -5,6 +5,7 @@
 import { query, mutation, internalQuery, internalMutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { DEFAULT_USER } from "./lib/reminders";
+import { requireAppKey } from "./lib/auth";
 
 export const DEFAULT_TARGETS = { calories: 2400, protein: 190, carbs: 240, fat: 75 };
 
@@ -71,15 +72,17 @@ async function dayTotals(ctx: QueryCtx, from: string, to: string) {
 
 // Per-day totals for the Health tab card (days with nothing logged are left out)
 export const getRange = query({
-  args: { from: v.string(), to: v.string() },
-  handler: async (ctx, { from, to }) => ({
-    targets: await getTargets(ctx),
-    days: await dayTotals(ctx, from, to),
-  }),
+  args: { from: v.string(), to: v.string(), appKey: v.optional(v.string()) },
+  handler: async (ctx, { from, to, appKey }) => {
+    requireAppKey(appKey);
+    return { targets: await getTargets(ctx), days: await dayTotals(ctx, from, to) };
+  },
 });
 
 export const pendingWeighIns = query({
-  handler: async (ctx) => {
+  args: { appKey: v.optional(v.string()) },
+  handler: async (ctx, { appKey }) => {
+    requireAppKey(appKey);
     const rows = await ctx.db
       .query("weighIns")
       .withIndex("by_user_applied", (q) => q.eq("userId", DEFAULT_USER).eq("applied", false))
@@ -89,8 +92,9 @@ export const pendingWeighIns = query({
 });
 
 export const markWeighInsApplied = mutation({
-  args: { ids: v.array(v.id("weighIns")) },
-  handler: async (ctx, { ids }) => {
+  args: { ids: v.array(v.id("weighIns")), appKey: v.optional(v.string()) },
+  handler: async (ctx, { ids, appKey }) => {
+    requireAppKey(appKey);
     for (const id of ids) {
       const row = await ctx.db.get(id);
       if (row && !row.applied) await ctx.db.patch(id, { applied: true });

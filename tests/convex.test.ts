@@ -4,9 +4,12 @@ import schema from "../convex/schema";
 import { api } from "../convex/_generated/api";
 const modules = import.meta.glob("../convex/**/*.ts");
 const TOKEN = "t".repeat(32);
+const APP_KEY = "a".repeat(32);
+const appKey = APP_KEY;
 
 test("connector end to end", async () => {
   process.env.MCP_TOKEN = TOKEN;
+  process.env.APP_KEY = APP_KEY;
   const t = convexTest(schema, modules);
   const call = async (method: string, params?: any, id: any = 1, path = TOKEN) => {
     const r = await t.fetch(`/mcp/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id, method, params }) });
@@ -44,17 +47,18 @@ test("connector end to end", async () => {
   expect((await tool("log_weight", { date: "2026-10-19", lb: 205.4 })).err).toBe(false);
   expect((await tool("log_weight", { date: "2026-10-19", lb: 5 })).err).toBe(true);
   // app side
-  const range = await t.query(api.nutrition.getRange, { from: "2026-10-01", to: "2026-10-31" });
+  const range = await t.query(api.nutrition.getRange, { from: "2026-10-01", to: "2026-10-31", appKey });
   expect(range.days).toEqual([{ date: "2026-10-19", meals: 2, calories: 750, protein: 87, carbs: 30, fat: 32 }]);
-  const pending = await t.query(api.nutrition.pendingWeighIns, {});
+  const pending = await t.query(api.nutrition.pendingWeighIns, { appKey });
   expect(pending.length).toBe(1);
-  await t.mutation(api.nutrition.markWeighInsApplied, { ids: pending.map(p => p.id) });
-  expect((await t.query(api.nutrition.pendingWeighIns, {})).length).toBe(0);
+  await t.mutation(api.nutrition.markWeighInsApplied, { ids: pending.map(p => p.id), appKey });
+  expect((await t.query(api.nutrition.pendingWeighIns, { appKey })).length).toBe(0);
   expect((await call("bogus/method")).body.error.code).toBe(-32601);
 });
 
 test("workouts end to end", async () => {
   process.env.MCP_TOKEN = TOKEN;
+  process.env.APP_KEY = APP_KEY;
   const t = convexTest(schema, modules);
   const call = async (method: string, params?: any) => {
     const r = await t.fetch(`/mcp/${TOKEN}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
@@ -117,7 +121,7 @@ test("workouts end to end", async () => {
 
   // App side: summaries carry muscle groups and key-lift bests; a core session counts as core
   await tool("log_workout", { date: "2026-10-17", type: "core", name: "Core circuit", minutes: 20 });
-  const range = await t.query(api.workouts.getRange, { from: "2026-10-11", to: "2026-10-17" });
+  const range = await t.query(api.workouts.getRange, { from: "2026-10-11", to: "2026-10-17", appKey });
   expect(range.sessions[0]).toMatchObject({ date: "2026-10-12", type: "strength", minutes: 55, muscles: ["chest", "shoulders", "arms"],
     lifts: { bench: { e1rm: 263, weight: 225, reps: 5 }, ohp: { e1rm: 149, weight: 135, reps: 3 } }, exercises: 3, sets: 5 });
   expect(range.sessions.map((s: any) => s.muscles)).toEqual([["chest", "shoulders", "arms"], [], ["chest"], ["legs"], ["core"]]);
@@ -128,6 +132,7 @@ test("workouts end to end", async () => {
 
 test("workout mode: profile, plans, Previous and Finish", async () => {
   process.env.MCP_TOKEN = TOKEN;
+  process.env.APP_KEY = APP_KEY;
   const t = convexTest(schema, modules);
   const tool = async (name: string, args: any) => {
     const r = await t.fetch(`/mcp/${TOKEN}`, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -158,24 +163,24 @@ test("workout mode: profile, plans, Previous and Finish", async () => {
   const p1 = await tool("plan_workout", { ...plan, name: "Draft" });
   const p2 = await tool("plan_workout", plan);
   expect(p2.data).toEqual({ id: p1.data.id, replaced: true });
-  const plans = await t.query(api.plans.forRange, { from: "2026-10-19", to: "2026-10-25" });
+  const plans = await t.query(api.plans.forRange, { from: "2026-10-19", to: "2026-10-25", appKey });
   expect(plans).toHaveLength(1);
   expect(plans[0]).toMatchObject({ id: p1.data.id, name: "Full body A", status: "planned", note: "Bench focus, shoulder-friendly" });
   expect(plans[0].exercises[0]).toEqual({ name: "Bench press", lift: "bench", muscles: ["chest"], restSec: 150, note: "Slight arch, stop if >3/10",
     sets: [{ reps: 10, weight: 95, warmup: true }, { reps: 8, repsMax: 10, weight: 190 }, { reps: 8, repsMax: 10, weight: 190 }] });
 
   // Previous: most recent sets per exercise name, case-insensitive
-  const prev = await t.query(api.workouts.lastSets, { names: ["Bench press", "Romanian deadlift"] });
+  const prev = await t.query(api.workouts.lastSets, { names: ["Bench press", "Romanian deadlift"], appKey });
   expect(prev).toEqual({ "bench press": { date: "2026-10-15", sets: [{ reps: 8, weight: 185 }, { reps: 7, weight: 185 }] } });
 
   // Finish from the app: saved as a strength session, plan marked done, a retry isn't a duplicate
   const session = { externalId: "app-1", planId: p1.data.id, date: "2026-10-19", name: "Full body A", minutes: 52,
     exercises: [{ name: "Bench press", lift: "bench", muscles: ["chest"], note: "Felt discomfort", sets: [{ reps: 10, weight: 190 }, { reps: 8, weight: 190 }] }],
     notes: "Skipped: Romanian deadlift" };
-  const done = await t.mutation(api.workouts.finishSession, session);
+  const done = await t.mutation(api.workouts.finishSession, { ...session, appKey });
   expect(done.newBests).toEqual([{ lift: "bench", e1rm: 253, set: "190 × 10", previous: 234 }]);
-  expect(await t.mutation(api.workouts.finishSession, session)).toEqual({ id: done.id, duplicate: true, newBests: [] });
-  expect((await t.query(api.plans.forRange, { from: "2026-10-19", to: "2026-10-19" }))[0].status).toBe("done");
+  expect(await t.mutation(api.workouts.finishSession, { ...session, appKey })).toEqual({ id: done.id, duplicate: true, newBests: [] });
+  expect((await t.query(api.plans.forRange, { from: "2026-10-19", to: "2026-10-19", appKey }))[0].status).toBe("done");
   const day = await tool("get_workouts", { from: "2026-10-19", to: "2026-10-19" });
   expect(day.data.sessions).toHaveLength(1);
   expect(day.data.sessions[0]).toMatchObject({ type: "strength", source: "app", minutes: 52, notes: "Skipped: Romanian deadlift" });
@@ -186,5 +191,50 @@ test("workout mode: profile, plans, Previous and Finish", async () => {
   expect((await tool("plan_workout", plan)).data).toMatch(/already done/);
   const p3 = await tool("plan_workout", { ...plan, date: "2026-10-21", name: "Full body B" });
   expect((await tool("delete_plan", { id: p3.data.id })).err).toBe(false);
-  expect(await t.query(api.plans.forRange, { from: "2026-10-21", to: "2026-10-21" })).toEqual([]);
+  expect(await t.query(api.plans.forRange, { from: "2026-10-21", to: "2026-10-21", appKey })).toEqual([]);
+});
+
+test("the app key locks every public function", async () => {
+  const t = convexTest(schema, modules);
+  // Every function the app (or anyone with the deployment URL) can call, with valid other args
+  const calls: [string, any, any][] = [
+    ["query", api.functions.getUpdatedAt, {}],
+    ["query", api.functions.getData, {}],
+    ["mutation", api.functions.setData, { payload: "{}" }],
+    ["mutation", api.journal.importEntries, { entries: [], source: "x" }],
+    ["query", api.journal.listArchive, {}],
+    ["mutation", api.journal.clearArchive, {}],
+    ["query", api.nutrition.getRange, { from: "2026-10-01", to: "2026-10-31" }],
+    ["query", api.nutrition.pendingWeighIns, {}],
+    ["mutation", api.nutrition.markWeighInsApplied, { ids: [] }],
+    ["query", api.plans.forRange, { from: "2026-10-01", to: "2026-10-31" }],
+    ["query", api.push.getVapidPublicKey, {}],
+    ["mutation", api.push.saveSubscription, { subscription: { endpoint: "https://e", keys: { p256dh: "p", auth: "a" } } }],
+    ["mutation", api.push.removeSubscription, { endpoint: "https://e" }],
+    ["action", api.pushNode.sendTest, {}],
+    ["query", api.workouts.getRange, { from: "2026-10-01", to: "2026-10-31" }],
+    ["mutation", api.workouts.finishSession, { externalId: "x", date: "2026-10-19", name: "x", exercises: [] }],
+    ["query", api.workouts.lastSets, { names: ["Bench press"] }],
+  ];
+  const run = (kind: string, fn: any, args: any) => (t as any)[kind](fn, args);
+  const refused = async (kind: string, fn: any, args: any) => {
+    try { await run(kind, fn, args); return false; } catch (e: any) { return /Unauthorized/.test(String(e?.data ?? e?.message)); }
+  };
+  process.env.APP_KEY = APP_KEY;
+  for (const [kind, fn, args] of calls) {
+    expect(await refused(kind, fn, args), "no key").toBe(true);
+    expect(await refused(kind, fn, { ...args, appKey: "b".repeat(32) }), "wrong key").toBe(true);
+    expect(await refused(kind, fn, { ...args, appKey: APP_KEY.slice(1) }), "short key").toBe(true);
+  }
+  // With the key they work (sendTest needs web-push keys, so it stops later for another reason)
+  for (const [kind, fn, args] of calls) {
+    if (kind === "action") continue;
+    await expect(run(kind, fn, { ...args, appKey })).resolves.not.toThrow();
+  }
+  // No APP_KEY set on the server (or a short one): everything is refused, even an empty key
+  delete process.env.APP_KEY;
+  expect(await refused("query", api.functions.getData, { appKey: "" })).toBe(true);
+  process.env.APP_KEY = "short";
+  expect(await refused("query", api.functions.getData, { appKey: "short" })).toBe(true);
+  process.env.APP_KEY = APP_KEY;
 });

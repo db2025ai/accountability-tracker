@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { DEFAULT_USER } from "./lib/reminders";
+import { requireAppKey } from "./lib/auth";
 
 // FNV-1a — a short, stable fingerprint of an entry's text
 function hash(text: string) {
@@ -17,8 +18,10 @@ export const importEntries = mutation({
   args: {
     entries: v.array(v.object({ date: v.string(), text: v.string() })),
     source: v.string(),
+    appKey: v.optional(v.string()),
   },
-  handler: async (ctx, { entries, source }) => {
+  handler: async (ctx, { entries, source, appKey }) => {
+    requireAppKey(appKey);
     let added = 0;
     let skipped = 0;
     const importedAt = new Date().toISOString();
@@ -45,8 +48,9 @@ export const importEntries = mutation({
 
 // Newest first
 export const listArchive = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { appKey: v.optional(v.string()) },
+  handler: async (ctx, { appKey }) => {
+    requireAppKey(appKey);
     const rows = await ctx.db
       .query("journalArchive")
       .withIndex("by_user_date", (q) => q.eq("userId", DEFAULT_USER))
@@ -58,8 +62,9 @@ export const listArchive = query({
 
 // Remove imported entries in chunks; call until remaining is 0
 export const clearArchive = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { appKey: v.optional(v.string()) },
+  handler: async (ctx, { appKey }) => {
+    requireAppKey(appKey);
     const rows = await ctx.db
       .query("journalArchive")
       .withIndex("by_user_date", (q) => q.eq("userId", DEFAULT_USER))
