@@ -10,6 +10,13 @@ const mealItem = v.object({
   fat: v.number(),
 });
 
+const exercise = v.object({
+  name: v.string(),
+  lift: v.optional(v.string()), // bench | squat | deadlift | ohp (the key lifts tracked for progress)
+  muscles: v.array(v.string()), // chest | back | shoulders | arms | legs | core
+  sets: v.array(v.object({ reps: v.number(), weight: v.number() })), // weight in lb, 0 = bodyweight
+});
+
 export default defineSchema({
   // Single document stores the entire Life OS data blob.
   // userId is a static key so there's only ever one row per user.
@@ -117,4 +124,25 @@ export default defineSchema({
     createdAt: v.string(),
     applied: v.boolean(),
   }).index("by_user_applied", ["userId", "applied"]),
+
+  // ---- Workouts (written by Claude through the /mcp connector; see workouts.ts) ----
+  // One row per session. Strength sessions list exercises and sets; cardio and swims use
+  // minutes and distance.
+  workouts: defineTable({
+    userId: v.string(),
+    date: v.string(), // local YYYY-MM-DD
+    time: v.optional(v.string()), // "6:30 AM"
+    type: v.string(), // strength | cardio | swim | core | mobility | other
+    name: v.string(),
+    minutes: v.optional(v.number()),
+    exercises: v.array(exercise),
+    distance: v.optional(v.number()),
+    distanceUnit: v.optional(v.string()), // mi | km | m | yd
+    calories: v.optional(v.number()),
+    avgHr: v.optional(v.number()),
+    source: v.optional(v.string()), // voice | text | photo | watch
+    externalId: v.optional(v.string()), // e.g. the Apple Watch workout's start, so a resend isn't logged twice
+    notes: v.optional(v.string()),
+    createdAt: v.string(),
+  }).index("by_user_date", ["userId", "date"]),
 });

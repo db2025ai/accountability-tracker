@@ -5,6 +5,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction, ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { WORKOUT_TYPES, LIFTS, MUSCLES, DISTANCE_UNITS } from "./workouts";
 
 const PROTOCOL_VERSION = "2025-06-18";
 
@@ -16,6 +17,45 @@ const item = {
   required: ["name", "calories", "protein", "carbs", "fat"],
 };
 const date = { type: "string", description: "Local date, YYYY-MM-DD (America/New_York)" };
+const exercise = {
+  type: "object",
+  properties: {
+    name: str,
+    lift: {
+      type: "string",
+      enum: LIFTS,
+      description:
+        "Only for the key lifts: barbell bench press, back squat, deadlift (conventional or sumo), standing barbell overhead press. Leave out for everything else",
+    },
+    muscles: { type: "array", items: { type: "string", enum: MUSCLES }, description: "1-2 primary muscle groups" },
+    sets: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { reps: num, weight: { type: "number", description: "lb, 0 for bodyweight" } },
+        required: ["reps", "weight"],
+      },
+    },
+  },
+  required: ["name", "muscles", "sets"],
+};
+const workoutProps = {
+  date,
+  time: { type: "string", description: 'e.g. "6:30 AM"' },
+  type: {
+    type: "string",
+    enum: WORKOUT_TYPES,
+    description: 'Use "core" only for a dedicated core workout (it ticks the Core goal); core moves inside a lift stay "strength"',
+  },
+  name: { type: "string", description: 'Short readable name, e.g. "Push day", "Pool swim"' },
+  minutes: num,
+  exercises: { type: "array", items: exercise },
+  distance: num,
+  distanceUnit: { type: "string", enum: DISTANCE_UNITS },
+  calories: num,
+  avgHr: { type: "number", description: "Average heart rate" },
+  notes: str,
+};
 
 type Tool = {
   name: string;
@@ -128,7 +168,79 @@ const TOOLS: Tool[] = [
     inputSchema: { type: "object", properties: { days: { type: "number", description: "Default 30" } } },
     run: (ctx, a) => ctx.runQuery(internal.nutrition.weights, { days: Number(a?.days) || 30 }),
   },
+  {
+    name: "log_workout",
+    description:
+      "Log one workout to Life OS. Strength: list each exercise with its sets and set `lift` on the key lifts so progress is tracked. " +
+      "Cardio and swims: minutes and distance. If get_workouts shows an Apple Watch session of the same type that day, " +
+      "add the exercises to it with update_workout instead of logging a second one. " +
+      "Confirm what you read from a photo or screenshot before calling. Returns any new best estimated 1-rep max.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...workoutProps,
+        source: { type: "string", enum: ["voice", "text", "photo", "watch"] },
+        externalId: { type: "string", description: "Stable id from the source (e.g. Apple Watch workout start) so a resend isn't logged twice" },
+      },
+      required: ["date", "type", "name"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.workouts.addWorkout, pickWorkout(a, WORKOUT_KEYS)),
+  },
+  {
+    name: "update_workout",
+    description: "Correct a logged workout by id (from get_workouts), or add exercises to it. Pass only the fields that change; exercises replaces the whole list.",
+    inputSchema: { type: "object", properties: { id: str, ...workoutProps }, required: ["id"] },
+    run: (ctx, a) =>
+      ctx.runMutation(internal.workouts.updateWorkout, pickWorkout(a, ["id", ...WORKOUT_KEYS.filter((k) => k !== "source" && k !== "externalId")])),
+  },
+  {
+    name: "delete_workout",
+    description: "Delete a logged workout by id (from get_workouts).",
+    inputSchema: { type: "object", properties: { id: str }, required: ["id"] },
+    run: (ctx, a) => ctx.runMutation(internal.workouts.deleteWorkout, { id: String(a.id) }),
+  },
+  {
+    name: "get_workouts",
+    description: "Workouts with their exercises between two dates (inclusive), totals by type, and which muscle groups went untrained.",
+    inputSchema: { type: "object", properties: { from: date, to: date }, required: ["from", "to"] },
+    run: (ctx, a) => ctx.runQuery(internal.workouts.list, { from: String(a.from), to: String(a.to) }),
+  },
+  {
+    name: "get_lift_progress",
+    description:
+      "Bench, squat, deadlift and overhead press: best set and estimated 1-rep max per session between two dates, the change over that span, all-time best and when each was last trained.",
+    inputSchema: { type: "object", properties: { from: date, to: date }, required: ["from", "to"] },
+    run: (ctx, a) => ctx.runQuery(internal.workouts.liftProgress, { from: String(a.from), to: String(a.to) }),
+  },
 ];
+
+const WORKOUT_KEYS = ["date", "time", "type", "name", "minutes", "exercises", "distance", "distanceUnit", "calories", "avgHr", "source", "externalId", "notes"];
+
+// Keep only known keys and coerce types, so Convex validators see clean args. Enums are
+// lower-cased; workouts.ts rejects values that still don't fit, with a message Claude can act on.
+function pickWorkout(a: any, keys: string[]) {
+  const out = pick(a, keys);
+  for (const k of ["type", "distanceUnit"]) if (out[k] !== undefined) out[k] = String(out[k]).toLowerCase();
+  for (const k of ["minutes", "distance", "calories", "avgHr"]) {
+    if (out[k] === undefined) continue;
+    const n = Number(out[k]);
+    if (Number.isFinite(n)) out[k] = n;
+    else delete out[k];
+  }
+  if (out.externalId !== undefined) out.externalId = String(out.externalId);
+  if (Array.isArray(out.exercises)) {
+    out.exercises = out.exercises.map((e: any) => {
+      const ex: Record<string, unknown> = {
+        name: String(e?.name ?? ""),
+        muscles: (Array.isArray(e?.muscles) ? e.muscles : []).map((m: any) => String(m).toLowerCase()),
+        sets: (Array.isArray(e?.sets) ? e.sets : []).map((s: any) => ({ reps: Number(s?.reps) || 0, weight: Number(s?.weight) || 0 })),
+      };
+      if (e?.lift !== undefined && e?.lift !== null && e?.lift !== "") ex.lift = String(e.lift).toLowerCase();
+      return ex;
+    });
+  }
+  return out;
+}
 
 const MEAL_KEYS = ["date", "time", "label", "name", "items", "calories", "protein", "carbs", "fat", "source", "confidence"];
 
@@ -153,9 +265,10 @@ function pick(a: any, keys: string[]) {
 }
 
 const INSTRUCTIONS =
-  "Life OS is Daniel's accountability app. Use these tools to log meals and weigh-ins he describes, " +
-  "photographs or dictates, and to answer how his day or week is going. Always confirm an estimate before " +
-  "log_meal. Dates are local (America/New_York) YYYY-MM-DD.";
+  "Life OS is Daniel's accountability app. Use these tools to log meals, weigh-ins and workouts he describes, " +
+  "photographs or dictates, and to answer how his day, week or training is going. Always confirm an estimate before " +
+  "log_meal. For lifting, bench, squat, deadlift and overhead press are the focus: say when one hits a new best " +
+  "or hasn't been trained in a while. Dates are local (America/New_York) YYYY-MM-DD.";
 
 type Rpc = { jsonrpc: "2.0"; id?: string | number | null; method: string; params?: any };
 

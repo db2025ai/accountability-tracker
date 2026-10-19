@@ -852,6 +852,71 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await context.close();
 }
 
+// ================= Training card (workouts logged from Claude via Convex) =================
+{
+    console.log('\n— Training card —');
+    {
+        const { context, page } = await newPage();
+        await page.evaluate(() => lifeOS.navigateTo('health'));
+        check('no Convex: card explains how to connect', /Connect Convex/.test(await page.textContent('#trainingBody')), true);
+        await context.close();
+    }
+    const coreGoal = { category: 'Physical Health', name: 'Core Work Out x1 (can be cardio focused core)', target: 'x1' };
+    const tSeed = JSON.parse(JSON.stringify(seed));
+    tSeed.goals.push(coreGoal);
+    tSeed.weeks[1].entries[goals.length] = { goal: { ...coreGoal }, tracking: ['', '', '', '', '', '', ''] };
+    const entryOf = name => Object.values(tSeed.weeks[1].entries).find(e => e.goal.name === name);
+    entryOf('2 Strength Training').tracking = ['', '', '', '', '', '', ''];
+    entryOf('2 Cardio Training (1 swim)').tracking = ['X', '', '-', '', '', '', ''];
+    // What workouts:getRange returns: summaries with muscle groups and key-lift bests
+    const sessions = [
+        { date: '2026-09-08', type: 'strength', name: 'Heavy day', minutes: 60, muscles: ['chest', 'legs'],
+          lifts: { bench: { e1rm: 255, weight: 225, reps: 4 }, squat: { e1rm: 300, weight: 260, reps: 5 } } },
+        { date: '2026-10-11', type: 'core', name: 'Core circuit', minutes: 20, muscles: ['core'], lifts: {} },
+        { date: '2026-10-12', type: 'strength', name: 'Push <day>', minutes: 55, muscles: ['chest', 'shoulders', 'arms'],
+          lifts: { bench: { e1rm: 263, weight: 225, reps: 5 }, ohp: { e1rm: 149, weight: 135, reps: 3 } } },
+        { date: '2026-10-12', type: 'cardio', name: 'Easy run', minutes: 28, distance: 3.1, distanceUnit: 'mi', muscles: [], lifts: {} },
+        { date: '2026-10-13', type: 'swim', name: 'Pool swim', minutes: 40, distance: 1500, distanceUnit: 'yd', muscles: [], lifts: {} },
+    ];
+    const ok = value => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', value }) });
+    const { context, page, errors } = await newPage({
+        seedData: tSeed,
+        init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud'),
+    });
+    await context.route('https://fake-test.convex.cloud/**', r => {
+        const { path } = JSON.parse(r.request().postData() || '{}');
+        if (path === 'workouts:getRange') return r.fulfill(ok({ sessions }));
+        if (path === 'nutrition:getRange') return r.fulfill(ok({ targets: { calories: 2400, protein: 190, carbs: 240, fat: 75 }, days: [] }));
+        if (path === 'nutrition:pendingWeighIns') return r.fulfill(ok([]));
+        return r.fulfill(ok(null));
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS);
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('health'); });
+    await page.waitForFunction(() => lifeOS._training && !lifeOS._training.error && !lifeOS._trainingLoading);
+    await page.waitForTimeout(200);
+    const text = (await page.textContent('#trainingBody')).replace(/\s+/g, ' ');
+    check('this week: sessions, minutes and types', [/4 sessions · 143 min/.test(text), /1 strength · 1 cardio · 1 swim · 1 core/.test(text)], [true, true]);
+    check('muscle groups hit this week', await page.$$eval('.training-muscle.hit', els => els.map(e => e.textContent)), ['Chest', 'Shoulders', 'Arms', 'Core']);
+    check('untrained groups called out', /Not yet: back, legs/.test(text), true);
+    const lift = key => page.textContent(`.training-lift[data-lift="${key}"]`).then(s => s.replace(/\s+/g, ' ').trim());
+    check('bench: best of 4 weeks, change vs the 4 before', await lift('bench'), 'Bench press 263 lb Best set 225 × 5 on Oct 12 · +8 lb vs the 4 weeks before');
+    check('squat: flagged when not trained in 4 weeks', await lift('squat'), 'Squat – Not trained in 4 weeks · last 260 × 5 on Sep 8');
+    check('deadlift: never logged', await lift('deadlift'), 'Deadlift – Not logged in the last 12 weeks');
+    check('overhead press: no earlier sessions, no change shown', await lift('ohp'), 'Overhead press 149 lb Best set 135 × 3 on Oct 12');
+    check('recent sessions newest first, names escaped', await page.$$eval('.training-recent li', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim())),
+        ['Tue, Oct 13 Pool swim · 40 min · 1,500 yd', 'Mon, Oct 12 Easy run · 28 min · 3.1 mi', 'Mon, Oct 12 Push <day> · 55 min', 'Sun, Oct 11 Core circuit · 20 min']);
+    const cells = name => page.evaluate(n => Object.values(lifeOS.data.weeks[1].entries).find(e => e.goal.name === n).tracking.slice(0, 3), name);
+    check('strength goal ticked on the lifting day', await cells('2 Strength Training'), ['', 'X', '']);
+    check('cardio goal ticked for the run; the swim leaves a "doesn\'t apply" day alone', await cells('2 Cardio Training (1 swim)'), ['X', 'X', '-']);
+    check('core goal ticked by the core session', await cells(coreGoal.name), ['X', '', '']);
+    check('ticks saved', await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem('lifeOSData')).weeks[1].entries)
+        .find(e => e.goal.name === '2 Strength Training').tracking[1]), 'X');
+    check('workouts ring counts the ticks', await page.textContent('#workoutCount'), '3/4');
+    check('no page errors', errors, []);
+    await context.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASSED');

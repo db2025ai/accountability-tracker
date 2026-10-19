@@ -3690,16 +3690,16 @@ textarea.autogrow {
 /* ========================================
    Nutrition card (Health tab). Meals are logged from Claude; this only displays.
    ======================================== */
-.nutrition-head {
+.nutrition-head, .training-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 12px;
 }
-.nutrition-card .nutrition-head h3 { margin-bottom: 0; }
-.nutrition-when { font-size: 0.8rem; color: var(--text-muted); }
-.nutrition-note { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 12px; }
+.nutrition-card .nutrition-head h3, .training-card .training-head h3 { margin-bottom: 0; }
+.nutrition-when, .training-when { font-size: 0.8rem; color: var(--text-muted); }
+.nutrition-note, .training-note { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 12px; }
 .nutrition-row { margin-bottom: 14px; min-width: 0; }
 .nutrition-row-top {
     display: flex;
@@ -3743,3 +3743,67 @@ textarea.autogrow {
 @media (prefers-reduced-motion: no-preference) {
     .nutrition-bar i { transition: width 0.3s ease; }
 }
+
+/* ========================================
+   Training card (Health tab). Workouts are logged from Claude; this only displays.
+   Header and note styles are shared with the Nutrition card above.
+   ======================================== */
+.training-summary { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.training-big {
+    font-family: var(--font-serif);
+    font-size: 1.6rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.training-meta { font-size: 0.78rem; color: var(--text-muted); }
+.training-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 16px 0 8px;
+}
+.training-muscles { display: flex; flex-wrap: wrap; gap: 6px; }
+.training-muscle {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1.5px solid var(--border-light);
+    color: var(--text-muted);
+}
+.training-muscle.hit { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.training-gap { margin-top: 6px; }
+.training-lift {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 2px 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border-light);
+    min-width: 0;
+}
+.training-lift:first-child { border-top: 0; padding-top: 0; }
+.training-lift b { font-weight: 600; font-size: 0.9rem; }
+.training-e1rm {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+.training-lift .training-meta { grid-column: 1 / -1; }
+.training-up { color: var(--primary); font-weight: 600; }
+.training-down { color: var(--danger); font-weight: 600; }
+.training-stale { color: var(--warning); font-weight: 600; }
+.training-recent { list-style: none; margin: 0; padding: 0; }
+.training-recent li {
+    display: flex;
+    gap: 10px;
+    font-size: 0.88rem;
+    padding: 6px 0;
+    border-top: 1px solid var(--border-light);
+    min-width: 0;
+}
+.training-recent li:first-child { border-top: 0; padding-top: 0; }
+.training-day { flex: 0 0 auto; min-width: 7.5em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.training-what { min-width: 0; overflow-wrap: anywhere; }

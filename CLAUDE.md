@@ -30,7 +30,8 @@ Single-page web app (PWA) for personal goal tracking, health monitoring, and dai
 - `convex/crons.ts` — runs `sendReminders` every 15 minutes
 - `convex/journal.ts` — importEntries (dedupes by date + text hash), listArchive, clearArchive for imported journal entries. **Keep large text out of the `userData` blob** — Convex documents max out at 1 MB and the blob is ~0.5 MB
 - `convex/nutrition.ts` — meals, saved meals, daily targets and weigh-ins (tables `meals`, `savedMeals`, `nutritionSettings`, `weighIns`). Public: `getRange` (per-day totals for the app), `pendingWeighIns`, `markWeighInsApplied`. Everything that writes meals is `internal` and only reachable through the connector
-- `convex/http.ts` — **Claude connector**: a minimal MCP server (JSON-RPC over POST) at `https://energetic-fly-308.convex.site/mcp/<MCP_TOKEN>`. Tools: log_meal, update_meal, delete_meal, get_day, get_summary, list/save/delete saved meals, set_targets, log_weight, get_weights. The token in the path is the only key (404 without it)
+- `convex/workouts.ts` — workout sessions (table `workouts`): exercises with sets, the key lifts (bench, squat, deadlift, ohp) and muscle groups. Public: `getRange` (session summaries for the app). Writes are `internal`, through the connector
+- `convex/http.ts` — **Claude connector**: a minimal MCP server (JSON-RPC over POST) at `https://energetic-fly-308.convex.site/mcp/<MCP_TOKEN>`. Tools: log_meal, update_meal, delete_meal, get_day, get_summary, list/save/delete saved meals, set_targets, log_weight, get_weights, log_workout, update_workout, delete_workout, get_workouts, get_lift_progress. The token in the path is the only key (404 without it)
 - `convex/lib/reminders.ts` — "what's left today" + message text. **Mirrors the schedule rules in life-os.js** (classifyFrequency, scoringKind, getGoalDays, isExpected) — change both together
 - Env vars: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (site URL), `MCP_TOKEN` (connector key, 24+ chars). Never print the private key or the token
 - Deploy: `npx convex deploy` (uses `CONVEX_DEPLOY_KEY`)
@@ -149,6 +150,15 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 - **Protein goal**: a goal whose name matches `PROTEIN_GOAL` (/protein target/i, e.g. "Protein target (190g)") is ticked `'X'` on each loaded day protein reached the target (`applyProteinCheckoffs`). "Doesn't apply" `'-'` days are left alone. Don't widen the pattern: "High protein/fat breakfast" must not match.
 - **Weigh-ins** from Claude land in `weighIns`; on load `applyWeighIns` copies them into `data.healthLog`, saves, then calls `markWeighInsApplied`. The server never rewrites the `userData` blob, so it can't race the app's own saves.
 - Tests: `tests/app.test.mjs` (Nutrition card scenario, Convex stubbed with `context.route`) and `npm run test:convex` (connector end to end in memory with convex-test).
+- `autoTickGoal(pattern, dateKey)` is the shared tick for synced data (protein, workouts): it never overrides a done cell or a `'-'`. `checkOffGoal` is for taps (meditation, reflection) and does.
+
+## Training (workouts logged from Claude)
+- Same split as nutrition: Claude logs sessions through the connector (`log_workout`, or `update_workout` to add lifts to an Apple Watch session); the app only reads `workouts:getRange` for the last 12 weeks. No workout forms in the app.
+- A session: `type` (strength | cardio | swim | core | mobility | other), `minutes`, optional `distance` + `distanceUnit`, and for lifting `exercises[]` = `{ name, lift?, muscles[], sets[{ reps, weight }] }` (lb, 0 = bodyweight). `lift` is set only on the key lifts (bench, squat, deadlift, ohp); muscles are chest | back | shoulders | arms | legs | core. `externalId` (e.g. the watch workout's start) makes a resend a no-op.
+- **Estimated 1-rep max** = Epley, `weight × (1 + reps/30)`, from sets of 12 reps or fewer (`e1rm` in workouts.ts). `log_workout` / `update_workout` return `newBests` when a key lift beats every other logged session.
+- The Health tab **Training card** (`renderTraining` / `loadTraining`, cached in `this._training`, refetched after 60s or a new day): sessions + minutes this week (Sun–Sat), muscle-group chips with "Not yet", each key lift's best e1RM of the last 4 weeks vs the 4 before (ochre "Not trained in 4 weeks" when it's slipping), and the last 2 weeks of sessions. Names come from chat: always `escapeHtml`.
+- **Goal ticks** (`WORKOUT_GOALS`, `applyWorkoutCheckoffs`): strength → /strength training/i, cardio or swim → /cardio training/i, type core → /core work ?out/i, on the session's date. Core moves inside a lift don't tick the core goal. The Workouts ring reads those ticks, so it fills on its own. Deleting a workout doesn't untick.
+- Tests: Training card scenario in `tests/app.test.mjs`; "workouts end to end" in `tests/convex.test.ts`.
 
 ## Architecture Notes
 
@@ -172,4 +182,5 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 - `maybeShowCatchUp()` / `updateAppBadge()` / `toggleReminders()` — Catch-up prompt, badge, push reminders
 - `getJournalStreak()` / `previewJournalImport(file)` / `parseJournalEntries(pages)` / `renderArchive()` — Journal streak, import and archive
 - `renderMeditation()` / `startMeditation(kind, minutes)` / `finishMeditation()` — Guided sessions
+- `renderNutrition()` / `renderTraining()` / `autoTickGoal(pattern, dateKey)` — Health tab cards fed by the Claude connector, and their goal ticks
 - `saveData()` — Persists to localStorage (and Convex if connected)
