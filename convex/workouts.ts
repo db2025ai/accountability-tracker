@@ -1,7 +1,7 @@
 // Workouts: sessions, their exercises and the key lifts (bench, squat, deadlift, overhead press).
 // Claude writes through the /mcp connector (http.ts), which calls the internal functions here.
-// The app only reads (getRange) and ticks the workout goals from it.
-import { query, internalQuery, internalMutation, QueryCtx } from "./_generated/server";
+// The app reads (getRange, lastSets) and saves sessions run in its workout mode (finishSession).
+import { query, mutation, internalQuery, internalMutation, QueryCtx, MutationCtx } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { DEFAULT_USER } from "./lib/reminders";
@@ -16,8 +16,9 @@ const exercise = v.object({
   lift: v.optional(v.string()),
   muscles: v.array(v.string()),
   sets: v.array(v.object({ reps: v.number(), weight: v.number() })),
+  note: v.optional(v.string()),
 });
-type Exercise = { name: string; lift?: string; muscles: string[]; sets: { reps: number; weight: number }[] };
+type Exercise = { name: string; lift?: string; muscles: string[]; sets: { reps: number; weight: number }[]; note?: string };
 type Workout = Doc<"workouts">;
 type Best = { e1rm: number; weight: number; reps: number };
 
@@ -90,7 +91,7 @@ async function allWorkouts(ctx: QueryCtx) {
 }
 
 // Clear errors so Claude can correct the call
-function validate(w: { date?: string; type?: string; minutes?: number; distanceUnit?: string; exercises?: Exercise[] }) {
+export function validate(w: { date?: string; type?: string; minutes?: number; distanceUnit?: string; exercises?: Exercise[] }) {
   if (w.date !== undefined && !isDate(w.date)) throw new Error("date must be YYYY-MM-DD");
   if (w.type !== undefined && !WORKOUT_TYPES.includes(w.type))
     throw new Error(`type must be one of: ${WORKOUT_TYPES.join(", ")}`);
@@ -145,17 +146,57 @@ const workoutFields = {
   notes: v.optional(v.string()),
 };
 
+type NewWorkout = Omit<Workout, "_id" | "_creationTime" | "userId" | "createdAt">;
+
+// Shared by Claude's log_workout and the app's Finish. The same externalId sent again (an Apple
+// Watch resend, or the app retrying a save) returns the first row instead of a second one.
+async function insertWorkout(ctx: MutationCtx, row: NewWorkout) {
+  validate(row);
+  const all = await allWorkouts(ctx);
+  const same = row.externalId && all.find((x) => x.externalId === row.externalId);
+  if (same) return { id: same._id, duplicate: true, newBests: [] };
+  const id = await ctx.db.insert("workouts", { userId: DEFAULT_USER, ...row, createdAt: new Date().toISOString() });
+  return { id, newBests: newBests((await ctx.db.get(id))!, all) };
+}
+
 export const addWorkout = internalMutation({
   args: workoutFields,
-  handler: async (ctx, w) => {
-    const row = { ...w, exercises: w.exercises || [] };
-    validate(row);
-    const all = await allWorkouts(ctx);
-    // The same Apple Watch workout sent again is not logged twice
-    const same = row.externalId && all.find((x) => x.externalId === row.externalId);
-    if (same) return { id: same._id, duplicate: true, newBests: [] };
-    const id = await ctx.db.insert("workouts", { userId: DEFAULT_USER, ...row, createdAt: new Date().toISOString() });
-    return { id, newBests: newBests((await ctx.db.get(id))!, all) };
+  handler: (ctx, w) => insertWorkout(ctx, { ...w, exercises: w.exercises || [] }),
+});
+
+// Workout mode's Finish: saves the sets ticked off in the app and marks Claude's plan done
+export const finishSession = mutation({
+  args: {
+    externalId: v.string(),
+    planId: v.optional(v.string()),
+    date: v.string(),
+    name: v.string(),
+    minutes: v.optional(v.number()),
+    exercises: v.array(exercise),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, { planId, ...w }) => {
+    const res = await insertWorkout(ctx, { ...w, type: "strength", source: "app" });
+    const plan = planId ? ctx.db.normalizeId("workoutPlans", planId) : null;
+    if (plan && (await ctx.db.get(plan))) await ctx.db.patch(plan, { status: "done", workoutId: res.id, updatedAt: new Date().toISOString() });
+    return res;
+  },
+});
+
+// The last time each named exercise was done (the "Previous" column in workout mode).
+// Names match case-insensitively; returns { [lowercased name]: { date, sets } }.
+export const lastSets = query({
+  args: { names: v.array(v.string()) },
+  handler: async (ctx, { names }) => {
+    const wanted = new Set(names.map((n) => n.trim().toLowerCase()));
+    const out: Record<string, { date: string; sets: { reps: number; weight: number }[] }> = {};
+    for (const w of (await allWorkouts(ctx)).sort(byDate).reverse()) {
+      for (const ex of w.exercises) {
+        const key = ex.name.trim().toLowerCase();
+        if (wanted.has(key) && !out[key] && ex.sets.length) out[key] = { date: w.date, sets: ex.sets };
+      }
+    }
+    return out;
   },
 });
 

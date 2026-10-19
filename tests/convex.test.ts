@@ -125,3 +125,66 @@ test("workouts end to end", async () => {
   expect((await tool("delete_workout", { id: s1.data.id })).err).toBe(false);
   expect((await tool("get_workouts", { from: "2026-10-13", to: "2026-10-13" })).data.totals.sessions).toBe(0);
 });
+
+test("workout mode: profile, plans, Previous and Finish", async () => {
+  process.env.MCP_TOKEN = TOKEN;
+  const t = convexTest(schema, modules);
+  const tool = async (name: string, args: any) => {
+    const r = await t.fetch(`/mcp/${TOKEN}`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }) });
+    const res = (await r.json()).result;
+    return { err: res.isError, data: res.isError ? res.content[0].text : JSON.parse(res.content[0].text) };
+  };
+
+  // Training profile: empty, saved, replaced
+  expect((await tool("get_training_profile", {})).data).toBe(null);
+  await tool("set_training_profile", { notes: "Right shoulder: aggravated by DB bench, improving.", daysPerWeek: 3 });
+  expect((await tool("get_training_profile", {})).data).toMatchObject({ notes: "Right shoulder: aggravated by DB bench, improving.", daysPerWeek: 3 });
+  expect((await tool("set_training_profile", { notes: "x", daysPerWeek: 9 })).err).toBe(true);
+
+  // History for the Previous column
+  await tool("log_workout", { date: "2026-10-15", type: "strength", name: "Thu lift",
+    exercises: [{ name: "Bench Press", lift: "bench", muscles: ["chest"], sets: [{ reps: 8, weight: 185 }, { reps: 7, weight: 185 }] }] });
+
+  // Plan: validated, then replaced on the same date
+  expect((await tool("plan_workout", { date: "2026-10-19", name: "x", exercises: [{ name: "Curl", lift: "curl", muscles: ["arms"], sets: [{ reps: 8, weight: 30 }] }] })).data).toMatch(/lift must be one of/);
+  expect((await tool("plan_workout", { date: "2026-10-19", name: "x", exercises: [{ name: "Row", muscles: ["back"], sets: [{ reps: 10, repsMax: 8, weight: 100 }] }] })).data).toMatch(/repsMax/);
+  const plan = { date: "2026-10-19", name: "Full body A", note: "Bench focus, shoulder-friendly",
+    exercises: [
+      { name: "Bench press", lift: "Bench", muscles: ["chest"], restSec: "150", note: "Slight arch, stop if >3/10",
+        sets: [{ reps: 10, weight: 95, warmup: true }, { reps: "8", repsMax: 10, weight: "190" }, { reps: 8, repsMax: 10, weight: 190 }] },
+      { name: "Romanian deadlift", muscles: ["legs"], sets: [{ reps: 10, weight: 135 }] },
+    ] };
+  const p1 = await tool("plan_workout", { ...plan, name: "Draft" });
+  const p2 = await tool("plan_workout", plan);
+  expect(p2.data).toEqual({ id: p1.data.id, replaced: true });
+  const plans = await t.query(api.plans.forRange, { from: "2026-10-19", to: "2026-10-25" });
+  expect(plans).toHaveLength(1);
+  expect(plans[0]).toMatchObject({ id: p1.data.id, name: "Full body A", status: "planned", note: "Bench focus, shoulder-friendly" });
+  expect(plans[0].exercises[0]).toEqual({ name: "Bench press", lift: "bench", muscles: ["chest"], restSec: 150, note: "Slight arch, stop if >3/10",
+    sets: [{ reps: 10, weight: 95, warmup: true }, { reps: 8, repsMax: 10, weight: 190 }, { reps: 8, repsMax: 10, weight: 190 }] });
+
+  // Previous: most recent sets per exercise name, case-insensitive
+  const prev = await t.query(api.workouts.lastSets, { names: ["Bench press", "Romanian deadlift"] });
+  expect(prev).toEqual({ "bench press": { date: "2026-10-15", sets: [{ reps: 8, weight: 185 }, { reps: 7, weight: 185 }] } });
+
+  // Finish from the app: saved as a strength session, plan marked done, a retry isn't a duplicate
+  const session = { externalId: "app-1", planId: p1.data.id, date: "2026-10-19", name: "Full body A", minutes: 52,
+    exercises: [{ name: "Bench press", lift: "bench", muscles: ["chest"], note: "Felt discomfort", sets: [{ reps: 10, weight: 190 }, { reps: 8, weight: 190 }] }],
+    notes: "Skipped: Romanian deadlift" };
+  const done = await t.mutation(api.workouts.finishSession, session);
+  expect(done.newBests).toEqual([{ lift: "bench", e1rm: 253, set: "190 × 10", previous: 234 }]);
+  expect(await t.mutation(api.workouts.finishSession, session)).toEqual({ id: done.id, duplicate: true, newBests: [] });
+  expect((await t.query(api.plans.forRange, { from: "2026-10-19", to: "2026-10-19" }))[0].status).toBe("done");
+  const day = await tool("get_workouts", { from: "2026-10-19", to: "2026-10-19" });
+  expect(day.data.sessions).toHaveLength(1);
+  expect(day.data.sessions[0]).toMatchObject({ type: "strength", source: "app", minutes: 52, notes: "Skipped: Romanian deadlift" });
+  expect(day.data.sessions[0].exercises[0].note).toBe("Felt discomfort");
+  expect((await tool("get_plans", { from: "2026-10-19", to: "2026-10-19" })).data[0]).toMatchObject({ status: "done", workoutId: done.id });
+
+  // A done day can't be re-planned; plans can be deleted
+  expect((await tool("plan_workout", plan)).data).toMatch(/already done/);
+  const p3 = await tool("plan_workout", { ...plan, date: "2026-10-21", name: "Full body B" });
+  expect((await tool("delete_plan", { id: p3.data.id })).err).toBe(false);
+  expect(await t.query(api.plans.forRange, { from: "2026-10-21", to: "2026-10-21" })).toEqual([]);
+});

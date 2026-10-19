@@ -703,6 +703,26 @@
         </div>
     </div>
 
+    <!-- Workout mode: runs a session Claude planned (Convex plans.ts), set by set -->
+    <div class="workout-screen" id="workoutScreen" hidden>
+        <div class="workout-top">
+            <div class="workout-top-text">
+                <span class="workout-title" id="workoutTitle"></span>
+                <span class="workout-clock" id="workoutClock">0:00</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="workoutMinimizeBtn">Hide</button>
+            <button class="btn btn-primary btn-sm" id="workoutFinishBtn">Finish</button>
+        </div>
+        <div class="workout-body" id="workoutBody"></div>
+        <div class="workout-rest" id="workoutRest" hidden>
+            <span class="workout-rest-label" id="workoutRestLabel">Rest</span>
+            <span class="workout-rest-time" id="workoutRestTime">0:00</span>
+            <button class="btn btn-secondary btn-sm" data-wk="rest-minus" aria-label="15 seconds less">&minus;15</button>
+            <button class="btn btn-secondary btn-sm" data-wk="rest-plus" aria-label="15 seconds more">+15</button>
+            <button class="btn btn-secondary btn-sm" data-wk="rest-skip">Skip</button>
+        </div>
+    </div>
+
     <!-- Journal import preview -->
     <div class="modal" id="journalImportModal">
         <div class="modal-content">

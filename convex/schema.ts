@@ -15,6 +15,17 @@ const exercise = v.object({
   lift: v.optional(v.string()), // bench | squat | deadlift | ohp (the key lifts tracked for progress)
   muscles: v.array(v.string()), // chest | back | shoulders | arms | legs | core
   sets: v.array(v.object({ reps: v.number(), weight: v.number() })), // weight in lb, 0 = bodyweight
+  note: v.optional(v.string()), // e.g. "Felt discomfort", flagged in workout mode
+});
+
+// A set Claude plans: target reps (or a range up to repsMax) at a weight
+const plannedExercise = v.object({
+  name: v.string(),
+  lift: v.optional(v.string()),
+  muscles: v.array(v.string()),
+  note: v.optional(v.string()), // coaching cue shown in workout mode
+  restSec: v.optional(v.number()),
+  sets: v.array(v.object({ reps: v.number(), repsMax: v.optional(v.number()), weight: v.number(), warmup: v.optional(v.boolean()) })),
 });
 
 export default defineSchema({
@@ -140,9 +151,31 @@ export default defineSchema({
     distanceUnit: v.optional(v.string()), // mi | km | m | yd
     calories: v.optional(v.number()),
     avgHr: v.optional(v.number()),
-    source: v.optional(v.string()), // voice | text | photo | watch
+    source: v.optional(v.string()), // voice | text | photo | watch | app (workout mode)
     externalId: v.optional(v.string()), // e.g. the Apple Watch workout's start, so a resend isn't logged twice
     notes: v.optional(v.string()),
     createdAt: v.string(),
   }).index("by_user_date", ["userId", "date"]),
+
+  // ---- Workout mode (see plans.ts) ----
+  // Sessions Claude plans; the app runs them and Finish saves a `workouts` row
+  workoutPlans: defineTable({
+    userId: v.string(),
+    date: v.string(), // local YYYY-MM-DD
+    name: v.string(),
+    note: v.optional(v.string()), // the coach's summary for the day
+    exercises: v.array(plannedExercise),
+    status: v.string(), // planned | done
+    workoutId: v.optional(v.id("workouts")),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  }).index("by_user_date", ["userId", "date"]),
+
+  // What Claude should remember when planning: injuries, equipment, schedule, goals (one row)
+  trainingProfile: defineTable({
+    userId: v.string(),
+    notes: v.string(),
+    daysPerWeek: v.optional(v.number()),
+    updatedAt: v.string(),
+  }).index("by_userId", ["userId"]),
 });
