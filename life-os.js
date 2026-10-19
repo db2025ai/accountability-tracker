@@ -1958,44 +1958,88 @@ class LifeOS {
     // ========================================
     // Health Section
     // ========================================
+    // Daily check-in: fill in any of weight, sleep, energy, then one Save. Energy taps only
+    // select; nothing is written until Save. Today's saved values come back into the fields.
     bindHealthLog() {
-        document.getElementById('logWeightBtn').addEventListener('click', () => {
-            const val = parseFloat(document.getElementById('weightInput').value);
-            if (isNaN(val)) return;
-            this.logHealthMetric('weight', val);
-            document.getElementById('weightInput').value = '';
-        });
-
-        document.getElementById('logSleepBtn').addEventListener('click', () => {
-            const val = parseFloat(document.getElementById('sleepInput').value);
-            if (isNaN(val)) return;
-            this.logHealthMetric('sleep', val);
-            document.getElementById('sleepInput').value = '';
-        });
-
         document.getElementById('energyButtons').addEventListener('click', (e) => {
-            if (e.target.classList.contains('energy-btn')) {
-                document.querySelectorAll('.energy-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.logHealthMetric('energy', parseInt(e.target.dataset.level));
+            const btn = e.target.closest('.energy-btn');
+            if (!btn) return;
+            const on = btn.getAttribute('aria-pressed') !== 'true';
+            document.querySelectorAll('.energy-btn').forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-pressed', 'false');
+            });
+            if (on) {
+                btn.classList.add('active');
+                btn.setAttribute('aria-pressed', 'true');
             }
         });
+        document.getElementById('saveCheckinBtn').addEventListener('click', () => this.saveCheckin());
     }
 
-    logHealthMetric(type, value) {
+    saveCheckin() {
+        const status = document.getElementById('checkinStatus');
+        const num = id => {
+            const raw = document.getElementById(id).value.trim();
+            return raw === '' ? null : parseFloat(raw);
+        };
+        const weight = num('weightInput');
+        const sleep = num('sleepInput');
+        const picked = document.querySelector('.energy-btn[aria-pressed="true"]');
+        const energy = picked ? parseInt(picked.dataset.level) : null;
+        if (weight !== null && !(weight > 50 && weight < 600)) {
+            status.textContent = 'Weight looks off. Check the number and save again.';
+            return;
+        }
+        if (sleep !== null && !(sleep >= 0 && sleep <= 24)) {
+            status.textContent = 'Sleep should be between 0 and 24 hours.';
+            return;
+        }
+        if (weight === null && sleep === null && energy === null) {
+            status.textContent = 'Enter at least one: weight, sleep or energy.';
+            return;
+        }
         const today = this.getTodayStr();
         let entry = this.data.healthLog.find(e => e.date === today);
         if (!entry) {
             entry = { date: today };
             this.data.healthLog.push(entry);
+            this.data.healthLog.sort((a, b) => (a.date < b.date ? -1 : 1));
         }
-        entry[type] = value;
+        if (weight !== null) entry.weight = weight;
+        if (sleep !== null) entry.sleep = sleep;
+        if (energy !== null) entry.energy = energy;
         this.saveData();
-        this.logActivity(`Logged ${type}: ${value}`);
+        this.logActivity('Saved daily check-in');
         this.renderHealth();
     }
 
+    // Show today's saved check-in in the fields and the status line
+    renderCheckin() {
+        const status = document.getElementById('checkinStatus');
+        if (!status) return;
+        const entry = this.data.healthLog.find(e => e.date === this.getTodayStr()) || {};
+        const set = (id, v) => {
+            const el = document.getElementById(id);
+            if (document.activeElement !== el) el.value = v ?? '';
+        };
+        set('weightInput', entry.weight);
+        set('sleepInput', entry.sleep);
+        document.querySelectorAll('.energy-btn').forEach(b => {
+            const on = Number(b.dataset.level) === entry.energy;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', String(on));
+        });
+        const parts = [];
+        if (entry.weight != null) parts.push(`${entry.weight} lb`);
+        if (entry.sleep != null) parts.push(`${entry.sleep} h sleep`);
+        if (entry.energy != null) parts.push(`energy ${entry.energy}/5`);
+        status.textContent = parts.length ? `Saved for today: ${parts.join(' · ')}` : 'Nothing saved yet today.';
+        document.getElementById('saveCheckinBtn').textContent = parts.length ? 'Update check-in' : 'Save check-in';
+    }
+
     renderHealth() {
+        this.renderCheckin();
         this.renderHealthRings();
         this.renderHealthCharts();
         this.renderNutrition();
@@ -4771,12 +4815,9 @@ class LifeOS {
         reader.readAsText(file);
     }
 
+    // Local date: toISOString() is UTC, which is already tomorrow on a US evening
     getTodayStr() {
-        return this.dateToStr(new Date());
-    }
-
-    dateToStr(date) {
-        return date.toISOString().split('T')[0];
+        return this.localDateKey(new Date());
     }
 
     escapeHtml(str) {

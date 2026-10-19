@@ -1303,6 +1303,10 @@ tr:hover .strike-dec { opacity: 1; }
     border-color: var(--primary);
 }
 
+/* Daily check-in: one Save for weight, sleep and energy */
+.checkin-save { width: 100%; margin-top: 4px; }
+.checkin-status { font-size: 0.8rem; color: var(--text-muted); margin: 10px 0 0; }
+
 .health-charts {
     display: grid;
     grid-template-columns: 1fr 1fr;

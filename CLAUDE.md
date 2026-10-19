@@ -114,7 +114,10 @@ Weeks starting **on/after `data.settings.scoringCutover` (`'2026-10-11'`)**: the
 - Grid cells that are inferred misses get the `inferred-miss` class (faint ✗).
 
 ### Dates
-- A week's start is `weekStartOf(week)`: `startDate` + 12h, floored to Sunday, so weeks created in another timezone (e.g. `T04:00Z` from Eastern time, imports at local noon) still land on the right Sunday. Use `getWeekForDate(date)` (exact match, no fallback) and `weekDayDate(week, d)` for day dates, and `localDateKey(date)` — not `toISOString()` — for local `YYYY-MM-DD` keys.
+- A week's start is `weekStartOf(week)`: `startDate` + 12h, floored to Sunday, so weeks created in another timezone (e.g. `T04:00Z` from Eastern time, imports at local noon) still land on the right Sunday. Use `getWeekForDate(date)` (exact match, no fallback) and `weekDayDate(week, d)` for day dates, and `localDateKey(date)` — not `toISOString()` — for local `YYYY-MM-DD` keys. `getTodayStr()` is local too (it was UTC, which filed US-evening check-ins under tomorrow).
+
+### Daily check-in (Health tab)
+- Weight, sleep and energy share one **Save check-in** button (`saveCheckin`); tapping an energy number only selects it. Empty fields keep what's already saved for today. `renderCheckin` puts today's saved values back in the fields and shows "Saved for today: …".
 
 ## Yesterday Catch-up, Badge and Reminders
 - **Catch-up**: on open (after the Convex load, if connected) `maybeShowCatchUp()` shows "Yesterday — did you do these?" for yesterday's still-blank scheduled daily items, cutover weeks only, at most once per day (localStorage `lifeOS_catchUpShown`). Done writes `'X'` for checked items; unchecked stay misses.
