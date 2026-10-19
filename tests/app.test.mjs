@@ -852,6 +852,35 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await context.close();
 }
 
+// ================= Daily check-in (one Save, local date) =================
+{
+    console.log('\n— Daily check-in —');
+    // 10:30pm Eastern is already the next day in UTC: the check-in must still land on Oct 13
+    const { context, page, errors } = await newPage({ width: 390, time: '2026-10-13T22:30:00-04:00' });
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('health'); });
+    const log = () => page.evaluate(() => JSON.parse(JSON.stringify(lifeOS.data.healthLog)));
+    check('nothing saved yet', await page.textContent('#checkinStatus'), 'Nothing saved yet today.');
+    await page.click('.energy-btn[data-level="4"]');
+    check('tapping energy only selects it', await log(), []);
+    await page.click('#saveCheckinBtn');
+    check('energy alone can be saved', await log(), [{ date: '2026-10-13', energy: 4 }]);
+    await page.fill('#weightInput', '205.4');
+    await page.fill('#sleepInput', '7.5');
+    await page.click('#saveCheckinBtn');
+    check('one Save logs all three on the local date', await log(), [{ date: '2026-10-13', energy: 4, weight: 205.4, sleep: 7.5 }]);
+    check('status shows what was saved', await page.textContent('#checkinStatus'), 'Saved for today: 205.4 lb · 7.5 h sleep · energy 4/5');
+    check('button becomes Update', await page.textContent('#saveCheckinBtn'), 'Update check-in');
+    await page.evaluate(() => lifeOS.navigateTo('dashboard'));
+    await page.evaluate(() => lifeOS.navigateTo('health'));
+    check('fields come back filled in', [await page.inputValue('#weightInput'), await page.inputValue('#sleepInput'),
+        await page.getAttribute('.energy-btn[data-level="4"]', 'aria-pressed')], ['205.4', '7.5', 'true']);
+    await page.fill('#weightInput', '5');
+    await page.click('#saveCheckinBtn');
+    check('implausible weight is refused', [/Weight looks off/.test(await page.textContent('#checkinStatus')), (await log())[0].weight], [true, 205.4]);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
 // ================= Training card (workouts logged from Claude via Convex) =================
 {
     console.log('\n— Training card —');
