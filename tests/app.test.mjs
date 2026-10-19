@@ -1025,6 +1025,55 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     }
 }
 
+// ================= Apple Watch sleep (sent by an iPhone Shortcut, picked up from Convex) =================
+{
+    console.log('\n— Apple Watch sleep —');
+    const sSeed = JSON.parse(JSON.stringify(seed));
+    Object.values(sSeed.weeks[1].entries).find(e => e.goal.name === 'In bed by 11:15PM').tracking = ['', '', '', '', '', '', ''];
+    let served = false, applied = null;
+    const ok = value => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', value }) });
+    const { context, page, errors } = await newPage({ seedData: sSeed, init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud') });
+    await context.route('https://fake-test.convex.cloud/**', r => {
+        const { path, args } = JSON.parse(r.request().postData() || '{}');
+        if (path === 'health:pendingSleep') {
+            const v = served ? [] : [
+                { id: 's1', date: '2026-10-12', hours: 7.6, bedtime: '22:50', nightOf: '2026-10-11' }, // Sunday night, before 11:15
+                { id: 's2', date: '2026-10-13', hours: 6.1, bedtime: '00:40', nightOf: '2026-10-12' }, // Monday, after midnight
+                { id: 's3', date: '2026-10-10', hours: 8, bedtime: '22:00', nightOf: '2026-10-09' },  // Friday: not a weeknight
+            ];
+            served = true;
+            return r.fulfill(ok(v));
+        }
+        if (path === 'health:markSleepApplied') {
+            applied = args.ids;
+            return r.fulfill(ok(null));
+        }
+        return r.fulfill(ok(path === 'workouts:getRange' ? { sessions: [] } : path === 'nutrition:getRange' ? { targets: { calories: 2400, protein: 190, carbs: 240, fat: 75 }, days: [] } : []));
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS && lifeOS.data.healthLog.length === 3);
+    await page.waitForFunction(() => !lifeOS._sleepSyncing);
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('health'); });
+    check('nights land in the Health log, marked as from the watch', await page.evaluate(() =>
+        lifeOS.data.healthLog.map(e => [e.date, e.sleep, e.sleepSource, e.bedtime])),
+        [['2026-10-10', 8, 'watch', '22:00'], ['2026-10-12', 7.6, 'watch', '22:50'], ['2026-10-13', 6.1, 'watch', '00:40']]);
+    const bed = wi => page.evaluate(i => Object.values(lifeOS.data.weeks[i].entries).find(e => e.goal.name === 'In bed by 11:15PM').tracking, wi);
+    check('early bedtime ticks the night; after midnight does not', (await bed(1)).slice(0, 2), ['X', '']);
+    check('Friday is not a weeknight: left alone', (await bed(0))[5], '');
+    check('saved on the phone', await page.evaluate(() =>
+        JSON.parse(localStorage.getItem('lifeOSData')).healthLog.length), 3);
+    check('marked applied', applied, ['s1', 's2', 's3']);
+    check('check-in shows the watch\'s number', await page.textContent('#checkinStatus'), 'Saved for today: 6.1 h sleep (Apple Watch)');
+    await page.fill('#weightInput', '205');
+    await page.click('#saveCheckinBtn');
+    check('saving weight keeps the watch label', await page.textContent('#checkinStatus'), 'Saved for today: 205 lb · 6.1 h sleep (Apple Watch)');
+    await page.fill('#sleepInput', '6.5');
+    await page.click('#saveCheckinBtn');
+    check('typing a different number makes it yours', await page.textContent('#checkinStatus'), 'Saved for today: 205 lb · 6.5 h sleep');
+    check('no page errors', errors, []);
+    await context.close();
+}
+
 // ================= Workout mode (a session Claude planned, set by set) =================
 {
     console.log('\n— Workout mode —');
