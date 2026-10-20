@@ -99,6 +99,9 @@ async function newPage({ width = 1280, seedData = seed, time = '2026-10-13T15:00
     if (init) await context.addInitScript(init);
     if (notifications) await context.grantPermissions(['notifications'], { origin: ORIGIN });
     await context.route('**/vendor/chart.umd.js', r => r.fulfill({ contentType: 'application/javascript', body: CHART_STUB }));
+    // Never reach a real Convex deployment (the CSP only allows production's URL, so scenarios
+    // stub that). A scenario's own route, added later, takes precedence over this one.
+    await context.route(/\.convex\.(cloud|site)\//, r => r.abort());
     await context.addInitScript(([data]) => {
         if (!localStorage.getItem('__seeded')) {
             localStorage.setItem('lifeOSData', data);
@@ -805,9 +808,9 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     const ok = value => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', value }) });
     const { context, page, errors } = await newPage({
         seedData: nSeed,
-        init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud'),
+        init: () => localStorage.setItem('lifeOS_convexUrl', 'https://energetic-fly-308.convex.cloud'),
     });
-    await context.route('https://fake-test.convex.cloud/**', r => {
+    await context.route('https://energetic-fly-308.convex.cloud/**', r => {
         const { path, args } = JSON.parse(r.request().postData() || '{}');
         calls.push([path, args]);
         if (path === 'nutrition:getRange') return r.fulfill(ok({
@@ -868,6 +871,41 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     check('sending data to an outside site is refused', result.send, 'blocked');
     check('both reported as policy violations', result.blocked, ['connect-src', 'script-src-elem']);
     check('the app itself still runs (Chart.js from vendor/)', await page.evaluate(() => typeof window.Chart), 'function');
+    check('the published page allows inline scripts by hash only', await page.evaluate(() => {
+        const csp = document.querySelector('meta[http-equiv="Content-Security-Policy"]').content;
+        const src = csp.split(';').find(d => d.trim().startsWith('script-src'));
+        return [/unsafe-inline/.test(src), (src.match(/'sha256-/g) || []).length, document.querySelectorAll('script:not([src])').length];
+    }), [false, 4, 4]);
+
+    // Markup that reaches innerHTML can't run script (no 'unsafe-inline'), and data can only go to
+    // this app's own Convex deployment
+    const injected = await page.evaluate(async () => {
+        const blocked = [];
+        document.addEventListener('securitypolicyviolation', e => blocked.push(e.effectiveDirective));
+        window.__ran = [];
+        document.body.insertAdjacentHTML('beforeend', `<img src="missing.png" onerror="window.__ran.push('handler')">`);
+        const s = document.createElement('script');
+        s.textContent = `window.__ran.push('inline')`;
+        document.head.appendChild(s);
+        const other = await fetch('https://someone-else.convex.cloud/api/query', { method: 'POST', body: '{}' }).then(() => 'sent', () => 'blocked');
+        await new Promise(r => setTimeout(r, 200));
+        return { ran: window.__ran, other, blocked: [...new Set(blocked)].sort() };
+    });
+    check('injected markup runs no script', injected.ran, []);
+    check('another Convex deployment is refused', injected.other, 'blocked');
+    check('all three reported as policy violations', injected.blocked, ['connect-src', 'script-src-attr', 'script-src-elem']);
+
+    // Category names are typed by the user: shown as text, never parsed as markup
+    const cats = await page.evaluate(() => {
+        const name = '<i>Tagged</i>';
+        Object.values(lifeOS.getCurrentWeek().entries)[0].goal.category = name;
+        lifeOS.renderGoals(); lifeOS.renderCategoryBars(); lifeOS.renderReviewScores();
+        return ['#goalsGrid', '#dashCategoryBars', '#reviewScores'].map(sel => {
+            const el = document.querySelector(sel);
+            return [el.textContent.includes(name), el.querySelectorAll('i').length];
+        });
+    });
+    check('a category name with markup shows as text', cats, [[true, 0], [true, 0], [true, 0]]);
     check('no page errors', errors, []);
     await context.close();
 }
@@ -930,9 +968,9 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     const ok = value => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', value }) });
     const { context, page, errors } = await newPage({
         seedData: tSeed,
-        init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud'),
+        init: () => localStorage.setItem('lifeOS_convexUrl', 'https://energetic-fly-308.convex.cloud'),
     });
-    await context.route('https://fake-test.convex.cloud/**', r => {
+    await context.route('https://energetic-fly-308.convex.cloud/**', r => {
         const { path } = JSON.parse(r.request().postData() || '{}');
         if (path === 'workouts:getRange') return r.fulfill(ok({ sessions }));
         if (path === 'nutrition:getRange') return r.fulfill(ok({ targets: { calories: 2400, protein: 190, carbs: 240, fat: 75 }, days: [] }));
@@ -971,7 +1009,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     console.log('\n— App key —');
     const KEY = 'k'.repeat(32);
     const sent = [];
-    const fakeConvex = async (context) => context.route('https://fake-test.convex.cloud/**', r => {
+    const fakeConvex = async (context) => context.route('https://energetic-fly-308.convex.cloud/**', r => {
         const { path, args } = JSON.parse(r.request().postData() || '{}');
         sent.push([path, args.appKey]);
         if (args.appKey !== KEY) {
@@ -984,7 +1022,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     });
     // Right key saved on the device: every request carries it, no banner
     {
-        const { context, page, errors } = await newPage({ init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud') });
+        const { context, page, errors } = await newPage({ init: () => localStorage.setItem('lifeOS_convexUrl', 'https://energetic-fly-308.convex.cloud') });
         await context.addInitScript(k => localStorage.setItem('lifeOS_appKey', k), KEY);
         await fakeConvex(context);
         await page.reload();
@@ -1000,7 +1038,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     sent.length = 0;
     {
         const { context, page, errors } = await newPage({ init: () => {
-            localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud');
+            localStorage.setItem('lifeOS_convexUrl', 'https://energetic-fly-308.convex.cloud');
             if (!localStorage.getItem('lifeOS_appKey')) localStorage.setItem('lifeOS_appKey', 'wrong-key');
         } });
         await fakeConvex(context);
@@ -1032,8 +1070,8 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     Object.values(sSeed.weeks[1].entries).find(e => e.goal.name === 'In bed by 11:15PM').tracking = ['', '', '', '', '', '', ''];
     let served = false, applied = null;
     const ok = value => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', value }) });
-    const { context, page, errors } = await newPage({ seedData: sSeed, init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud') });
-    await context.route('https://fake-test.convex.cloud/**', r => {
+    const { context, page, errors } = await newPage({ seedData: sSeed, init: () => localStorage.setItem('lifeOS_convexUrl', 'https://energetic-fly-308.convex.cloud') });
+    await context.route('https://energetic-fly-308.convex.cloud/**', r => {
         const { path, args } = JSON.parse(r.request().postData() || '{}');
         if (path === 'health:pendingSleep') {
             const v = served ? [] : [
@@ -1087,9 +1125,9 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     let saved = null;
     const { context, page, errors } = await newPage({
         width: 390,
-        init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud'),
+        init: () => localStorage.setItem('lifeOS_convexUrl', 'https://energetic-fly-308.convex.cloud'),
     });
-    await context.route('https://fake-test.convex.cloud/**', r => {
+    await context.route('https://energetic-fly-308.convex.cloud/**', r => {
         const { path, args } = JSON.parse(r.request().postData() || '{}');
         if (path === 'plans:forRange') return r.fulfill(ok(saved ? [{ ...plan, status: 'done' }] : [plan]));
         if (path === 'workouts:getRange') return r.fulfill(ok({ sessions: [] }));

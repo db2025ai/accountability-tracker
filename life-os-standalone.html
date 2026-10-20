@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <!-- Only run code from this site, and only send data to it and to Convex. Libraries live in vendor/ -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' https://*.convex.cloud; worker-src 'self' blob:; font-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <!-- build_docs.py swaps script-src 'unsafe-inline' for the hashes of the inline scripts it writes -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-/dBbRkShRQsbu9PUZssZCaDOqmAJ5qkCEb3MTlTRaJY=' 'sha256-cdcGnBfPFyxcC6YRp4wgPLmXzEMHj+r6BmkX/6+6d0c=' 'sha256-qgR0ygIMeSItnqUG2CSrmiH31Cbh9jCe/TBMgWQCXoI=' 'sha256-3ToMuHdLeGPb641taAR/1XbCSL5Vl7RrzeypX29axhU='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' https://energetic-fly-308.convex.cloud; worker-src 'self' blob:; font-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Life OS - Personal Operating System</title>
     <style>
@@ -6151,7 +6152,7 @@ class LifeOS {
             html += `
                 <div class="category-bar-item">
                     <div class="category-bar-label">
-                        <span>${cat}</span>
+                        <span>${this.escapeHtml(cat)}</span>
                         <span>${pct}%</span>
                     </div>
                     <div class="category-bar-track">
@@ -6278,7 +6279,7 @@ class LifeOS {
 
             return `<div class="alltime-cat-card ${cls}">
                 <div class="alltime-cat-header">
-                    <span class="alltime-cat-name">${cat}</span>
+                    <span class="alltime-cat-name">${this.escapeHtml(cat)}</span>
                     <span class="alltime-cat-pct">${pct}%</span>
                 </div>
                 <div class="alltime-cat-detail">${s.done}✓ · ${s.strikes > 0 ? s.strikes + '✗ · ' : ''}${wks}wks</div>
@@ -6590,7 +6591,7 @@ class LifeOS {
 
         let grandTotal = 0;
         for (const [cat, entries] of Object.entries(grouped)) {
-            html += `<tr><td class="cat-header" colspan="${days.length + 2}">${cat}</td></tr>`;
+            html += `<tr><td class="cat-header" colspan="${days.length + 2}">${this.escapeHtml(cat)}</td></tr>`;
             let catTotal = 0;
             entries.forEach(entry => {
                 html += `<tr><td class="goal-name-cell">${this.escapeHtml(entry.goal.name)}</td>`;
@@ -6627,7 +6628,7 @@ class LifeOS {
                 </td></tr>`;
             });
             // Category subtotal row
-            html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label">${cat} subtotal</td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;
+            html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label">${this.escapeHtml(cat)} subtotal</td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;
         }
 
         // Grand total row
@@ -9526,7 +9527,7 @@ class LifeOS {
             const pct = this.scorePct(s);
             return `<div class="review-score-card">
                 <div class="score-value">${pct}%</div>
-                <div class="score-label">${cat}</div>
+                <div class="score-label">${this.escapeHtml(cat)}</div>
             </div>`;
         }).join('');
     }

@@ -36,6 +36,16 @@ if m:
 html = html.replace("navigator.serviceWorker.register('/sw.js')",
                     "navigator.serviceWorker.register('/accountability-tracker/sw.js')")
 
+# Content-Security-Policy: allow only the inline scripts written above, by hash, so markup
+# injected into the page can't run script (no 'unsafe-inline' in the published site)
+import base64, hashlib
+inline = re.findall(r'<script>(.*?)</script>', html, flags=re.S)
+hashes = ' '.join("'sha256-%s'" % base64.b64encode(hashlib.sha256(body.encode('utf-8')).digest()).decode()
+                  for body in inline)
+policy = "script-src 'self' 'unsafe-inline';"
+assert html.count(policy) == 1, "life-os.html's CSP should have script-src 'self' 'unsafe-inline'"
+html = html.replace(policy, f"script-src 'self' {hashes};")
+
 open('docs/index.html', 'w', encoding='utf-8').write(html)
 
 # Copy manifest.json and sw.js into docs/ so GitHub Pages can serve them

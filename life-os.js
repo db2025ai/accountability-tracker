@@ -1236,7 +1236,7 @@ class LifeOS {
             html += `
                 <div class="category-bar-item">
                     <div class="category-bar-label">
-                        <span>${cat}</span>
+                        <span>${this.escapeHtml(cat)}</span>
                         <span>${pct}%</span>
                     </div>
                     <div class="category-bar-track">
@@ -1363,7 +1363,7 @@ class LifeOS {
 
             return `<div class="alltime-cat-card ${cls}">
                 <div class="alltime-cat-header">
-                    <span class="alltime-cat-name">${cat}</span>
+                    <span class="alltime-cat-name">${this.escapeHtml(cat)}</span>
                     <span class="alltime-cat-pct">${pct}%</span>
                 </div>
                 <div class="alltime-cat-detail">${s.done}✓ · ${s.strikes > 0 ? s.strikes + '✗ · ' : ''}${wks}wks</div>
@@ -1675,7 +1675,7 @@ class LifeOS {
 
         let grandTotal = 0;
         for (const [cat, entries] of Object.entries(grouped)) {
-            html += `<tr><td class="cat-header" colspan="${days.length + 2}">${cat}</td></tr>`;
+            html += `<tr><td class="cat-header" colspan="${days.length + 2}">${this.escapeHtml(cat)}</td></tr>`;
             let catTotal = 0;
             entries.forEach(entry => {
                 html += `<tr><td class="goal-name-cell">${this.escapeHtml(entry.goal.name)}</td>`;
@@ -1712,7 +1712,7 @@ class LifeOS {
                 </td></tr>`;
             });
             // Category subtotal row
-            html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label">${cat} subtotal</td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;
+            html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label">${this.escapeHtml(cat)} subtotal</td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;
         }
 
         // Grand total row
@@ -4611,7 +4611,7 @@ class LifeOS {
             const pct = this.scorePct(s);
             return `<div class="review-score-card">
                 <div class="score-value">${pct}%</div>
-                <div class="score-label">${cat}</div>
+                <div class="score-label">${this.escapeHtml(cat)}</div>
             </div>`;
         }).join('');
     }
