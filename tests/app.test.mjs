@@ -103,6 +103,7 @@ async function newPage({ width = 1280, seedData = seed, time = '2026-10-13T15:00
     // stub that). A scenario's own route, added later, takes precedence over this one.
     await context.route(/\.convex\.(cloud|site)\//, r => r.abort());
     await context.addInitScript(([data]) => {
+        if (window.top !== window) return; // only the app page (a frame the CSP blocks has no storage)
         if (!localStorage.getItem('__seeded')) {
             localStorage.setItem('lifeOSData', data);
             localStorage.setItem('__seeded', '1');
@@ -881,19 +882,20 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     // this app's own Convex deployment
     const injected = await page.evaluate(async () => {
         const blocked = [];
-        document.addEventListener('securitypolicyviolation', e => blocked.push(e.effectiveDirective));
+        const urls = [];
+        document.addEventListener('securitypolicyviolation', e => { blocked.push(e.effectiveDirective); urls.push(e.blockedURI); });
         window.__ran = [];
-        document.body.insertAdjacentHTML('beforeend', `<img src="missing.png" onerror="window.__ran.push('handler')">`);
+        document.body.insertAdjacentHTML('beforeend', `<img src="missing.png" onerror="window.__ran.push('handler')"><iframe src="/accountability-tracker/"></iframe>`);
         const s = document.createElement('script');
         s.textContent = `window.__ran.push('inline')`;
         document.head.appendChild(s);
         const other = await fetch('https://someone-else.convex.cloud/api/query', { method: 'POST', body: '{}' }).then(() => 'sent', () => 'blocked');
         await new Promise(r => setTimeout(r, 200));
-        return { ran: window.__ran, other, blocked: [...new Set(blocked)].sort() };
+        return { ran: window.__ran, other, cspRefusedOther: urls.some(u => u.startsWith('https://someone-else.convex.cloud')), blocked: [...new Set(blocked)].sort() };
     });
     check('injected markup runs no script', injected.ran, []);
-    check('another Convex deployment is refused', injected.other, 'blocked');
-    check('all three reported as policy violations', injected.blocked, ['connect-src', 'script-src-attr', 'script-src-elem']);
+    check('another Convex deployment is refused by the policy', [injected.other, injected.cspRefusedOther], ['blocked', true]);
+    check('all four reported as policy violations (frames too)', injected.blocked, ['connect-src', 'frame-src', 'script-src-attr', 'script-src-elem']);
 
     // Category names are typed by the user: shown as text, never parsed as markup
     const cats = await page.evaluate(() => {
@@ -906,6 +908,22 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         });
     });
     check('a category name with markup shows as text', cats, [[true, 0], [true, 0], [true, 0]]);
+    const more = await page.evaluate(() => {
+        const name = '<i>Tagged</i>';
+        const scoreByCategory = lifeOS.scoreByCategory;
+        lifeOS.scoreByCategory = () => ({ [name]: { done: 0, expected: 5, misses: 5 } });
+        lifeOS.renderProblemAreas();
+        lifeOS.scoreByCategory = scoreByCategory;
+        lifeOS.data.eveningReflections.unshift({ date: '<i>Day</i>', valuesRating: '<i>9</i>' });
+        lifeOS.data.weeklyReviews.unshift({ weekDate: '<i>Week</i>', rating: '<i>8</i>' });
+        lifeOS.renderJournal(); lifeOS.renderPastReviews();
+        lifeOS.data.eveningReflections.shift(); lifeOS.data.weeklyReviews.shift();
+        return ['#problemAreas', '#journalEntriesList', '#pastReviewsList'].map(sel => {
+            const el = document.querySelector(sel);
+            return [/<i>/.test(el.textContent), el.querySelectorAll('i').length];
+        });
+    });
+    check('problem areas, journal and review history show stored text as text', more, [[true, 0], [true, 0], [true, 0]]);
     check('no page errors', errors, []);
     await context.close();
 }

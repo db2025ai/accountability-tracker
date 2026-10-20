@@ -2,6 +2,7 @@ import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 import schema from "../convex/schema";
 import { api } from "../convex/_generated/api";
+import { getFunctionName } from "convex/server";
 const modules = import.meta.glob("../convex/**/*.ts");
 const TOKEN = "t".repeat(32);
 const APP_KEY = "a".repeat(32);
@@ -209,7 +210,7 @@ test("the app key locks every public function", async () => {
     ["mutation", api.nutrition.markWeighInsApplied, { ids: [] }],
     ["query", api.plans.forRange, { from: "2026-10-01", to: "2026-10-31" }],
     ["query", api.push.getVapidPublicKey, {}],
-    ["mutation", api.push.saveSubscription, { subscription: { endpoint: "https://e", keys: { p256dh: "p", auth: "a" } } }],
+    ["mutation", api.push.saveSubscription, { subscription: { endpoint: "https://web.push.apple.com/probe", keys: { p256dh: "p", auth: "a" } } }],
     ["mutation", api.push.removeSubscription, { endpoint: "https://e" }],
     ["action", api.pushNode.sendTest, {}],
     ["query", api.workouts.getRange, { from: "2026-10-01", to: "2026-10-31" }],
@@ -218,6 +219,16 @@ test("the app key locks every public function", async () => {
     ["query", api.health.pendingSleep, {}],
     ["mutation", api.health.markSleepApplied, { ids: [] }],
   ];
+  // That list must name every public function: a new one fails here until it's added
+  const exported: string[] = [];
+  for (const [path, load] of Object.entries(modules)) {
+    if (path.includes("/_generated/")) continue;
+    const mod: any = await (load as any)();
+    const file = path.replace(/^.*\/convex\//, "").replace(/\.ts$/, "");
+    for (const [name, fn] of Object.entries(mod)) if ((fn as any)?.isPublic) exported.push(`${file}:${name}`);
+  }
+  expect(exported.sort()).toEqual(calls.map(([, fn]) => getFunctionName(fn)).sort());
+
   const run = (kind: string, fn: any, args: any) => (t as any)[kind](fn, args);
   const refused = async (kind: string, fn: any, args: any) => {
     try { await run(kind, fn, args); return false; } catch (e: any) { return /Unauthorized/.test(String(e?.data ?? e?.message)); }
@@ -300,4 +311,17 @@ test("Apple Watch sleep: Shortcut endpoint, the night's math, app pickup, get_sl
   expect(sleep.averageHours).toBe(7);
   delete process.env.SHORTCUT_KEY;
   expect((await post("{}")).status).toBe(401);
+});
+
+test("push subscriptions only for browser push services", async () => {
+  const t = convexTest(schema, modules);
+  process.env.APP_KEY = APP_KEY;
+  const save = (endpoint: string) =>
+    t.mutation(api.push.saveSubscription, { subscription: { endpoint, keys: { p256dh: "p", auth: "a" } }, appKey: APP_KEY });
+  for (const endpoint of ["https://web.push.apple.com/abc", "https://fcm.googleapis.com/fcm/send/abc", "https://updates.push.services.mozilla.com/wpush/v2/abc", "https://wns2-par02p.notify.windows.com/w/?token=abc"]) {
+    await expect(save(endpoint), endpoint).resolves.toBeTruthy();
+  }
+  for (const endpoint of ["https://evil.example/collect", "http://web.push.apple.com/abc", "https://web.push.apple.com.evil.example/abc", "not a url"]) {
+    await expect(save(endpoint), endpoint).rejects.toThrow();
+  }
 });

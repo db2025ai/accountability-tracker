@@ -1288,7 +1288,7 @@ class LifeOS {
                     ${worst.map(s => `
                         <div class="problem-area-item">
                             <div class="problem-area-header">
-                                <span class="problem-area-name">${s.cat}</span>
+                                <span class="problem-area-name">${this.escapeHtml(s.cat)}</span>
                                 <span class="problem-area-pct" style="color:${s.pct < 50 ? 'var(--danger)' : 'var(--warning)'}">${s.pct}%${s.strikes > 0 ? ` · ${s.strikes} strike${s.strikes > 1 ? 's' : ''}` : ''}</span>
                             </div>
                             <div class="problem-bar-track">
@@ -1701,14 +1701,14 @@ class LifeOS {
                         cls += ' inferred-miss';
                         display = '\u2717';
                     }
-                    html += `<td class="${cls}" data-goal="${entry.idx}" data-day="${dayIdx}">${display}</td>`;
+                    html += `<td class="${cls}" data-goal="${this.escapeAttr(entry.idx)}" data-day="${dayIdx}">${display}</td>`;
                 });
                 const totalStrikes = this.scoreEntry(week, entry).misses;
                 catTotal += totalStrikes;
                 grandTotal += totalStrikes;
-                const decBtn = totalStrikes > 0 ? `<button class="strike-dec" data-goal="${entry.idx}">−</button>` : '';
-                html += `<td class="strike-count strike-cell" data-goal="${entry.idx}">
-                    ${decBtn}<span class="strike-num">${totalStrikes > 0 ? totalStrikes : ''}</span><button class="strike-inc" data-goal="${entry.idx}">+</button>
+                const decBtn = totalStrikes > 0 ? `<button class="strike-dec" data-goal="${this.escapeAttr(entry.idx)}">−</button>` : '';
+                html += `<td class="strike-count strike-cell" data-goal="${this.escapeAttr(entry.idx)}">
+                    ${decBtn}<span class="strike-num">${totalStrikes > 0 ? totalStrikes : ''}</span><button class="strike-inc" data-goal="${this.escapeAttr(entry.idx)}">+</button>
                 </td></tr>`;
             });
             // Category subtotal row
@@ -3015,9 +3015,9 @@ class LifeOS {
 
         container.innerHTML = weekTasks.map(t => `
             <div class="adhoc-task-item ${t.completed ? 'completed' : ''}">
-                <div class="habit-checkbox ${t.completed ? 'checked' : ''}" data-adhoc="${t.id}">${t.completed ? '\u2713' : ''}</div>
+                <div class="habit-checkbox ${t.completed ? 'checked' : ''}" data-adhoc="${this.escapeAttr(String(t.id))}">${t.completed ? '\u2713' : ''}</div>
                 <span class="adhoc-task-text ${t.completed ? 'completed' : ''}">${this.escapeHtml(t.text)}</span>
-                <button class="adhoc-delete" data-delete-adhoc="${t.id}">&times;</button>
+                <button class="adhoc-delete" data-delete-adhoc="${this.escapeAttr(String(t.id))}">&times;</button>
             </div>
         `).join('');
 
@@ -3146,7 +3146,7 @@ class LifeOS {
         const doneToday = allEntries.filter(e => e.todayDone && !isLimit(e));
         const missedToday = allEntries.filter(e => e.todayStrike && !isLimit(e));
         const pending = allEntries.filter(e => !e.offToday && (isLimit(e) || (!e.todayDone && !e.todayStrike)));
-        const attrs = e => `data-entry-idx="${e.idx}" data-day="${todayDayIdx}"`;
+        const attrs = e => `data-entry-idx="${this.escapeAttr(e.idx)}" data-day="${todayDayIdx}"`;
         const name = e => this.escapeHtml(e.goal.name);
 
         const streakBadge = e => {
@@ -3613,8 +3613,8 @@ class LifeOS {
 
             return `<div class="journal-entry-card">
                 <div class="journal-entry-header">
-                    <span class="journal-entry-date">${dateStr}</span>
-                    ${entry.valuesRating ? `<span class="journal-entry-mood">Values: ${entry.valuesRating}/10</span>` : ''}
+                    <span class="journal-entry-date">${this.escapeHtml(dateStr)}</span>
+                    ${entry.valuesRating ? `<span class="journal-entry-mood">Values: ${this.escapeHtml(String(entry.valuesRating))}/10</span>` : ''}
                 </div>
                 <div class="journal-entry-text">
                     ${entry.wentWell ? `<p><strong>Went well:</strong> ${this.escapeHtml(entry.wentWell)}</p>` : ''}
@@ -3962,7 +3962,7 @@ class LifeOS {
         const device = this.getMedVoices();
         select.innerHTML = '<option value="recorded">Cori — calm recorded voice (recommended)</option>' + (device.length
             ? `<optgroup label="Device voices (may be silent in the Home Screen app)">${device.map(v =>
-                `<option value="${this.escapeHtml(v.voiceURI)}">${this.escapeHtml(v.name)} (${v.lang})</option>`).join('')}</optgroup>`
+                `<option value="${this.escapeAttr(v.voiceURI)}">${this.escapeHtml(v.name)} (${this.escapeHtml(v.lang)})</option>`).join('')}</optgroup>`
             : '');
         const choice = this.medVoiceChoice();
         select.value = [...select.options].some(o => o.value === choice) ? choice : 'recorded';
@@ -4667,8 +4667,8 @@ class LifeOS {
         container.innerHTML = this.data.weeklyReviews.slice(0, 10).map(r => `
             <div class="review-history-card">
                 <div class="review-history-header">
-                    <span class="review-history-date">${r.weekDate}</span>
-                    ${r.rating ? `<span class="review-history-rating">${r.rating}/10</span>` : ''}
+                    <span class="review-history-date">${this.escapeHtml(r.weekDate)}</span>
+                    ${r.rating ? `<span class="review-history-rating">${this.escapeHtml(String(r.rating))}/10</span>` : ''}
                 </div>
                 <div class="review-history-content">
                     ${r.wins ? `<p><strong>Wins:</strong> ${this.escapeHtml(r.wins)}</p>` : ''}
@@ -4947,7 +4947,7 @@ class LifeOS {
         let zones = [];
         try { zones = Intl.supportedValuesOf('timeZone'); } catch (e) { /* older browsers */ }
         if (!zones.includes(r.timezone)) zones = [r.timezone, ...zones];
-        tzSelect.innerHTML = zones.map(z => `<option value="${z}">${z.replace(/_/g, ' ')}</option>`).join('');
+        tzSelect.innerHTML = zones.map(z => `<option value="${this.escapeAttr(z)}">${this.escapeHtml(z.replace(/_/g, ' '))}</option>`).join('');
         tzSelect.value = r.timezone;
         this.renderReminderStatus();
         // Fetch the VAPID key now so nothing is awaited before the permission prompt on tap
@@ -5334,7 +5334,7 @@ class LifeOS {
 
     // For attribute values: escapeHtml leaves quotes alone
     escapeAttr(str) {
-        return this.escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        return this.escapeHtml(str == null ? '' : String(str)).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     timeAgo(date) {

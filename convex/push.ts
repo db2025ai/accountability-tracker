@@ -1,8 +1,9 @@
 import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { DEFAULT_USER } from "./lib/reminders";
 import { requireAppKey } from "./lib/auth";
+import { isPushService } from "./lib/pushHosts";
 
 // Public key the browser needs for pushManager.subscribe (the private key never leaves Convex)
 export const getVapidPublicKey = query({
@@ -24,6 +25,7 @@ export const saveSubscription = mutation({
   },
   handler: async (ctx, { subscription, userAgent, appKey }) => {
     requireAppKey(appKey);
+    if (!isPushService(subscription.endpoint)) throw new ConvexError("Not a browser push service");
     const fields = {
       userId: DEFAULT_USER,
       endpoint: subscription.endpoint,

@@ -13,6 +13,7 @@ import {
   uncheckedToday,
 } from "./lib/reminders";
 import { requireAppKey } from "./lib/auth";
+import { isPushService } from "./lib/pushHosts";
 
 type Subscription = { endpoint: string; p256dh: string; auth: string };
 
@@ -28,7 +29,7 @@ async function sendToAll(subscriptions: Subscription[], payload: object) {
   let failed = 0;
   const gone: string[] = [];
   await Promise.all(
-    subscriptions.map(async (s) => {
+    subscriptions.filter((s) => isPushService(s.endpoint)).map(async (s) => {
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
