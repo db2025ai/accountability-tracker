@@ -717,7 +717,8 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         };
         lifeOS.navigateTo('journal');
     });
-    check('the form says it counts for Saturday', await page.textContent('#lateNightNote'), "It's past midnight, so this reflection counts for Saturday, Oct 17.");
+    check('the form says it counts for Saturday', [await page.textContent('#lateNightNote'), await page.$eval('#reflectDay', s => s.selectedOptions[0].textContent)],
+        ["It's past midnight, so tonight is still Saturday, Oct 17.", 'Tonight · Sat, Oct 17']);
     await page.fill('#stoicWentWell', 'Late dinner with friends');
     await page.click('#saveEveningReflectionBtn');
     check('reflection dated Saturday, ticks Saturday', [await page.evaluate(() => lifeOS.data.eveningReflections[0].date), await satCell('evening reflection'),
@@ -747,6 +748,61 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.fill('#stoicWentWell', 'Early start');
     await page.click('#saveEveningReflectionBtn');
     check('and a reflection counts for Sunday', await page.evaluate(() => lifeOS.data.eveningReflections[0].date), '2026-10-18');
+    check('no page errors', errors, []);
+    await context.close();
+}
+
+// ================= Catching up: reflections for earlier days =================
+{
+    const { context, page, errors } = await newPage({ width: 390, time: '2026-10-18T09:30:00-04:00' });
+    console.log('\n— Journal catch-up (Sunday morning, writing Friday and Saturday) —');
+    const cell = (d) => page.evaluate(d => Object.values(lifeOS.getWeekForDate(new Date(2026, 9, 17, 12)).entries)
+        .find(e => /evening reflection/i.test(e.goal.name)).tracking[d], d);
+    await page.evaluate(() => {
+        lifeOS.closeModal('catchUpModal');
+        const week = lifeOS.getWeekForDate(new Date(2026, 9, 17, 12));
+        week.entries[Object.keys(week.entries).length] = {
+            goal: { category: 'Evening Protocol', name: 'Evening reflection (3 highlights)', target: 'daily' },
+            tracking: ['', '', '', '', '', '', '']
+        };
+        lifeOS.saveData();
+        lifeOS.navigateTo('journal');
+    });
+    const options = await page.$$eval('#reflectDay option', os => os.map(o => o.textContent));
+    check('picker: today, yesterday and the 5 days before', [options.length, options.slice(0, 3)], [7, ['Today · Sun, Oct 18', 'Yesterday · Sat, Oct 17', 'Fri, Oct 16']]);
+    check('no late-night note in the morning', await page.isHidden('#lateNightNote'), true);
+
+    // Friday, with a draft that survives a reload
+    await page.fill('#stoicWentWell', 'Friday: shipped the deck');
+    await page.selectOption('#reflectDay', '2026-10-16');
+    await page.waitForTimeout(600);
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS);
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('journal'); });
+    check('draft keeps the picked day', [await page.inputValue('#reflectDay'), await page.inputValue('#stoicWentWell')], ['2026-10-16', 'Friday: shipped the deck']);
+    await page.click('#saveEveningReflectionBtn');
+    check('Friday entry: dated Friday, marked as written later, ticks Friday', [await page.evaluate(() => {
+        const r = lifeOS.data.eveningReflections[0];
+        return [r.date, r.backdated];
+    }), await cell(5), (await page.textContent('#stoicSaveNote')).endsWith('checked off for Friday ✓')], [['2026-10-16', true], 'X', true]);
+    check('picker goes back to today', await page.inputValue('#reflectDay'), '2026-10-18');
+
+    await page.selectOption('#reflectDay', '2026-10-17');
+    await page.fill('#stoicWentWell', 'Saturday: long run');
+    await page.click('#saveEveningReflectionBtn');
+    check('Saturday entry ticks Saturday', [await cell(6), (await page.textContent('#stoicSaveNote')).endsWith('checked off for Saturday ✓')], ['X', true]);
+    check('history lists each under its own day, newest day first', await page.$$eval('#journalEntriesList .journal-entry-date', els => els.map(e => e.textContent)),
+        ['Sat, Oct 17, 2026written Oct 18', 'Fri, Oct 16, 2026written Oct 18']);
+    check('both days count toward the streak (today not done yet)', await page.evaluate(() => {
+        const s = lifeOS.getJournalStreak();
+        return [s.current, s.doneToday, s.days.has('2026-10-16'), s.days.has('2026-10-17')];
+    }), [2, false, true, true]);
+
+    // A normal entry for today isn't marked as written later
+    await page.fill('#stoicWentWell', 'Sunday reset');
+    await page.click('#saveEveningReflectionBtn');
+    check('today\'s entry: no backdated flag, streak now 3', await page.evaluate(() =>
+        [lifeOS.data.eveningReflections[0].date, 'backdated' in lifeOS.data.eveningReflections[0], lifeOS.getJournalStreak().current]), ['2026-10-18', false, 3]);
     check('no page errors', errors, []);
     await context.close();
 }

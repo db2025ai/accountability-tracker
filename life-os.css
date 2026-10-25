@@ -3685,6 +3685,39 @@ textarea.autogrow {
     color: var(--danger);
 }
 
+/* "Reflecting on" day picker (today, tonight after midnight, or one of the 6 days before) */
+.reflect-day-row {
+    display: flex;
+    flex-wrap: wrap; /* the picker drops under its label on the narrowest phones */
+    align-items: center;
+    gap: 6px 10px;
+    margin-bottom: 16px;
+}
+
+.reflect-day-row .stoic-label {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.reflect-day-row select {
+    flex: 1 1 180px;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    color: var(--text);
+    font: inherit;
+}
+
+.journal-entry-late {
+    margin-left: 6px;
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
 /* Shown on the reflection form between midnight and LATE_NIGHT_HOURS */
 .late-night-note {
     margin: 0 0 16px;
