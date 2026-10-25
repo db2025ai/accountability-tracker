@@ -3685,6 +3685,16 @@ textarea.autogrow {
     color: var(--danger);
 }
 
+/* Shown on the reflection form between midnight and LATE_NIGHT_HOURS */
+.late-night-note {
+    margin: 0 0 16px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--primary-tint);
+    color: var(--text);
+    font-size: 0.9rem;
+}
+
 @media (max-width: 768px) {
     body.typing .mobile-bottom-nav {
         display: none;
