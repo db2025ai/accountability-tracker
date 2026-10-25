@@ -22,6 +22,8 @@ const PLAY_ICON = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><pat
 // Spoken by the Test button on the Meditate page
 // Evening reflection fields, in order (also kept as a per-device draft until saved)
 const REFLECTION_FIELDS = ['stoicWentWell', 'stoicFellShort', 'stoicHighlight1', 'stoicHighlight2', 'stoicHighlight3', 'stoicIntention'];
+// A reflection or meditation before this hour counts for the day before (up past midnight is still that night)
+const LATE_NIGHT_HOURS = 3;
 
 const MED_TEST_LINE = 'Take a slow breath in, and let it go.';
 // Recordings of every line (tools/meditation_audio.py); manifest.json maps text → file
@@ -437,8 +439,8 @@ class LifeOS {
             if (day !== this._renderedDay) {
                 this._renderedDay = day;
                 this.renderAll();
-                this.maybeShowCatchUp();
             }
+            this.maybeShowCatchUp(); // once a day, after the late-night hours
             this.updateAppBadge();
         });
     }
@@ -469,6 +471,7 @@ class LifeOS {
 
     // Once a day, offer to check off yesterday's scheduled daily items that are still blank
     maybeShowCatchUp() {
+        if (this.isLateNight()) return; // yesterday is still open for a late reflection or meditation
         const todayKey = this.localDateKey(new Date());
         try {
             if (localStorage.getItem('lifeOS_catchUpShown') === todayKey) return;
@@ -787,6 +790,34 @@ class LifeOS {
         const d = new Date();
         d.setHours(0, 0, 0, 0);
         return d;
+    }
+
+    isLateNight(now = new Date()) {
+        return now.getHours() < LATE_NIGHT_HOURS;
+    }
+
+    // The day a reflection or meditation counts for: yesterday until LATE_NIGHT_HOURS, else today (noon, clear of DST)
+    reflectionDay(now = new Date()) {
+        const d = new Date(now);
+        if (this.isLateNight(d)) d.setDate(d.getDate() - 1);
+        d.setHours(12, 0, 0, 0);
+        return d;
+    }
+
+    // "today", or "Saturday" when it's past midnight and the late-night day is still open
+    reflectionDayName(now = new Date()) {
+        return this.dayWord(this.reflectionDay(now), now);
+    }
+
+    // "today" or the weekday ("Friday") for a day in the past week
+    dayWord(day, now = new Date()) {
+        return this.localDateKey(day) === this.localDateKey(now) ? 'today' : day.toLocaleDateString('en-US', { weekday: 'long' });
+    }
+
+    // The day a saved reflection is for: its own date when written for an earlier day, else the day it was
+    // saved (older entries' `date` could be a UTC day, so their timestamp wins)
+    reflectionKey(r) {
+        return r.backdated || !r.timestamp ? r.date : this.localDateKey(this.reflectionDay(new Date(r.timestamp)));
     }
 
     // Local midnight of the Sunday a stored week starts on. startDate is Sunday midnight
@@ -3456,9 +3487,13 @@ class LifeOS {
         }
 
         const now = new Date();
+        const open = this.reflectionDay(now);
+        const picked = document.getElementById('reflectDay').value;
+        const day = picked ? new Date(`${picked}T12:00:00`) : open;
         const reflection = {
-            date: this.localDateKey(now),
+            date: this.localDateKey(day),
             timestamp: now.toISOString(),
+            ...(this.localDateKey(day) < this.localDateKey(open) && { backdated: true }), // written later, for an earlier day
             wentWell,
             fellShort,
             highlights,
@@ -3467,7 +3502,7 @@ class LifeOS {
         };
 
         this.data.eveningReflections.unshift(reflection);
-        const checked = this.checkOffGoal(/evening reflection/i, now);
+        const checked = this.checkOffGoal(/evening reflection/i, day);
 
         // Also save as a journal entry for unified history
         const highlightText = highlights.map((h, i) => `${i + 1}. ${h}`).join('\n') || '-';
@@ -3490,12 +3525,13 @@ class LifeOS {
             if (el) { el.value = ''; if (el.matches('textarea.autogrow')) this.autoGrow(el); }
         });
         document.querySelectorAll('#stoicValuesRating .rating-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('reflectDay').selectedIndex = 0;
         document.activeElement?.blur?.();
 
         this.renderJournal();
         if (checked) this.updateAppBadge();
         const streak = this.getJournalStreak().current;
-        this.setSaveNote(['Saved', streak > 1 ? `${streak} days in a row` : '', checked ? 'checked off for today ✓' : '']
+        this.setSaveNote(['Saved', streak > 1 ? `${streak} days in a row` : '', checked ? `checked off for ${this.dayWord(day, now)} ✓` : '']
             .filter(Boolean).join(' · '));
     }
 
@@ -3510,7 +3546,8 @@ class LifeOS {
         const fields = Object.fromEntries(REFLECTION_FIELDS.map(id => [id, document.getElementById(id)?.value || '']));
         const rating = document.querySelector('#stoicValuesRating .rating-btn.active')?.dataset.rating || '';
         const empty = !rating && Object.values(fields).every(v => !v.trim());
-        this.setLocal('lifeOS_reflectionDraft', empty ? '' : JSON.stringify({ savedAt: Date.now(), fields, rating }));
+        const day = document.getElementById('reflectDay').value;
+        this.setLocal('lifeOS_reflectionDraft', empty ? '' : JSON.stringify({ savedAt: Date.now(), fields, rating, day }));
     }
 
     // Put back a reflection left half-written in the last 24 hours
@@ -3523,6 +3560,11 @@ class LifeOS {
             if (el && draft.fields[id]) el.value = draft.fields[id];
         });
         if (draft.rating) document.querySelector(`#stoicValuesRating .rating-btn[data-rating="${draft.rating}"]`)?.classList.add('active');
+        if (draft.day) {
+            this.fillReflectDays();
+            const select = document.getElementById('reflectDay');
+            if ([...select.options].some(o => o.value === draft.day)) select.value = draft.day;
+        }
         this.setSaveNote('Picked up where you left off.');
     }
 
@@ -3532,7 +3574,7 @@ class LifeOS {
     getJournalDays() {
         const days = new Set(this.data.journalImportDates || []);
         (this.data.eveningReflections || []).forEach(r => {
-            days.add(r.timestamp ? this.localDateKey(new Date(r.timestamp)) : r.date);
+            days.add(this.reflectionKey(r));
         });
         days.delete(undefined);
         return days;
@@ -3547,7 +3589,7 @@ class LifeOS {
     // current: consecutive days up to today (today not done yet doesn't break it)
     getJournalStreak() {
         const days = this.getJournalDays();
-        const today = this.localDateKey(new Date());
+        const today = this.localDateKey(this.reflectionDay());
         const doneToday = days.has(today);
         let current = 0;
         for (let key = doneToday ? today : this.shiftDateKey(today, -1); days.has(key); key = this.shiftDateKey(key, -1)) current++;
@@ -3591,9 +3633,29 @@ class LifeOS {
             <div class="streak-dots">${dots.join('')}</div>`;
     }
 
+    // "Reflecting on": today (or tonight, until 3 AM) and the 6 days before it, for catching up
+    fillReflectDays() {
+        const select = document.getElementById('reflectDay');
+        const keep = select.selectedIndex > 0 ? select.value : ''; // a day picked on purpose; the default moves with the clock
+        const late = this.isLateNight();
+        const open = this.reflectionDay();
+        select.innerHTML = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(open);
+            d.setDate(d.getDate() - i);
+            const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            const label = i === 0 ? `${late ? 'Tonight' : 'Today'} · ${date}` : i === 1 && !late ? `Yesterday · ${date}` : date;
+            return `<option value="${this.localDateKey(d)}">${label}</option>`;
+        }).join('');
+        if ([...select.options].some(o => o.value === keep)) select.value = keep;
+    }
+
     renderJournal() {
         this.renderJournalStreak();
         this.updateArchiveSummary();
+        this.fillReflectDays();
+        const late = document.getElementById('lateNightNote');
+        late.hidden = !this.isLateNight();
+        if (!late.hidden) late.textContent = `It's past midnight, so tonight is still ${this.reflectionDay().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}.`;
 
         const container = document.getElementById('journalEntriesList');
         const entries = this.data.eveningReflections;
@@ -3603,17 +3665,22 @@ class LifeOS {
             return;
         }
 
-        container.innerHTML = entries.slice(0, 20).map(entry => {
+        // Newest day first, so an entry written later sits under the day it's for
+        const byDay = entries.slice().sort((a, b) => String(this.reflectionKey(b)).localeCompare(String(this.reflectionKey(a))));
+        container.innerHTML = byDay.slice(0, 20).map(entry => {
             const dateStr = entry.timestamp
-                ? new Date(entry.timestamp).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                ? new Date(`${this.reflectionKey(entry)}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
                 : entry.date;
+            const writtenLater = entry.backdated && entry.timestamp
+                ? `<small class="journal-entry-late">written ${new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</small>`
+                : '';
             const highlights = entry.highlights?.length
                 ? `<p><strong>Highlights:</strong></p><ol class="highlight-list">${entry.highlights.map(h => `<li>${this.escapeHtml(h)}</li>`).join('')}</ol>`
                 : entry.gratitude ? `<p><strong>Grateful for:</strong> ${this.escapeHtml(entry.gratitude)}</p>` : '';
 
             return `<div class="journal-entry-card">
                 <div class="journal-entry-header">
-                    <span class="journal-entry-date">${dateStr}</span>
+                    <span class="journal-entry-date">${dateStr}${writtenLater}</span>
                     ${entry.valuesRating ? `<span class="journal-entry-mood">Values: ${entry.valuesRating}/10</span>` : ''}
                 </div>
                 <div class="journal-entry-text">
@@ -3925,6 +3992,7 @@ class LifeOS {
         document.getElementById('medStats').textContent = log.length
             ? `This week: ${thisWeek.length} session${thisWeek.length === 1 ? '' : 's'} · ${minutes} min. 3- and 5-minute sessions check off Meditate in Today.`
             : '3- and 5-minute sessions check off Meditate in Today.';
+        if (this.isLateNight()) document.getElementById('medStats').textContent += ` Until ${LATE_NIGHT_HOURS} AM, sessions count for ${this.reflectionDayName()}.`;
 
         document.getElementById('medVoiceOn').checked = this.getLocal('lifeOS_medVoiceOn') !== '0';
         this.renderMedVoices();
@@ -4448,10 +4516,11 @@ class LifeOS {
         this.medChime(session.gentle);
         setTimeout(() => { if (!this._med?.running) this.medReleaseAudio(); }, 3500); // after the chime
         const now = new Date();
-        (this.data.meditationLog ||= []).push({ date: this.localDateKey(now), ts: now.toISOString(), kind: m.kind, minutes: m.minutes });
+        const day = this.reflectionDay(now);
+        (this.data.meditationLog ||= []).push({ date: this.localDateKey(day), ts: now.toISOString(), kind: m.kind, minutes: m.minutes });
 
         let note = m.minutes >= 3 ? '' : 'Short sessions are logged but don’t check off Meditate (your goal is 3–5 minutes).';
-        if (m.minutes >= 3 && this.checkOffGoal(/meditat/i, now)) note = 'Meditate is checked off for today ✓';
+        if (m.minutes >= 3 && this.checkOffGoal(/meditat/i, day)) note = `Meditate is checked off for ${this.reflectionDayName(now)} ✓`;
         this.saveData();
         this.logActivity(`Meditated: ${session.title}, ${m.minutes} min`);
 
