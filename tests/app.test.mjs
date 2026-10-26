@@ -564,7 +564,8 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     // Every line a session can say has a recording, and each one decodes
     const coverage = await page.evaluate(async () => {
         const lines = new Set([MED_TEST_LINE]);
-        Object.values(MEDITATIONS).forEach(s => [1, 3, 5].forEach(min => s.build(min).forEach(st => st.say && lines.add(st.say))));
+        Object.values(MEDITATIONS).forEach(s => (s.themes || [undefined]).forEach(theme =>
+            [1, 3, 5].forEach(min => s.build(min, theme).forEach(st => st.say && lines.add(st.say)))));
         Object.values(BREATH_PATTERNS).flat().forEach(p => p.cue && lines.add(p.cue));
         const buffers = await Promise.all([...lines].map(l => lifeOS.medClip(l)));
         return { count: lines.size, missing: [...lines].filter((l, i) => !buffers[i]) };
@@ -604,7 +605,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.click('.med-length[data-min="1"]');
     await page.click('[data-med="reflect"]');
     check('device voice: first line spoken inside the tap', await page.evaluate(() => [window.__spoken[0], window.__spokenInTap[0]]),
-        ['Welcome. Find a comfortable position, and close your eyes if you like.', true]);
+        [await page.evaluate(() => `Today's theme: ${lifeOS.themeOfDay(MEDITATIONS.reflect.themes).title}.`), true]);
     await page.waitForSelector('#medDone:not([hidden])', { timeout: 20000 });
     check('device voice is never cancelled and restarted back to back', await page.evaluate(() =>
         window.__speechCalls.some((c, i) => c === 'cancel' && window.__speechCalls[i + 1] === 'speak')), false);
@@ -697,7 +698,46 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         return out;
     });
     check('all 12 sessions end on time', timings.filter(t => !t.endsWith(':ok')), []);
+
+    // Reflect: a talk on the day's theme. Every theme fits every length with nothing skipped
+    const themes = await page.evaluate(() => {
+        const T = MEDITATIONS.reflect.themes;
+        const skipped = [];
+        T.forEach(theme => [1, 3, 5].forEach(min => {
+            const steps = MEDITATIONS.reflect.build(min, theme);
+            const at = steps.findIndex(s => s.closing);
+            const closing = steps.slice(at + 1).reduce((t, s) => t + lifeOS.medEstimate(s), 0);
+            let t = 1.2; // opening chime
+            steps.slice(0, at).forEach(s => {
+                if (s.fill) return;
+                const need = lifeOS.medEstimate(s);
+                if (need > min * 60 - t - closing + 1) skipped.push(`${theme.id}/${min}: ${s.say || s.breathe}`);
+                else t += need;
+            });
+        }));
+        const day = d => lifeOS.themeOfDay(T, new Date(d)).id;
+        return {
+            count: T.length, skipped,
+            card: document.querySelector('[data-med="reflect"] small').textContent,
+            today: lifeOS.themeOfDay(T).title,
+            next: T.indexOf(T.find(t => t.id === day('2026-10-14T12:00:00'))) - T.indexOf(T.find(t => t.id === day('2026-10-13T12:00:00'))),
+            repeats: [day('2026-10-13T12:00:00') === day('2026-11-12T12:00:00'), day('2026-10-13T12:00:00') === day('2026-11-11T12:00:00')],
+            lateNight: day('2026-10-14T00:30:00') === day('2026-10-13T12:00:00')
+        };
+    });
+    check('30 themes; every talk line and prompt fits 1, 3 and 5 minutes', [themes.count, themes.skipped], [30, []]);
+    check("the Reflect card shows today's theme", themes.card, `Today: ${themes.today}`);
+    check('one theme a day, in turn; repeats after 30 days; before 3 AM still last night\'s',
+        [((themes.next % 30) + 30) % 30, themes.repeats, themes.lateNight], [1, [true, false], true]);
+
     check('stats line', await page.textContent('#medStats'), 'This week: 14 sessions · 40 min. 3- and 5-minute sessions check off Meditate in Today.');
+    const themed = await page.evaluate(async () => {
+        lifeOS._medTimeScale = 150;
+        await lifeOS.startMeditation('reflect', 3);
+        lifeOS.closeMedPlayer();
+        return { log: lifeOS.data.meditationLog.at(-1), theme: lifeOS.themeOfDay(MEDITATIONS.reflect.themes).id, ended: Math.abs(lifeOS._med.endedAt - 180) <= 5 };
+    });
+    check("a Reflect session logs the day's theme and ends on time", [themed.log.kind, themed.log.theme, themed.ended], ['reflect', themed.theme, true]);
     check('no page errors', errors, []);
     await context.close();
 }
