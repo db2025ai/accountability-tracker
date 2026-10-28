@@ -4470,7 +4470,9 @@ class LifeOS {
     // ---- Recorded voice ----
     loadMedManifest() {
         if (!this._medManifestPromise) {
-            this._medManifestPromise = fetch(MED_AUDIO_BASE + 'manifest.json')
+            // Always check with the server: GitHub Pages lets a phone reuse files for 10 minutes, and a
+            // stale list names recordings a new voice or script has replaced
+            this._medManifestPromise = fetch(MED_AUDIO_BASE + 'manifest.json', { cache: 'no-cache' })
                 .then(r => (r.ok ? r.json() : null))
                 .then(m => (this._medManifest = m?.lines || null))
                 .catch(() => (this._medManifest = null));
@@ -4489,12 +4491,27 @@ class LifeOS {
         this._medClips ||= new Map();
         this._medClipReady ||= new Map();
         if (!this._medClips.has(text)) {
-            const clip = this.loadMedManifest().then(async lines => {
+            // A missing line or file can mean the list in memory is out of date (the app stayed open
+            // across an update), so fetch a fresh list once before giving up
+            const load = async (retry) => {
+                const used = this.loadMedManifest();
+                const lines = await used;
+                const refresh = () => {
+                    if (this._medManifestPromise === used) this._medManifestPromise = null;
+                    return load(false);
+                };
                 if (!lines) throw new Error("couldn't load the recordings list");
                 const file = lines[text];
-                if (!file) throw new Error('no recording for this line');
+                if (!file) {
+                    if (retry) return refresh();
+                    throw new Error('no recording for this line');
+                }
                 const resp = await fetch(MED_AUDIO_BASE + file);
+                if (resp.status === 404 && retry) return refresh();
                 if (!resp.ok) throw new Error(`download failed, ${resp.status}`);
+                return resp;
+            };
+            const clip = load(true).then(async resp => {
                 const buffer = await this.medDecode(await resp.arrayBuffer());
                 this._medClipReady.set(text, buffer);
                 return buffer;

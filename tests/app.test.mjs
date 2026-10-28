@@ -666,6 +666,24 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         ["Couldn't load the voice (download failed, 404). The captions keep going — check your connection.", true]);
     await endSession();
     await page.evaluate(() => { window.fetch = window.__fetch; });
+    // 2b) The list in memory predates an update (new voice: old files deleted, new lines added).
+    // One fresh fetch of the list, past the phone's cache, and both lines play
+    const stale = await page.evaluate(async () => {
+        const lines = { ...(await lifeOS.loadMedManifest()) };
+        const [old, added] = Object.keys(lines);
+        lines[old] = 'gone-old-voice.mp3';
+        delete lines[added];
+        lifeOS._medManifest = lines;
+        lifeOS._medManifestPromise = Promise.resolve(lines);
+        lifeOS._medClips.clear(); lifeOS._medClipReady.clear();
+        const asked = [];
+        const realFetch = window.fetch;
+        window.fetch = (url, opts) => { if (String(url).endsWith('manifest.json')) asked.push(opts?.cache); return realFetch(url, opts); };
+        const clips = await Promise.all([lifeOS.medClip(old), lifeOS.medClip(added)]);
+        window.fetch = realFetch;
+        return [clips.map(Boolean), asked];
+    });
+    check('a stale recordings list is fetched again once, uncached, and both lines play', stale, [[true, true], ['no-cache']]);
     // 3) The phone suspends the audio engine; Pause → Resume (a tap) wakes it
     await page.evaluate(async () => {
         const ctx = lifeOS.medAudioContext();
