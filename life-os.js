@@ -4439,7 +4439,7 @@ class LifeOS {
         return speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)).sort((a, b) => rank(a) - rank(b));
     }
 
-    // 'recorded' = Cori's bundled recordings (the default; plays like the chimes, so it works
+    // 'recorded' = Michael's bundled recordings (the default; plays like the chimes, so it works
     // in the iPhone Home Screen app). Anything else is a device voice's voiceURI, which only
     // works where speechSynthesis does (desktop browsers, Safari tabs).
     medVoiceChoice() {
@@ -4459,7 +4459,7 @@ class LifeOS {
     renderMedVoices() {
         const select = document.getElementById('medVoice');
         const device = this.getMedVoices();
-        select.innerHTML = '<option value="recorded">Cori — calm recorded voice (recommended)</option>' + (device.length
+        select.innerHTML = '<option value="recorded">Michael — calm recorded voice (recommended)</option>' + (device.length
             ? `<optgroup label="Device voices (may be silent in the Home Screen app)">${device.map(v =>
                 `<option value="${this.escapeHtml(v.voiceURI)}">${this.escapeHtml(v.name)} (${v.lang})</option>`).join('')}</optgroup>`
             : '');
@@ -4660,7 +4660,7 @@ class LifeOS {
             status.textContent = 'Playing…';
             setTimeout(() => {
                 status.textContent = this.getLocal('lifeOS_medVoiceOn') === '0'
-                    ? '✓ Voice played — but “Speak the guidance” below is off, so sessions are silent. Tick it to hear Cori in sessions.'
+                    ? '✓ Voice played — but “Speak the guidance” below is off, so sessions are silent. Tick it to hear Michael in sessions.'
                     : '✓ Voice played. Heard nothing? Turn the volume up with the side buttons and tap Test again.';
                 this.medReleaseAudio();
             }, (buffer.duration + 0.9) * 1000);
@@ -4826,7 +4826,7 @@ class LifeOS {
         hint.hidden = true;
         this.medPrimeAudio();
         this.medChime(session.gentle);
-        if (!voiceOn) this.medVoiceProblem('Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Cori.');
+        if (!voiceOn) this.medVoiceProblem('Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Michael.');
 
         const total = minutes * 60;
         const tick = () => {

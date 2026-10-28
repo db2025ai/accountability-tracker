@@ -4524,7 +4524,7 @@ body.workout-open { overflow: hidden; }
                 <div id="medVoiceStatus" class="setting-status"></div>
                 <label class="med-toggle"><input type="checkbox" id="medVoiceOn" checked> Speak the guidance (captions always show)</label>
                 <p class="setting-desc"><b>No sound?</b> Tap Test and turn the volume up with the side buttons while it plays — sessions use your media volume, which can be at zero even when the ringer is loud.</p>
-                <p class="setting-desc">Cori is a recorded voice made for these sessions, so it works in the Home Screen app. Device voices are listed too, but iPhones only let them speak in a Safari tab.</p>
+                <p class="setting-desc">Michael is a recorded voice made for these sessions, so it works in the Home Screen app. Device voices are listed too, but iPhones only let them speak in a Safari tab.</p>
             </div>
         </section>
 
@@ -9402,7 +9402,7 @@ class LifeOS {
         return speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)).sort((a, b) => rank(a) - rank(b));
     }
 
-    // 'recorded' = Cori's bundled recordings (the default; plays like the chimes, so it works
+    // 'recorded' = Michael's bundled recordings (the default; plays like the chimes, so it works
     // in the iPhone Home Screen app). Anything else is a device voice's voiceURI, which only
     // works where speechSynthesis does (desktop browsers, Safari tabs).
     medVoiceChoice() {
@@ -9422,7 +9422,7 @@ class LifeOS {
     renderMedVoices() {
         const select = document.getElementById('medVoice');
         const device = this.getMedVoices();
-        select.innerHTML = '<option value="recorded">Cori — calm recorded voice (recommended)</option>' + (device.length
+        select.innerHTML = '<option value="recorded">Michael — calm recorded voice (recommended)</option>' + (device.length
             ? `<optgroup label="Device voices (may be silent in the Home Screen app)">${device.map(v =>
                 `<option value="${this.escapeHtml(v.voiceURI)}">${this.escapeHtml(v.name)} (${v.lang})</option>`).join('')}</optgroup>`
             : '');
@@ -9623,7 +9623,7 @@ class LifeOS {
             status.textContent = 'Playing…';
             setTimeout(() => {
                 status.textContent = this.getLocal('lifeOS_medVoiceOn') === '0'
-                    ? '✓ Voice played — but “Speak the guidance” below is off, so sessions are silent. Tick it to hear Cori in sessions.'
+                    ? '✓ Voice played — but “Speak the guidance” below is off, so sessions are silent. Tick it to hear Michael in sessions.'
                     : '✓ Voice played. Heard nothing? Turn the volume up with the side buttons and tap Test again.';
                 this.medReleaseAudio();
             }, (buffer.duration + 0.9) * 1000);
@@ -9789,7 +9789,7 @@ class LifeOS {
         hint.hidden = true;
         this.medPrimeAudio();
         this.medChime(session.gentle);
-        if (!voiceOn) this.medVoiceProblem('Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Cori.');
+        if (!voiceOn) this.medVoiceProblem('Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Michael.');
 
         const total = minutes * 60;
         const tick = () => {

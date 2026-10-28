@@ -558,8 +558,8 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         [...document.querySelectorAll('.med-card b')].map(b => b.textContent),
         document.querySelector('.med-length.active').textContent
     ]), [['Breathe', 'Reflect', 'Body', 'Sleep'], '3 min']);
-    check('Cori first, then English device voices', await page.$$eval('#medVoice option', os => os.map(o => o.textContent)),
-        ['Cori — calm recorded voice (recommended)', 'Ava (Premium) (en-US)', 'Fred (en-US)']);
+    check('Michael first, then English device voices', await page.$$eval('#medVoice option', os => os.map(o => o.textContent)),
+        ['Michael — calm recorded voice (recommended)', 'Ava (Premium) (en-US)', 'Fred (en-US)']);
 
     // Every line a session can say has a recording, and each one decodes
     const coverage = await page.evaluate(async () => {
@@ -576,7 +576,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.waitForFunction(() => document.getElementById('medVoiceStatus').textContent.startsWith('✓'), null, { timeout: 15000 });
     check('Test plays the recorded voice', (await page.textContent('#medVoiceStatus')).startsWith('✓ Voice played'), true);
 
-    // A 3-minute Breathe session with Cori, 60x faster
+    // A 3-minute Breathe session with Michael, 60x faster
     await page.evaluate(() => { lifeOS._medTimeScale = 60; });
     await page.click('[data-med="breathe"]');
     check('player opens full screen', await page.isVisible('#medPlayer'), true);
@@ -584,7 +584,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.waitForSelector('#medDone:not([hidden])', { timeout: 20000 });
     const run = await page.evaluate(() => ({ elapsed: lifeOS._med.endedAt, played: lifeOS._med.played, spoken: window.__spoken, log: lifeOS.data.meditationLog }));
     check('session lasts its length (180s)', run.elapsed >= 179 && run.elapsed < 186, true);
-    check('Cori speaks the guidance and breath cues (no device speech)', [run.played[0], run.played.includes('Breathe in'), run.played.at(-1), run.spoken.length],
+    check('Michael speaks the guidance and breath cues (no device speech)', [run.played[0], run.played.includes('Breathe in'), run.played.at(-1), run.spoken.length],
         ["Welcome. Let's take a moment to slow down.", true, 'Notice how you feel now, compared with a few minutes ago. Take that calm with you.', 0]);
     check('session logged', run.log.map(l => [l.kind, l.minutes, l.date]), [['breathe', 3, '2026-10-13']]);
     check('no "can\'t hear" hint when the voice plays', await page.isHidden('#medHint'), true);
@@ -650,7 +650,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         (await page.textContent('#medVoiceStatus')).includes('sessions are silent'), true);
     await page.click('[data-med="breathe"]');
     check('voice off: the player says so right away', [await page.isVisible('#medHint'), await page.textContent('#medHint')],
-        [true, 'Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Cori.']);
+        [true, 'Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Michael.']);
     await endSession();
     await page.check('#medVoiceOn');
     // 2) A recording can't be downloaded
