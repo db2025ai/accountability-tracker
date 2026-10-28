@@ -558,13 +558,14 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         [...document.querySelectorAll('.med-card b')].map(b => b.textContent),
         document.querySelector('.med-length.active').textContent
     ]), [['Breathe', 'Reflect', 'Body', 'Sleep'], '3 min']);
-    check('Cori first, then English device voices', await page.$$eval('#medVoice option', os => os.map(o => o.textContent)),
-        ['Cori — calm recorded voice (recommended)', 'Ava (Premium) (en-US)', 'Fred (en-US)']);
+    check('Michael first, then English device voices', await page.$$eval('#medVoice option', os => os.map(o => o.textContent)),
+        ['Michael — calm recorded voice (recommended)', 'Ava (Premium) (en-US)', 'Fred (en-US)']);
 
     // Every line a session can say has a recording, and each one decodes
     const coverage = await page.evaluate(async () => {
         const lines = new Set([MED_TEST_LINE]);
-        Object.values(MEDITATIONS).forEach(s => [1, 3, 5].forEach(min => s.build(min).forEach(st => st.say && lines.add(st.say))));
+        Object.values(MEDITATIONS).forEach(s => (s.themes || [undefined]).forEach(theme =>
+            [1, 3, 5].forEach(min => s.build(min, theme).forEach(st => st.say && lines.add(st.say)))));
         Object.values(BREATH_PATTERNS).flat().forEach(p => p.cue && lines.add(p.cue));
         const buffers = await Promise.all([...lines].map(l => lifeOS.medClip(l)));
         return { count: lines.size, missing: [...lines].filter((l, i) => !buffers[i]) };
@@ -575,7 +576,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.waitForFunction(() => document.getElementById('medVoiceStatus').textContent.startsWith('✓'), null, { timeout: 15000 });
     check('Test plays the recorded voice', (await page.textContent('#medVoiceStatus')).startsWith('✓ Voice played'), true);
 
-    // A 3-minute Breathe session with Cori, 60x faster
+    // A 3-minute Breathe session with Michael, 60x faster
     await page.evaluate(() => { lifeOS._medTimeScale = 60; });
     await page.click('[data-med="breathe"]');
     check('player opens full screen', await page.isVisible('#medPlayer'), true);
@@ -583,7 +584,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.waitForSelector('#medDone:not([hidden])', { timeout: 20000 });
     const run = await page.evaluate(() => ({ elapsed: lifeOS._med.endedAt, played: lifeOS._med.played, spoken: window.__spoken, log: lifeOS.data.meditationLog }));
     check('session lasts its length (180s)', run.elapsed >= 179 && run.elapsed < 186, true);
-    check('Cori speaks the guidance and breath cues (no device speech)', [run.played[0], run.played.includes('Breathe in'), run.played.at(-1), run.spoken.length],
+    check('Michael speaks the guidance and breath cues (no device speech)', [run.played[0], run.played.includes('Breathe in'), run.played.at(-1), run.spoken.length],
         ["Welcome. Let's take a moment to slow down.", true, 'Notice how you feel now, compared with a few minutes ago. Take that calm with you.', 0]);
     check('session logged', run.log.map(l => [l.kind, l.minutes, l.date]), [['breathe', 3, '2026-10-13']]);
     check('no "can\'t hear" hint when the voice plays', await page.isHidden('#medHint'), true);
@@ -604,7 +605,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.click('.med-length[data-min="1"]');
     await page.click('[data-med="reflect"]');
     check('device voice: first line spoken inside the tap', await page.evaluate(() => [window.__spoken[0], window.__spokenInTap[0]]),
-        ['Welcome. Find a comfortable position, and close your eyes if you like.', true]);
+        [await page.evaluate(() => `Today's theme: ${lifeOS.themeOfDay(MEDITATIONS.reflect.themes).title}.`), true]);
     await page.waitForSelector('#medDone:not([hidden])', { timeout: 20000 });
     check('device voice is never cancelled and restarted back to back', await page.evaluate(() =>
         window.__speechCalls.some((c, i) => c === 'cancel' && window.__speechCalls[i + 1] === 'speak')), false);
@@ -649,7 +650,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         (await page.textContent('#medVoiceStatus')).includes('sessions are silent'), true);
     await page.click('[data-med="breathe"]');
     check('voice off: the player says so right away', [await page.isVisible('#medHint'), await page.textContent('#medHint')],
-        [true, 'Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Cori.']);
+        [true, 'Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Michael.']);
     await endSession();
     await page.check('#medVoiceOn');
     // 2) A recording can't be downloaded
@@ -697,7 +698,46 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         return out;
     });
     check('all 12 sessions end on time', timings.filter(t => !t.endsWith(':ok')), []);
+
+    // Reflect: a talk on the day's theme. Every theme fits every length with nothing skipped
+    const themes = await page.evaluate(() => {
+        const T = MEDITATIONS.reflect.themes;
+        const skipped = [];
+        T.forEach(theme => [1, 3, 5].forEach(min => {
+            const steps = MEDITATIONS.reflect.build(min, theme);
+            const at = steps.findIndex(s => s.closing);
+            const closing = steps.slice(at + 1).reduce((t, s) => t + lifeOS.medEstimate(s), 0);
+            let t = 1.2; // opening chime
+            steps.slice(0, at).forEach(s => {
+                if (s.fill) return;
+                const need = lifeOS.medEstimate(s);
+                if (need > min * 60 - t - closing + 1) skipped.push(`${theme.id}/${min}: ${s.say || s.breathe}`);
+                else t += need;
+            });
+        }));
+        const day = d => lifeOS.themeOfDay(T, new Date(d)).id;
+        return {
+            count: T.length, skipped,
+            card: document.querySelector('[data-med="reflect"] small').textContent,
+            today: lifeOS.themeOfDay(T).title,
+            next: T.indexOf(T.find(t => t.id === day('2026-10-14T12:00:00'))) - T.indexOf(T.find(t => t.id === day('2026-10-13T12:00:00'))),
+            repeats: [day('2026-10-13T12:00:00') === day('2026-11-12T12:00:00'), day('2026-10-13T12:00:00') === day('2026-11-11T12:00:00')],
+            lateNight: day('2026-10-14T00:30:00') === day('2026-10-13T12:00:00')
+        };
+    });
+    check('30 themes; every talk line and prompt fits 1, 3 and 5 minutes', [themes.count, themes.skipped], [30, []]);
+    check("the Reflect card shows today's theme", themes.card, `Today: ${themes.today}`);
+    check('one theme a day, in turn; repeats after 30 days; before 3 AM still last night\'s',
+        [((themes.next % 30) + 30) % 30, themes.repeats, themes.lateNight], [1, [true, false], true]);
+
     check('stats line', await page.textContent('#medStats'), 'This week: 14 sessions · 40 min. 3- and 5-minute sessions check off Meditate in Today.');
+    const themed = await page.evaluate(async () => {
+        lifeOS._medTimeScale = 150;
+        await lifeOS.startMeditation('reflect', 3);
+        lifeOS.closeMedPlayer();
+        return { log: lifeOS.data.meditationLog.at(-1), theme: lifeOS.themeOfDay(MEDITATIONS.reflect.themes).id, ended: Math.abs(lifeOS._med.endedAt - 180) <= 5 };
+    });
+    check("a Reflect session logs the day's theme and ends on time", [themed.log.kind, themed.log.theme, themed.ended], ['reflect', themed.theme, true]);
     check('no page errors', errors, []);
     await context.close();
 }

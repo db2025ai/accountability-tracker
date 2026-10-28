@@ -1,4 +1,4 @@
-// Prints every line the guided meditations can speak (all sessions × 1/3/5 min, breath cues,
+// Prints every line the guided meditations can speak (all sessions × 1/3/5 min, every Reflect theme, breath cues,
 // and the Test button line) as JSON. Used by tools/meditation_audio.py to record them.
 import fs from 'fs';
 import path from 'path';
@@ -13,8 +13,10 @@ const { MEDITATIONS, BREATH_PATTERNS, MED_TEST_LINE } = new Function(
 
 const lines = new Set([MED_TEST_LINE]);
 for (const session of Object.values(MEDITATIONS)) {
-    for (const min of [1, 3, 5]) {
-        session.build(min).forEach(step => { if (step.say) lines.add(step.say); });
+    for (const theme of session.themes || [undefined]) { // Reflect: every daily theme
+        for (const min of [1, 3, 5]) {
+            session.build(min, theme).forEach(step => { if (step.say) lines.add(step.say); });
+        }
     }
 }
 for (const phases of Object.values(BREATH_PATTERNS)) {

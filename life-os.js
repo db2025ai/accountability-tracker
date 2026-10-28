@@ -44,6 +44,432 @@ const BREATH_PATTERNS = {
 //   { breathe, fill: true }         keep breathing until it's time for the closing
 //   { closing: true }               everything after this is the ending (always played)
 // Steps that won't fit in the remaining time are skipped, so the length stays right.
+// Reflect's daily theme: a short talk, then prompts on the same idea. One theme a day in this
+// order (themeOfDay), Stoic and therapy-style in turn. Every line is recorded: re-run
+// tools/meditation_audio.py after editing any of them.
+const REFLECT_THEMES = [
+    {
+        id: 'control', kind: 'stoic', title: "What's up to you",
+        talk: [
+            'The Stoic teacher Epictetus opened his handbook with one idea. Some things are up to us, and some are not. Our judgments, our effort and our choices are ours. Most everything else is not.',
+            "Much of our stress comes from gripping things we can't control. Other people's opinions. The traffic. How a meeting will go. We spend our energy there, and have less left for what we can actually do.",
+            "This isn't giving up. It's aiming. You put your full effort where it counts, and you let the outcome be what it will be."
+        ],
+        prompts: [
+            "Bring to mind something that's been weighing on you. Which part of it is actually up to you?",
+            'Now picture letting go of the rest, just for today. Notice how that feels in your body.',
+            'What is one small thing within your control that you can do about it today?'
+        ],
+        carry: 'Today, put your effort where it counts, and let the rest be.'
+    },
+    {
+        id: 'thoughts', kind: 'therapy', title: 'Thoughts are not facts',
+        talk: [
+            'Your mind is a busy storyteller. It predicts, judges and warns, all day long. Some of its stories are useful. Some are just noise, said with total confidence.',
+            "Acceptance and commitment therapy has a simple move for this. Instead of thinking, I'm going to fail, you notice: I'm having the thought that I'm going to fail.",
+            "The thought is still there. But now you're looking at it, rather than through it. That small gap gives you room to choose what to do next."
+        ],
+        prompts: [
+            "Notice a thought that's been loud lately. Say it silently, with the words I'm having the thought that, in front of it.",
+            "Watch how the thought sits there now. You don't have to argue with it, or obey it.",
+            "If that thought weren't steering, what would you choose to do today?"
+        ],
+        carry: 'Today, when a harsh thought shows up, name it as a thought, and keep going.'
+    },
+    {
+        id: 'obstacle', kind: 'stoic', title: 'The obstacle is the way',
+        talk: [
+            'Marcus Aurelius ran an empire through war and plague. In his private notebook he wrote that the obstacle to action can advance action. What stands in the way becomes the way.',
+            'A setback can be a chance to practice patience. A difficult person can be a chance to practice kindness. A failure can teach what success never would.',
+            "This doesn't make hard things pleasant. It means no situation is wasted. There's always something in it you can use."
+        ],
+        prompts: [
+            'Think of an obstacle in your life right now. Hold it in mind without pushing it away.',
+            'Ask yourself: what quality could this help me build? Patience, courage, creativity?',
+            'Picture yourself meeting it with that quality. What does the first step look like?'
+        ],
+        carry: "Today, when something gets in your way, ask what it's giving you the chance to practice."
+    },
+    {
+        id: 'leaves', kind: 'therapy', title: 'Leaves on a stream',
+        talk: [
+            'Here is an exercise from acceptance and commitment therapy. Imagine sitting beside a gentle stream. Leaves float past on the water.',
+            'Each time a thought comes, place it on a leaf, and watch it drift away. Worries, plans, memories, even the thought that this is silly. All of them go on leaves.',
+            "You're not trying to stop thinking. You're practicing letting thoughts come and go, without being swept downstream with them."
+        ],
+        prompts: [
+            'Picture the stream now. As each thought arrives, set it on a leaf, and let the water carry it.',
+            "If you get pulled into a thought, that's normal. Notice it, and gently return to the bank.",
+            'Notice the space between thoughts, however brief. Rest there for a moment.'
+        ],
+        carry: 'Today, when your mind gets busy, picture the stream, and let one thought float by.'
+    },
+    {
+        id: 'judgments', kind: 'stoic', title: "It's the story, not the event",
+        talk: [
+            'Epictetus taught that people are disturbed not by things, but by their opinions about things. The event happens. Then we add a story about what it means.',
+            "Someone is late, and the story becomes, they don't respect me. A plan falls through, and it becomes, nothing ever works out. The story often hurts more than the event.",
+            "You can't always change what happens. But you can examine the story, and ask whether it's true, and whether it helps."
+        ],
+        prompts: [
+            'Recall something that annoyed or upset you recently. What actually happened, in plain facts?',
+            'Now notice the story you added on top. What did you tell yourself it meant?',
+            "Is there another way to see it, one that's just as true, and kinder?"
+        ],
+        carry: "Today, when something stings, separate what happened from the story you're telling about it."
+    },
+    {
+        id: 'room', kind: 'therapy', title: 'Making room',
+        talk: [
+            'When a hard feeling shows up, our instinct is to fight it, or run from it. But pushing feelings away often makes them louder, and longer.',
+            "Acceptance and commitment therapy offers another option. Make room for the feeling. Let it be there, the way you'd let a guest sit in the corner while you get on with your day.",
+            "You don't have to like the feeling. You just stop spending all your energy wrestling with it."
+        ],
+        prompts: [
+            'Notice any uncomfortable feeling present right now. Where do you feel it in your body?',
+            'Breathe into that place. Imagine the space around it getting a little bigger, so the feeling has room.',
+            'Say silently: I can feel this, and still do what matters to me.'
+        ],
+        carry: 'Today, let difficult feelings come along for the ride, without letting them drive.'
+    },
+    {
+        id: 'time', kind: 'stoic', title: 'Life is long enough',
+        talk: [
+            "Seneca wrote that life isn't short. We make it short by wasting it. We guard our money carefully, he said, but give our time away to anyone who asks.",
+            "Hours disappear into scrolling, worrying, and things we don't really value. Then we say we never have enough time.",
+            "His advice was simple. Treat your time as your most precious possession, because it's the one thing you can never get back."
+        ],
+        prompts: [
+            "Think about yesterday. Where did your time go that you'd like back?",
+            'Now think of one thing that truly matters to you. When did you last give it real time?',
+            "Choose one block of time today that you'll protect for what matters."
+        ],
+        carry: "Today, spend your hours like they're worth more than money, because they are."
+    },
+    {
+        id: 'urge', kind: 'therapy', title: 'Surfing the urge',
+        talk: [
+            "Cravings feel like they'll keep building until we give in. But they don't. An urge is more like a wave. It rises, it peaks, and then it falls.",
+            'Therapists call this urge surfing. Instead of fighting the urge or obeying it, you ride it. You notice where it shows up in your body, and you breathe with it while it passes.',
+            'Every time you surf an urge without acting on it, the next one tends to be a little easier.'
+        ],
+        prompts: [
+            'Think of an urge you often face. A snack, a drink, your phone, a purchase. Picture it arriving.',
+            "Notice where you'd feel it in your body. Breathe slowly, and imagine riding the wave up.",
+            "Now picture it cresting, and easing back down. You're still here, and you didn't have to act."
+        ],
+        carry: 'Today, when an urge rises, ride it for a few breaths before you decide anything.'
+    },
+    {
+        id: 'above', kind: 'stoic', title: 'The view from above',
+        talk: [
+            'Marcus Aurelius often pictured life from high above. Cities, armies and crowds, all small and passing. It helped him hold his worries in proportion.',
+            "From up there, the email you're dreading, the awkward conversation, the bad day, all shrink to their true size.",
+            "This isn't about feeling unimportant. It's about seeing what's actually big, and what only feels big right now."
+        ],
+        prompts: [
+            'Picture yourself sitting right where you are. Now rise slowly above the building.',
+            "Keep rising. See your town, your country, the curve of the earth. Find today's worry from up here.",
+            'From this height, what still seems worth your attention? Come gently back down with that.'
+        ],
+        carry: 'Today, when something feels huge, take the view from above.'
+    },
+    {
+        id: 'name-it', kind: 'therapy', title: 'Name it to tame it',
+        talk: [
+            "When emotions run high, we often feel them as one big wave. Upset. Stressed. Off. That fog makes them harder to handle.",
+            'Studies of emotion suggest that simply putting a feeling into words can turn its volume down. Naming it helps you step back from it.',
+            'The more precise the word, the better. Not just bad, but disappointed, or lonely, or embarrassed.'
+        ],
+        prompts: [
+            'Check in with yourself right now. What are you feeling? Try to find the most precise word.',
+            'Is there a second feeling underneath the first? Name that one too.',
+            'Notice what happens to the feelings once they have names.'
+        ],
+        carry: 'Today, when a feeling surges, pause, and give it a precise name.'
+    },
+    {
+        id: 'rehearse', kind: 'stoic', title: 'Rehearsing setbacks',
+        talk: [
+            "Seneca advised picturing misfortunes before they happen. Not to worry, but to prepare. A blow that's expected, he wrote, lands more lightly.",
+            'Imagine your plans for today going wrong. The meeting runs long. The workout gets cut short. Someone is short with you.',
+            "When you've already pictured it calmly, you're less likely to be knocked off balance. And you'll notice how often things go fine."
+        ],
+        prompts: [
+            "Pick one thing you're counting on today. Picture it going wrong, calmly, as if watching a film.",
+            'How would you want to respond? See yourself doing that, steady and clear.',
+            "Now notice: even if it goes wrong, you'd be able to handle it."
+        ],
+        carry: "Today, expect a few bumps, and meet them like you've already practiced."
+    },
+    {
+        id: 'values', kind: 'therapy', title: 'Values as a compass',
+        talk: [
+            "Goals are like destinations. Once you reach one, it's done. Values are more like a compass direction. You never arrive at being kind, or healthy, or brave. You keep heading that way.",
+            'Acceptance and commitment therapy puts values at the center. When life gets hard, they tell you which way to turn, even when the destination is far off.',
+            'On a day you miss a goal, you can still act on a value in the next five minutes.'
+        ],
+        prompts: [
+            'Ask yourself: what do I want to stand for? Pick one or two words that feel true.',
+            'Think of a small action today that would move you in that direction.',
+            'Picture yourself doing it. Notice how it feels to act from what you care about.'
+        ],
+        carry: 'Today, let your values point the way, one small step at a time.'
+    },
+    {
+        id: 'discomfort', kind: 'stoic', title: 'Practicing discomfort',
+        talk: [
+            'Seneca suggested setting aside a few days to live simply. Plain food, rough clothes, little comfort. Then ask yourself: is this what I was so afraid of?',
+            'Choosing small discomforts, like a cold shower, a hard workout, or skipping a treat, teaches you that you can handle more than you think.',
+            "It also makes ordinary comforts feel like gifts again, instead of things you're owed."
+        ],
+        prompts: [
+            'Think of a comfort you lean on most days. How would you feel without it for a day?',
+            'Choose one small discomfort you could practice this week. Something safe and simple.',
+            "Picture yourself doing it, and finding out you're more capable than you thought."
+        ],
+        carry: 'Today, do one hard thing on purpose, and notice that you can.'
+    },
+    {
+        id: 'kind-voice', kind: 'therapy', title: 'Talking to yourself like a friend',
+        talk: [
+            'Notice how you speak to yourself after a mistake. Many of us say things we would never say to a friend.',
+            "Researchers who study self-compassion describe three parts. Notice that you're struggling. Remember that everyone struggles sometimes. And offer yourself some kindness.",
+            "This isn't letting yourself off the hook. People who are kind to themselves after a setback are often more likely to try again."
+        ],
+        prompts: [
+            'Bring to mind a recent moment when you were hard on yourself. What did you say?',
+            'Now imagine a good friend in the same spot. What would you say to them?',
+            'Say that to yourself now, slowly, and let it land.'
+        ],
+        carry: "Today, speak to yourself the way you'd speak to someone you care about."
+    },
+    {
+        id: 'present', kind: 'stoic', title: 'Only this moment',
+        talk: [
+            "Marcus Aurelius noted that the present moment is the only thing we can ever lose, because it's the only thing we really have. The past is gone, and the future isn't here yet.",
+            'Yet we spend so much of now replaying yesterday, or rehearsing tomorrow.',
+            'Coming back to this moment, this breath, this task, is where life actually happens.'
+        ],
+        prompts: [
+            'Notice a few things right now. The air on your skin, the sounds around you, the weight of your body.',
+            'If your mind drifts to the past or the future, gently return to this breath.',
+            'What is the one task in front of you today that deserves your full attention?'
+        ],
+        carry: 'Today, when your mind runs ahead, come back to the one thing in front of you.'
+    },
+    {
+        id: 'check-story', kind: 'therapy', title: 'Checking the story',
+        talk: [
+            "When we're anxious, the mind often jumps to the worst case. One mistake becomes, I'll lose my job. A short reply becomes, they're angry with me.",
+            "Cognitive behavioral therapy teaches you to treat these thoughts as guesses, and to check them. What's the evidence? What else could explain this? What's most likely?",
+            'Often the most likely story is far more ordinary than the scary one.'
+        ],
+        prompts: [
+            "Think of a worry that's been on your mind. What's the worst case your mind predicts?",
+            "Now ask: what's the most likely outcome? And what's the best case?",
+            'If a friend had this worry, what would you tell them?'
+        ],
+        carry: "Today, when your mind jumps to the worst case, ask what's most likely."
+    },
+    {
+        id: 'review', kind: 'stoic', title: 'The evening review',
+        talk: [
+            'Each night, Seneca would review his day. What bad habit did I resist today? Where did I fall short? Where did I do well?',
+            'He did it without beating himself up. He saw each day as practice, and the review as a coach going over the game.',
+            'Your evening reflection in this app is built on the same idea. A few honest minutes, every night.'
+        ],
+        prompts: [
+            'Look back over the last day. Where did you act at your best?',
+            'Where did you fall short? Notice it plainly, without judgment.',
+            "What's one thing you'll do differently next time?"
+        ],
+        carry: 'Tonight, give yourself a few honest minutes to review the day.'
+    },
+    {
+        id: 'opposite', kind: 'therapy', title: 'Opposite action',
+        talk: [
+            'Every emotion comes with an urge. Fear says avoid. Sadness says withdraw. Anger says attack.',
+            "Dialectical behavior therapy has a skill called opposite action. When a feeling's urge won't help you, you gently do the opposite. Feeling low? Go for a walk, or call someone.",
+            'Acting opposite to the urge can, over time, change the feeling itself.'
+        ],
+        prompts: [
+            "Think of a feeling that's been steering you lately. What does it urge you to do?",
+            'Now picture the opposite action. Something small and doable.',
+            'Imagine doing it today, and how you might feel afterward.'
+        ],
+        carry: 'Today, when a feeling pushes you somewhere unhelpful, take one small step the other way.'
+    },
+    {
+        id: 'citadel', kind: 'stoic', title: 'The inner citadel',
+        talk: [
+            'People seek retreats, Marcus Aurelius wrote, in the country, at the seashore, in the mountains. But you can retreat into yourself any time you like.',
+            'He called a mind free of passion a citadel. Nothing outside can get in unless you let it.',
+            "This calm isn't somewhere you travel to. It's somewhere you return to, a few breaths at a time."
+        ],
+        prompts: [
+            'Imagine a quiet place inside you. Notice its stillness.',
+            'Let the noise of the day stay outside the walls for now.',
+            'Remember that you can come back here in a single breath, anywhere.'
+        ],
+        carry: 'Today, when things get noisy, take three breaths, and step inside.'
+    },
+    {
+        id: 'sky', kind: 'therapy', title: 'You are the sky',
+        talk: [
+            'A common image in mindfulness goes like this. Your thoughts and feelings are like weather. Storms, clouds, bright patches. You are the sky.',
+            "The weather changes constantly. The sky holds all of it, and isn't harmed by any of it.",
+            'Acceptance and commitment therapy calls this the noticing self. There is a part of you that can watch your experience, steady, whatever passes through.'
+        ],
+        prompts: [
+            'Notice the weather inside you right now. Calm, cloudy, or stormy?',
+            "Now notice the part of you that is noticing. It isn't the weather. It's the sky.",
+            'Rest as the sky for a few breaths, and let the weather move.'
+        ],
+        carry: 'Today, remember that bad weather passes, and you are the sky that holds it.'
+    },
+    {
+        id: 'cooperation', kind: 'stoic', title: 'Made for each other',
+        talk: [
+            "Marcus Aurelius began one morning by reminding himself he'd meet difficult people that day. Then he added: we are made for cooperation, like feet, like hands, like the upper and lower rows of teeth.",
+            'To work against each other, he wrote, is against nature.',
+            'The people who frustrate you are often struggling too. And you need each other more than it seems.'
+        ],
+        prompts: [
+            'Think of someone you find difficult. Picture them as a person who also wants to do well.',
+            "What might they be dealing with that you can't see?",
+            'How could you work with them, rather than against them, today?'
+        ],
+        carry: "Today, treat even difficult people as teammates you haven't figured out yet."
+    },
+    {
+        id: 'good-things', kind: 'therapy', title: 'Three good things',
+        talk: [
+            'Our minds are built to notice threats and problems. It kept our ancestors alive. But it means good moments slip past without being noticed.',
+            'One simple practice psychologists have studied is noting three good things each day, and why they happened.',
+            "Over time, it trains your attention to catch what's going right, not just what's going wrong."
+        ],
+        prompts: [
+            'Think of one good thing from the past day, however small. Why did it happen?',
+            'Now a second. Maybe something someone did for you.',
+            'And a third. Let yourself really feel each one.'
+        ],
+        carry: 'Today, keep an eye out for three good things.'
+    },
+    {
+        id: 'be-one', kind: 'stoic', title: 'Be one now',
+        talk: [
+            'Marcus Aurelius wrote a blunt note to himself. Stop arguing about what a good person should be. Be one.',
+            "It's easy to read about habits, plan the perfect week, and wait for the right moment. The Stoics cared about action, today, imperfect as it is.",
+            "You don't need to be ready. You just need to take the next right step."
+        ],
+        prompts: [
+            "What's something you've been planning or thinking about, instead of doing?",
+            'What would the next right step be? Make it small enough to do today.',
+            'Picture yourself taking it, without waiting to feel ready.'
+        ],
+        carry: 'Today, skip the debate, and take the next right step.'
+    },
+    {
+        id: 'start-tiny', kind: 'therapy', title: 'Action before motivation',
+        talk: [
+            'We often wait to feel motivated before we act. But motivation tends to come after we start, not before.',
+            'Therapists who treat low mood often begin with small actions, not big insights. A short walk. A tidy desk. A text to a friend. Doing something small can lift the mood a little.',
+            "So when you don't feel like it, make the first step tiny, and let the feeling catch up."
+        ],
+        prompts: [
+            "Think of something you've been putting off. What's the smallest possible first step?",
+            'Make it even smaller. Something you could do in two minutes.',
+            "Picture doing just that step, and stopping if you want. Notice whether you'd want to keep going."
+        ],
+        carry: "Today, don't wait to feel like it. Start tiny."
+    },
+    {
+        id: 'enough', kind: 'stoic', title: 'Enough',
+        talk: [
+            "Seneca wrote that it isn't the person who has too little who is poor, but the one who craves more.",
+            "There's always a newer phone, a bigger place, a better deal. Wanting more can feel like ambition, but often it just moves the finish line.",
+            "For the Stoics, wealth was wanting less. Noticing what's enough is its own kind of freedom."
+        ],
+        prompts: [
+            "Think of something you've been wanting to buy or have. Notice the pull of it.",
+            "Now name, silently, three things you already have that you'd hate to lose.",
+            'Ask yourself: what would enough look like here?'
+        ],
+        carry: "Today, before you reach for more, notice what's already enough."
+    },
+    {
+        id: 'rest', kind: 'therapy', title: 'Rest is part of the work',
+        talk: [
+            "Training doesn't make you stronger on its own. Your body adapts while it recovers. Without rest, effort just piles up as fatigue.",
+            'The same is true for your mind. Focus, patience and willpower all run down, and they come back with real rest. Sleep, a walk, time away from a screen.',
+            "Rest isn't the opposite of discipline. It's part of it."
+        ],
+        prompts: [
+            'Check in with your energy right now. Are you running on empty, half full, or full?',
+            'What kind of rest would help most today? Sleep, quiet, movement, or people?',
+            'Plan one moment of real rest today, and protect it like a meeting.'
+        ],
+        carry: 'Today, treat rest as part of the plan, not a reward for finishing it.'
+    },
+    {
+        id: 'as-it-is', kind: 'stoic', title: 'Wanting what happens',
+        talk: [
+            "Epictetus gave this advice. Don't ask for things to happen as you wish. Wish for them to happen as they do happen, and your life will go smoothly.",
+            'It sounds passive, but it is practical. Most frustration comes from the gap between what we demanded, and what actually happened.',
+            "When you accept what's already here, your energy is free for the next useful move."
+        ],
+        prompts: [
+            "Think of something recent that didn't go the way you wanted. Notice the resistance.",
+            'Now try saying silently: this is what happened. I can work with this.',
+            "What's the next useful move, starting from here?"
+        ],
+        carry: "Today, meet what happens with: okay, this is what I'm working with."
+    },
+    {
+        id: 'beginner', kind: 'therapy', title: "Beginner's mind",
+        talk: [
+            "In Zen there's an idea called beginner's mind. In the expert's mind there are few possibilities. In the beginner's mind there are many.",
+            "When we've done something a hundred times, we stop really seeing it. Our routine, the people closest to us, our own street, fade into the background.",
+            'Meeting familiar things with fresh curiosity can make an ordinary day feel new again.'
+        ],
+        prompts: [
+            'Notice your breath as if for the very first time. Its temperature, its rhythm.',
+            "Think of a routine you'll do today. How could you do it with fresh eyes?",
+            "Pick one familiar person you'll see today. What could you be curious about with them?"
+        ],
+        carry: "Today, look at one familiar thing as if you'd never seen it before."
+    },
+    {
+        id: 'anger', kind: 'stoic', title: 'The remedy is delay',
+        talk: [
+            'Seneca wrote a whole book on anger. His best remedy was simple: delay. Anger is strongest in its first moments, and it fades if you wait.',
+            'In those first moments, we say and send things we later regret.',
+            "A pause isn't weakness. It's giving your better judgment time to arrive."
+        ],
+        prompts: [
+            'Think of a time anger made you act too fast. What happened?',
+            'Picture the same moment, but this time you pause, and take three breaths.',
+            'What would you have said or done after the pause?'
+        ],
+        carry: 'Today, when anger flares, wait before you speak or send anything.'
+    },
+    {
+        id: 'kindness', kind: 'therapy', title: 'Loving-kindness',
+        talk: [
+            'Loving-kindness is an old meditation practice. You silently offer good wishes, first to yourself, then to people close to you, and outward from there.',
+            'It can feel awkward at first. But it gently trains your mind toward warmth, instead of judgment.',
+            "And it's hard to stay irritated with someone while you're wishing them well."
+        ],
+        prompts: [
+            'Silently say to yourself: may I be well. May I be at ease.',
+            'Now picture someone you love, and wish the same for them.',
+            'Now someone you find difficult. May you be well. May you be at ease.'
+        ],
+        carry: 'Today, silently wish someone well, especially someone who tests your patience.'
+    }
+];
+
 const MEDITATIONS = {
     breathe: {
         title: 'Breathe',
@@ -72,27 +498,25 @@ const MEDITATIONS = {
     },
     reflect: {
         title: 'Reflect',
-        blurb: 'A few minutes on yourself and the world',
+        blurb: "A short talk on today's theme, then a few minutes with it",
         icon: '<path d="M4 18.5h16M7 15a5 5 0 0 1 10 0M12 4.5v3M5.4 8.4l1.6 1.6M18.6 8.4 17 10"/>',
-        build: min => {
-            const prompts = [
-                { say: "Bring to mind something that's been weighing on you. Ask yourself: which part of this is actually up to me? My effort, my words, my attitude. Let the rest go, just for now.", pause: 10 },
-                { say: 'Picture yourself from above, sitting right where you are. Now rise higher. See your street, your city, the curve of the earth. Most of what felt big today is very small from up here.', pause: 10 },
-                { say: 'Think of one person who made your life a little better recently. Picture their face, and silently thank them.', pause: 9 },
-                { say: 'Everything changes. This mood, this difficulty, even this good moment, will pass. Hold today lightly.', pause: 9 },
-                { say: 'Ask yourself: who do I want to be tomorrow? Choose one quality. Patience, courage, kindness. Picture yourself acting with it.', pause: 10 },
-                { say: 'Right now, millions of people are also breathing, also trying their best. You are part of something much larger than today.', pause: 9 }
-            ];
-            const count = min >= 5 ? 6 : min >= 3 ? 3 : 1;
+        themes: REFLECT_THEMES,
+        // The day's theme: arrive (3 and 5 min), the talk, then its prompts. 1 minute is the core idea and one prompt
+        build: (min, theme = REFLECT_THEMES[0]) => {
+            const short = min < 3;
             return [
-                { say: 'Welcome. Find a comfortable position, and close your eyes if you like.', pause: 1 },
-                { say: 'Take a few slow breaths to arrive.', pause: 0.5 },
-                { breathe: 'calm', cycles: min > 1 ? 3 : 2, cues: 1 },
-                ...prompts.slice(0, count).map(p => min > 1 ? p : { ...p, pause: 6 }),
+                ...(short ? [] : [
+                    { say: 'Welcome. Find a comfortable position, and close your eyes if you like.', pause: 1 },
+                    { say: 'Take a few slow breaths to arrive.', pause: 0.5 },
+                    { breathe: 'calm', cycles: 2, cues: 1 }
+                ]),
+                { say: `Today's theme: ${theme.title}.`, pause: 1.5 },
+                ...theme.talk.slice(0, short ? 1 : 3).map(say => ({ say, pause: 1.5 })),
+                ...theme.prompts.slice(0, min >= 5 ? 3 : short ? 1 : 2).map(say => ({ say, pause: min >= 5 ? 20 : short ? 6 : 12 })),
                 { breathe: 'easy', fill: true },
                 { closing: true },
-                { say: 'Come back to your breath, and to the room around you.', pause: 2 },
-                { say: 'When you are ready, carry one of these thoughts into the rest of your day.', pause: 1 }
+                ...(short ? [] : [{ say: 'Come back to your breath, and to the room around you.', pause: 2 }]),
+                { say: theme.carry, pause: 1 }
             ];
         }
     },
@@ -802,6 +1226,13 @@ class LifeOS {
         if (this.isLateNight(d)) d.setDate(d.getDate() - 1);
         d.setHours(12, 0, 0, 0);
         return d;
+    }
+
+    // Reflect's theme for a day: the themes in turn, one a day, the same on every device. Before 3 AM it's
+    // still the night before's theme, like the session's log date
+    themeOfDay(themes, now = new Date()) {
+        const n = Math.round(Date.parse(`${this.localDateKey(this.reflectionDay(now))}T12:00:00Z`) / 864e5);
+        return themes[((n % themes.length) + themes.length) % themes.length];
     }
 
     // "today", or "Saturday" when it's past midnight and the late-night day is still open
@@ -3980,7 +4411,7 @@ class LifeOS {
         document.getElementById('medSessions').innerHTML = Object.entries(MEDITATIONS).map(([key, m]) => `
             <button class="med-card" data-med="${key}">
                 <span class="med-card-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${m.icon}</svg></span>
-                <span class="med-card-text"><b>${m.title}</b><small>${m.blurb}</small></span>
+                <span class="med-card-text"><b>${m.title}</b><small>${m.themes ? `Today: ${this.themeOfDay(m.themes).title}` : m.blurb}</small></span>
                 <span class="med-card-len">${min} min</span>
             </button>`).join('');
 
@@ -4008,7 +4439,7 @@ class LifeOS {
         return speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)).sort((a, b) => rank(a) - rank(b));
     }
 
-    // 'recorded' = Cori's bundled recordings (the default; plays like the chimes, so it works
+    // 'recorded' = Michael's bundled recordings (the default; plays like the chimes, so it works
     // in the iPhone Home Screen app). Anything else is a device voice's voiceURI, which only
     // works where speechSynthesis does (desktop browsers, Safari tabs).
     medVoiceChoice() {
@@ -4028,7 +4459,7 @@ class LifeOS {
     renderMedVoices() {
         const select = document.getElementById('medVoice');
         const device = this.getMedVoices();
-        select.innerHTML = '<option value="recorded">Cori — calm recorded voice (recommended)</option>' + (device.length
+        select.innerHTML = '<option value="recorded">Michael — calm recorded voice (recommended)</option>' + (device.length
             ? `<optgroup label="Device voices (may be silent in the Home Screen app)">${device.map(v =>
                 `<option value="${this.escapeHtml(v.voiceURI)}">${this.escapeHtml(v.name)} (${v.lang})</option>`).join('')}</optgroup>`
             : '');
@@ -4229,7 +4660,7 @@ class LifeOS {
             status.textContent = 'Playing…';
             setTimeout(() => {
                 status.textContent = this.getLocal('lifeOS_medVoiceOn') === '0'
-                    ? '✓ Voice played — but “Speak the guidance” below is off, so sessions are silent. Tick it to hear Cori in sessions.'
+                    ? '✓ Voice played — but “Speak the guidance” below is off, so sessions are silent. Tick it to hear Michael in sessions.'
                     : '✓ Voice played. Heard nothing? Turn the volume up with the side buttons and tap Test again.';
                 this.medReleaseAudio();
             }, (buffer.duration + 0.9) * 1000);
@@ -4374,7 +4805,8 @@ class LifeOS {
         const session = MEDITATIONS[kind];
         if (!session || this._med?.running) return;
         const voiceOn = this.getLocal('lifeOS_medVoiceOn') !== '0';
-        this._med = { kind, minutes, voiceOn, running: true, paused: false, cancelled: false, accumulated: 0, resumedAt: performance.now() };
+        const theme = session.themes && this.themeOfDay(session.themes);
+        this._med = { kind, minutes, theme, voiceOn, running: true, paused: false, cancelled: false, accumulated: 0, resumedAt: performance.now() };
         const m = this._med;
 
         document.getElementById('medTitle').textContent = `${session.title} · ${minutes} min`;
@@ -4394,7 +4826,7 @@ class LifeOS {
         hint.hidden = true;
         this.medPrimeAudio();
         this.medChime(session.gentle);
-        if (!voiceOn) this.medVoiceProblem('Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Cori.');
+        if (!voiceOn) this.medVoiceProblem('Voice is off. Turn on “Speak the guidance” on the Meditate page to hear Michael.');
 
         const total = minutes * 60;
         const tick = () => {
@@ -4405,7 +4837,7 @@ class LifeOS {
         m.tick = tick;
         m.ticker = setInterval(tick, 250);
 
-        const steps = session.build(minutes);
+        const steps = session.build(minutes, theme);
         const closingAt = steps.findIndex(s => s.closing);
         const main = steps.slice(0, closingAt);
         const closing = steps.slice(closingAt + 1);
@@ -4517,7 +4949,7 @@ class LifeOS {
         setTimeout(() => { if (!this._med?.running) this.medReleaseAudio(); }, 3500); // after the chime
         const now = new Date();
         const day = this.reflectionDay(now);
-        (this.data.meditationLog ||= []).push({ date: this.localDateKey(day), ts: now.toISOString(), kind: m.kind, minutes: m.minutes });
+        (this.data.meditationLog ||= []).push({ date: this.localDateKey(day), ts: now.toISOString(), kind: m.kind, minutes: m.minutes, ...(m.theme && { theme: m.theme.id }) });
 
         let note = m.minutes >= 3 ? '' : 'Short sessions are logged but don’t check off Meditate (your goal is 3–5 minutes).';
         if (m.minutes >= 3 && this.checkOffGoal(/meditat/i, day)) note = `Meditate is checked off for ${this.reflectionDayName(now)} ✓`;
