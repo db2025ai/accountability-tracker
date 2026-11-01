@@ -1334,6 +1334,199 @@ tr:hover .strike-dec { opacity: 1; }
     font-size: 1.1rem;
 }
 
+/* This week's practice (cooking + writing curriculum): folded to one line, opens to the week */
+.practice-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+    min-width: 0;
+}
+
+.practice-card > summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.practice-card > summary::-webkit-details-marker,
+.practice-term > summary::-webkit-details-marker {
+    display: none;
+}
+
+.practice-card > summary::after,
+.practice-term > summary::after {
+    content: '›';
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    transition: transform var(--transition);
+}
+
+.practice-card[open] > summary::after,
+.practice-term[open] > summary::after {
+    transform: rotate(90deg);
+}
+
+.practice-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.practice-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.practice-label b {
+    display: block;
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.practice-sub {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.practice-body {
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border-light);
+}
+
+.practice-block {
+    padding-top: 16px;
+}
+
+.practice-block + .practice-block {
+    margin-top: 16px;
+    border-top: 1px solid var(--border-light);
+}
+
+.practice-kicker {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--primary);
+}
+
+.practice-title {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    margin: 4px 0 2px;
+}
+
+.practice-why,
+.practice-note {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0 0 10px;
+}
+
+.practice-note {
+    padding-top: 14px;
+}
+
+.practice-list {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 8px 14px;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.practice-list dt {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.practice-list dd {
+    margin: 0;
+    color: var(--text);
+}
+
+.practice-prep {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    font-size: 0.9rem;
+}
+
+.practice-prep li + li {
+    margin-top: 4px;
+}
+
+.practice-term {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-light);
+}
+
+.practice-term > summary {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.practice-term ol {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    font-size: 0.85rem;
+}
+
+.practice-term li {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 8px;
+    padding: 5px 0;
+}
+
+.practice-term li span span {
+    color: var(--text-muted);
+}
+
+.practice-term-date {
+    color: var(--text-muted);
+}
+
+.practice-term li.current {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.practice-term li.current span span,
+.practice-term li.current .practice-term-date {
+    color: var(--primary);
+}
+
+.practice-term li.paused {
+    color: var(--text-light);
+}
+
+@media (max-width: 768px) {
+    .practice-list {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
+    }
+
+    .practice-list dd + dt {
+        margin-top: 8px;
+    }
+}
+
 /* Frequency Groups */
 .freq-group {
     margin-bottom: 24px;
@@ -4382,6 +4575,9 @@ body.workout-open { overflow: hidden; }
                 </div>
             </div>
 
+            <!-- This week's practice (cooking + writing curriculum): renderPractice() -->
+            <details class="practice-card" id="practiceCard"></details>
+
             <!-- Today's Checklist -->
             <div class="today-habits">
                 <div class="today-header-row">
@@ -5539,6 +5735,259 @@ const MEDITATIONS = {
     }
 };
 
+// ========================================
+// Practice curriculum (cooking + writing), shown on the Today tab
+// ========================================
+// One term = weeks in order from `start` (a Sunday, local), one entry per calendar week. A `pause`
+// week has no assignment. The card picks the week from today's date (practiceWeek), so it's the
+// same on every device. Cooking follows Le Cordon Bleu's Basic tier order (knife work, stocks,
+// the five mother sauces and core methods first, a hosted dinner at the end). Writing is
+// deliberate practice (Kellogg & Whiteford): a targeted skill a week, Pennebaker-style journaling
+// (facts, then feelings, then meaning) and a read-then-imitate craft session.
+// Weekend first: the week starts Sunday and the weekend cook makes what the weeknight rep uses.
+const PRACTICE_TERM = {
+    title: 'Term 1: Foundations',
+    start: '2026-11-08',
+    journalRule: 'Every entry, 15 min: what happened, what you felt, what it means now.',
+    prep: {
+        cook: ['Sharp chef\'s knife + honing steel', 'Heavy stockpot (12 qt) and a fine-mesh strainer', 'Roasting pan with a rack', 'Instant-read thermometer and a digital scale', 'Whisk, bench scraper, unflavored gelatin', 'Book: James Peterson, Sauces', 'Book: Jacques Pépin, Complete Techniques'],
+        write: ['A notebook used only for this', 'Natalie Goldberg, Writing Down the Bones', 'Mary Oliver, A Poetry Handbook', 'Anne Lamott, Bird by Bird', 'Richard Hugo, The Triggering Town']
+    },
+    weeks: [
+        {
+            cook: {
+                method: 'Knife work, mise en place and breaking down a chicken',
+                why: 'Every program starts here. Even cuts cook evenly, and a whole bird gives you next week\'s stock.',
+                weekend: 'Break a whole chicken into 8 pieces and roast or sear them. Freeze the carcass, back and wing tips for stock.',
+                weeknight: 'Cut a full mirepoix (onion, carrot, celery) into even brunoise (3 mm dice), timed. Cook it into a soup or a soffritto pasta.',
+                doneWhen: 'Brunoise even enough to cook evenly; chicken broken down in under 10 minutes.',
+                study: 'Knife cuts and poultry sections of Pépin\'s Complete Techniques.'
+            },
+            write: {
+                focus: 'Be specific',
+                read: 'Goldberg, Writing Down the Bones: "Be Specific" and "First Thoughts".',
+                wed: 'One moment from today, told through what you saw, heard and smelled. No "good", "busy", "stressful" or "tired".',
+                sat: 'List your 10 most-used vague words. Write about the week without any of them.',
+                craft: 'Read William Carlos Williams, "This Is Just to Say". Write your own short note apologizing for something real, in plain concrete words.',
+                check: 'No banned words, and at least three details only you would know.'
+            }
+        },
+        {
+            cook: {
+                method: 'Stocks: white and brown',
+                why: 'Stock is the base of every mother sauce. Boxed stock has almost no gelatin, which is why pan sauces go thin.',
+                weekend: 'White chicken stock from last week\'s carcass plus extra backs or feet, and brown stock from roasted beef or veal bones with tomato paste. Simmer, never boil. Freeze in 1-cup portions.',
+                weeknight: 'Chill a cup of each: it should set. Then make a pan sauce with your stock and one with boxed stock, and compare the body.',
+                doneWhen: 'Stock sets like loose jelly when cold and stays clear.',
+                study: 'The stocks chapter of Peterson\'s Sauces.'
+            },
+            write: {
+                focus: 'What a journal is for',
+                read: 'Joan Didion, "On Keeping a Notebook".',
+                wed: 'Write down one overheard line or small detail from today, then why it stuck with you.',
+                sat: 'How it felt to be you on one specific day this week. Skip the play-by-play.',
+                craft: 'Keep a list of 10 things you noticed this week. Turn the best three into a 10-line poem.',
+                check: 'Details are observed, not summarized.'
+            }
+        },
+        {
+            cook: {
+                method: 'Roasting, resting and carryover heat',
+                why: 'Roasting is a core dry-heat method, and Thanksgiving week gives you a high-stakes rep.',
+                weekend: 'Dry-brine and roast a whole bird (the Thanksgiving turkey or a chicken) by thermometer, rest it, and make a pan gravy thickened with roux and your own stock.',
+                weeknight: 'Reverse-sear a thick pork chop: low oven to 5°F under your target, then a hard sear.',
+                doneWhen: 'Pulled within 3°F of target; gravy smooth with no raw-flour taste.',
+                study: 'The roasting chapter of Kenji López-Alt\'s The Food Lab.'
+            },
+            write: {
+                focus: 'Images carry the feeling',
+                read: 'Robert Hayden, "Those Winter Sundays"; the Imagery chapter of Oliver\'s A Poetry Handbook.',
+                wed: 'A family moment told only through objects and actions. Never name the emotion.',
+                sat: 'The bird you roasted this week: the sound, the smell, the moment you carved it.',
+                craft: 'Imitate Hayden: a poem about a labor nobody thanked, yours or someone else\'s, built from concrete detail.',
+                check: 'A reader could name the feeling without being told it.'
+            }
+        },
+        {
+            cook: {
+                method: 'Roux and béchamel (mother sauce 1)',
+                why: 'Roux thickens three of the five mother sauces. Learn white, blond and brown roux here.',
+                weekend: 'Béchamel, then two derivatives: Mornay (cheese) for a gratin or croque monsieur, and Soubise (onion). Stretch: lasagna with béchamel.',
+                weeknight: 'Béchamel from memory, turned into Mornay for mac and cheese. 30 minutes.',
+                doneWhen: 'No lumps, coats the back of a spoon (nappe), no floury taste.',
+                study: 'The white sauces chapter of Peterson\'s Sauces.'
+            },
+            write: {
+                focus: 'Concrete over abstract',
+                read: 'George Orwell, "Politics and the English Language".',
+                wed: 'Take your vaguest sentence from the last three weeks and rewrite it three ways, each more concrete.',
+                sat: 'A work problem explained the way you\'d tell a friend. No jargon.',
+                craft: 'Revise one old poem: replace every abstract noun with an image.',
+                check: 'Passes Orwell\'s test: no stock phrases, nothing you could cut.'
+            }
+        },
+        {
+            cook: {
+                method: 'Velouté (mother sauce 2) and gentle poaching',
+                why: 'Velouté is stock thickened with blond roux, so it shows whether your stock is good.',
+                weekend: 'Chicken blanquette: chicken poached in your white stock, the liquid made into velouté and finished with cream and egg yolk.',
+                weeknight: 'Poach a chicken breast in stock, then make sauce suprême (velouté plus cream) from the poaching liquid.',
+                doneWhen: 'Velouté glossy and skimmed; chicken tender, never boiled.',
+                study: 'The velouté section of Peterson\'s Sauces.'
+            },
+            write: {
+                focus: 'Facts, then feelings, then meaning',
+                read: 'Lamott, Bird by Bird: "Short Assignments".',
+                wed: '15 minutes without stopping on something unresolved: what happened, what you felt, what it means now.',
+                sat: 'The same subject again. Notice what changed since Wednesday.',
+                craft: 'Lamott\'s one-inch picture frame: one small scene in about 250 words.',
+                check: 'Both entries have all three parts.'
+            }
+        },
+        {
+            cook: {
+                method: 'Pan sauces, done right (sauté and pan-frying)',
+                why: 'The rematch for your 70% hit rate, now with gelatin-rich stock and roux skills behind you.',
+                weekend: 'Duck breast scored and rendered from a cold pan, with a port and cherry reduction mounted with cold butter off the heat.',
+                weeknight: 'Steak au poivre: cognac flambé, your stock, cream.',
+                doneWhen: 'Three pan sauces in a row that coat the spoon, don\'t break and are salted only at the end.',
+                study: 'The four failure modes: broken (too hot), thin (no gelatin), salty (reduced salted stock), bitter (burnt fond).'
+            },
+            write: {
+                focus: 'Finding the real subject',
+                read: 'Hugo, The Triggering Town: "Writing Off the Subject".',
+                wed: 'Start with an object in your home and follow it wherever it goes for 15 minutes.',
+                sat: 'What did Wednesday\'s entry turn out to be about?',
+                craft: 'A poem set off by a place in your neighborhood. Don\'t decide the subject before you start.',
+                check: 'The poem ended up somewhere you didn\'t plan.'
+            }
+        },
+        { pause: true, title: 'Holiday break', note: 'No assignment. Cook a holiday meal with any technique so far if you feel like it. Optional reading: E.B. White, "Once More to the Lake".' },
+        { pause: true, title: 'Holiday break', note: 'No assignment. Restock the freezer with stock before Week 7, and reread everything you\'ve written since Nov 8. Mark your three best sentences.' },
+        {
+            cook: {
+                method: 'Espagnole and demi-glace (mother sauce 3)',
+                why: 'The brown sauce family. Demi-glace in the freezer makes restaurant sauces a 15-minute job.',
+                weekend: 'Espagnole from brown roux, brown stock, mirepoix and tomato, then demi-glace: equal parts espagnole and brown stock, reduced by half. Freeze in ice cube trays.',
+                weeknight: 'Bordelaise (red wine, shallot, demi-glace) over a seared steak.',
+                doneWhen: 'Demi-glace coats the spoon and sets firm in the fridge.',
+                study: 'The brown sauces chapter of Peterson\'s Sauces.'
+            },
+            write: {
+                focus: 'Memory and voice',
+                read: 'E.B. White, "Once More to the Lake"; Seamus Heaney, "Digging".',
+                wed: 'A childhood memory that something in the present brought back.',
+                sat: 'The same memory written in second person ("you"). Compare the two.',
+                craft: 'Imitate "Digging": a poem setting your work against a parent\'s or grandparent\'s.',
+                check: 'It sounds like you talking, not like "a poem".'
+            }
+        },
+        {
+            cook: {
+                method: 'Tomato sauce (mother sauce 4), classical vs. Italian',
+                why: 'Same ingredient, two traditions. Tasting them side by side trains your palate.',
+                weekend: 'Classical sauce tomate (salt pork, mirepoix, stock), then braise chicken cacciatore or braciole in it.',
+                weeknight: 'Marcella Hazan\'s tomato sauce with butter and onion over pasta. Compare it with the classical one.',
+                doneWhen: 'You can say why each tastes the way it does, and both are balanced for salt and acid.',
+                study: 'The tomato sauce section of Peterson\'s Sauces.'
+            },
+            write: {
+                focus: 'Sound and the line',
+                read: 'The Sound and The Line chapters of Oliver\'s A Poetry Handbook.',
+                wed: 'Read your last entry aloud and rewrite the clumsiest paragraph for rhythm.',
+                sat: 'An entry with sentences of very different lengths, on purpose.',
+                craft: 'Break one poem into lines two different ways. Keep the one that sounds better aloud.',
+                check: 'You can say why each line breaks where it does.'
+            }
+        },
+        {
+            cook: {
+                method: 'Hollandaise and béarnaise (mother sauce 5, warm emulsions)',
+                why: 'The sauces most likely to break, so learn to fix them, not just make them.',
+                weekend: 'Eggs Benedict brunch: poached eggs and hollandaise whisked by hand, no blender.',
+                weeknight: 'Béarnaise (tarragon and shallot reduction) with steak and potatoes. Break one on purpose and rescue it with warm water and a fresh yolk.',
+                doneWhen: 'Hollandaise holds for 20 minutes, and you\'ve rescued a broken one.',
+                study: 'The emulsified sauces chapter of Peterson\'s Sauces.'
+            },
+            write: {
+                focus: 'Permission to draft badly',
+                read: 'Lamott, Bird by Bird: the chapter on first drafts.',
+                wed: 'A 10-minute timed freewrite. Your hand never stops.',
+                sat: 'Another 10-minute freewrite, then circle the one sentence that\'s alive.',
+                craft: 'Three fast drafts of the same poem, 10 minutes each, no editing in between.',
+                check: 'Three drafts exist. Quantity is the point this week.'
+            }
+        },
+        {
+            cook: {
+                method: 'Fish: filleting, fumet, poaching and beurre blanc',
+                why: 'Fish butchery and cold emulsions round out the Basic-tier skill list.',
+                weekend: 'Buy a whole round fish (branzino or striped bass), fillet it, make a quick fumet from the frame and poach the fillets in it.',
+                weeknight: 'Seared or poached fish with beurre blanc, plus mayonnaise or aioli whisked by hand.',
+                doneWhen: 'Clean fillets with little flesh left on the frame; beurre blanc holds.',
+                study: 'The fish sections of Pépin\'s Complete Techniques.'
+            },
+            write: {
+                focus: 'Form as a constraint',
+                read: 'Elizabeth Bishop, "One Art"; the chapter on given forms in Oliver\'s A Poetry Handbook.',
+                wed: 'An entry of exactly 100 words.',
+                sat: 'An entry written as 10 numbered observations.',
+                craft: 'Write a villanelle: 19 lines, two repeating refrains.',
+                check: 'The form pushed you to at least one word you\'d never default to.'
+            }
+        },
+        {
+            cook: {
+                method: 'Braising, using everything so far',
+                why: 'Braising pulls together stock, searing and sauce reduction in one dish.',
+                weekend: 'Coq au vin or beef short ribs braised in red wine and your brown stock, with the liquid reduced into the sauce.',
+                weeknight: 'Chicken thighs braised with leeks and white wine in 45 minutes.',
+                doneWhen: 'Meat fork-tender; sauce skimmed and reduced to coat a spoon.',
+                study: 'The braising section of Pépin\'s Complete Techniques.'
+            },
+            write: {
+                focus: 'Revision',
+                read: 'The Revision chapter of Oliver\'s A Poetry Handbook.',
+                wed: 'Reread weeks 1 to 10. What do you keep writing about?',
+                sat: 'Rewrite your best early entry with everything you\'ve learned.',
+                craft: 'Revise your two best poems and get feedback on one (from Claude or a reader) on images, sound and whether the ending is earned.',
+                check: 'You changed the structure, not just the words.'
+            }
+        },
+        {
+            cook: {
+                method: 'Practical exam: a three-course dinner, no recipes',
+                why: 'Le Cordon Bleu ends each tier with a hosted event. This is yours.',
+                weekend: 'Host dinner: a starter with a cold emulsion, a main with a mother-sauce derivative from your own stock, and a dessert. Write the timeline and mise en place on paper first.',
+                weeknight: 'Dry run of the main, timed.',
+                doneWhen: 'Three courses out on time, from memory. Note what to drill in Term 2.',
+                study: 'Plan the menu and prep list. Nothing new to read.'
+            },
+            write: {
+                focus: 'Why you write',
+                read: 'Joan Didion, "Why I Write"; M.F.K. Fisher\'s foreword to The Gastronomical Me.',
+                wed: 'A letter to the you who started on Nov 8.',
+                sat: 'The dinner: the people, the food, one moment you want to keep.',
+                craft: 'A 500 to 800 word essay tying a dish to a memory, the way Fisher does. Then pick your three best poems as your Term 1 portfolio.',
+                check: 'You\'d read it aloud to someone.'
+            }
+        }
+    ]
+};
+
+// Cooking and writing goals that go with the curriculum. migratePracticeGoals swaps them in once for
+// the old cooking/writing goals; names are matched by the Goals grid, so keep them stable.
+const PRACTICE_GOALS = [
+    { category: 'Cooking', name: 'Weekend cooking project (this week\'s method)', target: 'weekly' },
+    { category: 'Cooking', name: 'Weeknight technique rep', target: 'x1' },
+    { category: 'Cooking', name: 'Study this week\'s method (15 min)', target: 'weekly' },
+    { category: 'Writing', name: 'Journal 15 min x2 (this week\'s prompts)', target: 'x2' },
+    { category: 'Writing', name: 'Writing craft session (read + imitate)', target: 'weekly' }
+];
+const PRACTICE_GOALS_VERSION = 1;
+// Goals the curriculum replaces: the whole Cooking category and the old journaling / open writing goals
+const PRACTICE_REPLACES = g => g.category === 'Cooking' || /written journaling|open writing session/i.test(g.name);
+
 class LifeOS {
     constructor() {
         this.STORAGE_KEY = 'lifeOSData';
@@ -5563,7 +6012,7 @@ class LifeOS {
     getDefaultData() {
         return {
             goals: this.getDefaultGoals(),
-            categories: ['Morning Protocol', 'Midday Protocol', 'Evening Protocol', 'Mental Health', 'Physical Health', 'Budgeting', 'Work', 'Monthly', 'Cooking', 'Other'],
+            categories: ['Morning Protocol', 'Midday Protocol', 'Evening Protocol', 'Mental Health', 'Physical Health', 'Budgeting', 'Work', 'Monthly', 'Cooking', 'Writing', 'Other'],
             weeks: [],
             transactions: [],
             accounts: [],
@@ -5580,6 +6029,7 @@ class LifeOS {
             meditationLog: [],  // { date, ts, kind, minutes } — finished guided sessions
             settings: {
                 scoringCutover: DEFAULT_SCORING_CUTOVER,
+                practiceGoals: PRACTICE_GOALS_VERSION, // defaults already have the curriculum goals
                 defaultBudgets: {
                     'Food & Dining': 400,
                     'Groceries': 600,
@@ -5620,8 +6070,6 @@ class LifeOS {
             { category: 'Evening Protocol', name: 'In bed by 11:15PM', target: 'weeknights' },
             { category: 'Evening Protocol', name: 'Stoic Review + Tomorrow\'s To-Do', target: 'daily' },
             // Mental Health
-            { category: 'Mental Health', name: 'Written Journaling 10 min x2 (Wed & Sat)', target: 'x2' },
-            { category: 'Mental Health', name: 'Open Writing Session (life stories, personal voice)', target: 'weekly' },
             { category: 'Mental Health', name: 'Read 50 pages non-fiction OR 2 audiobook chapters', target: 'weekly' },
             { category: 'Mental Health', name: 'Read 1 parenting book chapter/article', target: 'weekly' },
             { category: 'Mental Health', name: 'Max 15 min Instagram/day', target: 'daily' },
@@ -5651,9 +6099,8 @@ class LifeOS {
             { category: 'Monthly', name: 'Check-in with Chelsey on relationship', target: 'monthly' },
             { category: 'Monthly', name: '1 networking event', target: 'monthly' },
             { category: 'Monthly', name: '2 nice planned date nights', target: 'monthly' },
-            // Cooking
-            { category: 'Cooking', name: 'Cook 1 new meal/week', target: 'weekly' },
-            { category: 'Cooking', name: 'Read 10 pages of cookbook/week', target: 'weekly' },
+            // Cooking and Writing: the practice curriculum (PRACTICE_TERM)
+            ...PRACTICE_GOALS.map(g => ({ ...g })),
         ];
     }
 
@@ -5702,7 +6149,37 @@ class LifeOS {
             if (!(key in data)) data[key] = defaults[key];
         }
         if (!data.settings.scoringCutover) data.settings.scoringCutover = DEFAULT_SCORING_CUTOVER;
+        if (this.migratePracticeGoals(data)) this._practiceGoalsMigrated = true;
         return data;
+    }
+
+    // Once per data set: swap the old cooking and writing goals for the curriculum's (PRACTICE_GOALS),
+    // in the same place in the list. Only data.goals changes, so weeks already created keep their
+    // old rows and history; the next new week picks up the new goals. Returns true when it changed.
+    migratePracticeGoals(data) {
+        if (!Array.isArray(data.goals) || (data.settings.practiceGoals || 0) >= PRACTICE_GOALS_VERSION) return false;
+        const newNames = new Set(PRACTICE_GOALS.map(g => g.name));
+        // getGoalDays reads a schedule from data.goals by name first; keep a removed goal's schedule on
+        // its week rows so weeks already tracked score exactly as before
+        const removedDays = new Map(data.goals.filter(g => PRACTICE_REPLACES(g) && !newNames.has(g.name) && Array.isArray(g.days)).map(g => [g.name, g.days]));
+        for (const week of data.weeks || []) {
+            for (const entry of Object.values(week.entries || {})) {
+                const days = entry.goal && removedDays.get(entry.goal.name);
+                if (days && !Array.isArray(entry.goal.days)) entry.goal.days = [...days];
+            }
+        }
+        const at = data.goals.findIndex(g => PRACTICE_REPLACES(g) && !newNames.has(g.name));
+        const kept = data.goals.filter(g => !(PRACTICE_REPLACES(g) && !newNames.has(g.name)));
+        const have = new Set(kept.map(g => g.name));
+        const add = PRACTICE_GOALS.filter(g => !have.has(g.name)).map(g => ({ ...g }));
+        const insertAt = at < 0 ? kept.length : data.goals.slice(0, at).filter(g => kept.includes(g)).length;
+        kept.splice(insertAt, 0, ...add);
+        data.goals = kept;
+        if (Array.isArray(data.categories)) {
+            for (const cat of ['Cooking', 'Writing']) if (!data.categories.includes(cat)) data.categories.push(cat);
+        }
+        data.settings.practiceGoals = PRACTICE_GOALS_VERSION;
+        return true;
     }
 
     saveData() {
@@ -5773,6 +6250,7 @@ class LifeOS {
                     this.renderAll();
                 });
                 this.updateConvexStatusUI();
+                this.savePracticeGoalsMigration(); // after the cloud copy is in, so it can't overwrite it
                 this.maybeShowCatchUp(); // after the freshest data is in
                 this.syncSleep(true);
             });
@@ -5797,7 +6275,17 @@ class LifeOS {
 
         // Notification taps open ?section=habits
         this.openSectionFromUrl();
-        if (!this.convex) this.maybeShowCatchUp();
+        if (!this.convex) {
+            this.savePracticeGoalsMigration();
+            this.maybeShowCatchUp();
+        }
+    }
+
+    // normalizeData only changes this.data; keep the curriculum goal swap once it has happened
+    savePracticeGoalsMigration() {
+        if (!this._practiceGoalsMigrated) return;
+        this._practiceGoalsMigrated = false;
+        this.logActivity('Cooking and writing goals switched to the practice curriculum'); // saves
     }
 
     openSectionFromUrl() {
@@ -8339,6 +8827,11 @@ class LifeOS {
     bindHabits() {
         document.getElementById('addHabitBtn').addEventListener('click', () => this.openModal('addGoalModal'));
 
+        // This week's practice: remember open/closed on this device ('toggle' doesn't bubble from the term list)
+        document.getElementById('practiceCard')?.addEventListener('toggle', (e) => {
+            try { localStorage.setItem('lifeOS_practiceOpen', e.target.open ? '1' : '0'); } catch { /* storage blocked */ }
+        });
+
         // Delegated: habit checkbox clicks — bound once, survives re-renders
         document.getElementById('habitsChecklist').addEventListener('click', (e) => {
             // Remember which folded sections (Done, Missed, Limits…) are open across re-renders
@@ -8486,7 +8979,94 @@ class LifeOS {
         return { group: 'daily', label: target, perWeek: 7 };
     }
 
+    // ---- This week's practice (PRACTICE_TERM) ----
+    // Where today falls in the term: before it starts, a week (or a pause), or finished
+    practiceWeek(now = new Date(), term = PRACTICE_TERM) {
+        const DAY = 864e5;
+        const day = Date.parse(`${this.localDateKey(now)}T12:00:00Z`);
+        const start = Date.parse(`${term.start}T12:00:00Z`);
+        const total = term.weeks.filter(w => !w.pause).length;
+        if (day < start) return { state: 'before', days: Math.round((start - day) / DAY), total };
+        const idx = Math.floor((day - start) / (7 * DAY));
+        if (idx >= term.weeks.length) return { state: 'done', total };
+        const num = term.weeks.slice(0, idx + 1).filter(w => !w.pause).length;
+        return { state: term.weeks[idx].pause ? 'pause' : 'on', idx, num, total, week: term.weeks[idx] };
+    }
+
+    // The Sunday a term week starts ("Nov 8")
+    practiceWeekDate(idx, term = PRACTICE_TERM) {
+        const d = new Date(`${term.start}T12:00:00`);
+        d.setDate(d.getDate() + 7 * idx);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    renderPractice(now = new Date()) {
+        const card = document.getElementById('practiceCard');
+        if (!card) return;
+        const term = PRACTICE_TERM;
+        const pw = this.practiceWeek(now, term);
+        const esc = s => this.escapeHtml(s);
+        const rows = pairs => `<dl class="practice-list">${pairs.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+        const next = term.weeks.findIndex((w, i) => i > (pw.idx ?? -1) && !w.pause);
+
+        let label, sub, body;
+        if (pw.state === 'before') {
+            label = `${esc(term.title.split(':')[0])} starts Sun, ${this.practiceWeekDate(0, term)}`;
+            sub = `${pw.days} ${pw.days === 1 ? 'day' : 'days'} to get set up`;
+            const list = items => `<ul class="practice-prep">${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+            body = `<div class="practice-block"><div class="practice-kicker">Kitchen</div>${list(term.prep.cook)}</div>
+                <div class="practice-block"><div class="practice-kicker">Writing</div>${list(term.prep.write)}</div>`;
+        } else if (pw.state === 'done') {
+            label = `${esc(term.title.split(':')[0])} complete`;
+            sub = 'Plan the next term with Claude';
+            body = `<p class="practice-note">All ${pw.total} weeks done. Note what to drill next, then plan the next term with Claude.</p>`;
+        } else if (pw.state === 'pause') {
+            label = esc(pw.week.title);
+            sub = next >= 0 ? `Week ${pw.num + 1} starts Sun, ${this.practiceWeekDate(next, term)}` : 'No assignment this week';
+            body = `<p class="practice-note">${esc(pw.week.note)}</p>`;
+        } else {
+            const { cook, write } = pw.week;
+            label = `Week ${pw.num} of ${pw.total}`;
+            sub = `${esc(cook.method)} · ${esc(write.focus)}`;
+            body = `<div class="practice-block">
+                    <div class="practice-kicker">Cooking</div>
+                    <h4 class="practice-title">${esc(cook.method)}</h4>
+                    <p class="practice-why">${esc(cook.why)}</p>
+                    ${rows([['Weekend project', cook.weekend], ['Weeknight rep', cook.weeknight], ['Done when', cook.doneWhen], ['Study', cook.study]])}
+                </div>
+                <div class="practice-block">
+                    <div class="practice-kicker">Writing</div>
+                    <h4 class="practice-title">${esc(write.focus)}</h4>
+                    <p class="practice-why">${esc(term.journalRule)}</p>
+                    ${rows([['Read', write.read], ['Wednesday journal', write.wed], ['Saturday journal', write.sat], ['Craft session', write.craft], ['Done when', write.check]])}
+                </div>`;
+        }
+
+        // The whole term at a glance, this week marked
+        let n = 0;
+        const termRows = term.weeks.map((w, i) => {
+            const cls = i === pw.idx ? ' class="current"' : w.pause ? ' class="paused"' : '';
+            const what = w.pause ? esc(w.title) : `<b>${++n}.</b> ${esc(w.cook.method)} <span>· ${esc(w.write.focus)}</span>`;
+            return `<li${cls}><span class="practice-term-date">${this.practiceWeekDate(i, term)}</span><span>${what}</span></li>`;
+        }).join('');
+
+        card.innerHTML = `<summary>
+                <span class="practice-summary">
+                    <span class="practice-label">This week's practice <b>${label}</b></span>
+                    <span class="practice-sub">${sub}</span>
+                </span>
+            </summary>
+            <div class="practice-body">
+                ${body}
+                <details class="practice-term"><summary>${esc(term.title)}</summary><ol>${termRows}</ol></details>
+            </div>`;
+        let open = false;
+        try { open = localStorage.getItem('lifeOS_practiceOpen') === '1'; } catch { /* storage blocked */ }
+        card.open = open;
+    }
+
     renderHabits() {
+        this.renderPractice();
         this.updateAppBadge();
         document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US', {
             weekday: 'long', month: 'long', day: 'numeric'

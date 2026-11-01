@@ -1325,6 +1325,199 @@ tr:hover .strike-dec { opacity: 1; }
     font-size: 1.1rem;
 }
 
+/* This week's practice (cooking + writing curriculum): folded to one line, opens to the week */
+.practice-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+    min-width: 0;
+}
+
+.practice-card > summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.practice-card > summary::-webkit-details-marker,
+.practice-term > summary::-webkit-details-marker {
+    display: none;
+}
+
+.practice-card > summary::after,
+.practice-term > summary::after {
+    content: '›';
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    transition: transform var(--transition);
+}
+
+.practice-card[open] > summary::after,
+.practice-term[open] > summary::after {
+    transform: rotate(90deg);
+}
+
+.practice-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.practice-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.practice-label b {
+    display: block;
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.practice-sub {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.practice-body {
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border-light);
+}
+
+.practice-block {
+    padding-top: 16px;
+}
+
+.practice-block + .practice-block {
+    margin-top: 16px;
+    border-top: 1px solid var(--border-light);
+}
+
+.practice-kicker {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--primary);
+}
+
+.practice-title {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    margin: 4px 0 2px;
+}
+
+.practice-why,
+.practice-note {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0 0 10px;
+}
+
+.practice-note {
+    padding-top: 14px;
+}
+
+.practice-list {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 8px 14px;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.practice-list dt {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.practice-list dd {
+    margin: 0;
+    color: var(--text);
+}
+
+.practice-prep {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    font-size: 0.9rem;
+}
+
+.practice-prep li + li {
+    margin-top: 4px;
+}
+
+.practice-term {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-light);
+}
+
+.practice-term > summary {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.practice-term ol {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    font-size: 0.85rem;
+}
+
+.practice-term li {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 8px;
+    padding: 5px 0;
+}
+
+.practice-term li span span {
+    color: var(--text-muted);
+}
+
+.practice-term-date {
+    color: var(--text-muted);
+}
+
+.practice-term li.current {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.practice-term li.current span span,
+.practice-term li.current .practice-term-date {
+    color: var(--primary);
+}
+
+.practice-term li.paused {
+    color: var(--text-light);
+}
+
+@media (max-width: 768px) {
+    .practice-list {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
+    }
+
+    .practice-list dd + dt {
+        margin-top: 8px;
+    }
+}
+
 /* Frequency Groups */
 .freq-group {
     margin-bottom: 24px;

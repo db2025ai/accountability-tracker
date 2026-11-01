@@ -1305,6 +1305,73 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await context.close();
 }
 
+// ================= Practice curriculum: goal swap + This week's practice card =================
+{
+    const practiceSeed = JSON.parse(JSON.stringify(seed));
+    practiceSeed.goals.push(goal('Mental Health', 'Open Writing Session (life stories, personal voice)', 'weekly'),
+        goal('Cooking', 'Cook 1 new meal/week', 'weekly'), goal('Cooking', 'Read 10 pages of cookbook/week', 'weekly'));
+    const { context, page, errors } = await newPage({ width: 390, seedData: practiceSeed });
+    console.log('\n— Practice curriculum —');
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
+
+    // Goal swap: old cooking + writing goals out, curriculum goals in, once
+    const names = () => page.evaluate(() => lifeOS.data.goals.map(g => g.name));
+    check('old cooking and writing goals replaced, in place', (await names()).filter(n => /cook|writ|journal|method|technique/i.test(n)), [
+        "Weekend cooking project (this week's method)", 'Weeknight technique rep', "Study this week's method (15 min)",
+        "Journal 15 min x2 (this week's prompts)", 'Writing craft session (read + imitate)']);
+    check('other goals untouched', (await names()).filter(n => !/cook|writ|journal|method|technique/i.test(n)).length, goals.length - 1);
+    check('Writing category added; swap saved once', await page.evaluate(() => {
+        const stored = JSON.parse(localStorage.getItem('lifeOSData'));
+        return [lifeOS.data.categories.includes('Writing'), stored.settings.practiceGoals, stored.activityLog.filter(a => /practice curriculum/.test(a.text)).length];
+    }), [true, 1, 1]);
+    // Weeks already tracked keep the old row and its Wed/Sat schedule, so history scores the same
+    check('old week keeps the journaling row and its schedule', await page.evaluate(() => {
+        const e = Object.values(lifeOS.data.weeks[1].entries).find(x => /Written Journaling/.test(x.goal.name));
+        return [e.goal.days, lifeOS.scoringKind(e.goal), lifeOS.getGoalDays(e.goal)];
+    }), [[3, 6], 'daily', [3, 6]]);
+    // A goal added back by hand after the swap stays (the swap doesn't run again)
+    await page.evaluate(() => { lifeOS.data.goals.push({ category: 'Cooking', name: 'Cook 1 new meal/week', target: 'weekly' }); lifeOS.saveData(); });
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS);
+    check('swap runs once', (await names()).includes('Cook 1 new meal/week'), true);
+
+    // Card before the term: folded, counts down, opens to the shopping list and remembers it
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
+    const summary = () => page.textContent('#practiceCard > summary').then(t => t.replace(/\s+/g, ' ').trim());
+    check('before Nov 8: countdown, folded', [await summary(), await page.evaluate(() => document.getElementById('practiceCard').open)],
+        ["This week's practice Term 1 starts Sun, Nov 8 26 days to get set up", false]);
+    await page.click('#practiceCard > summary');
+    await page.waitForFunction(() => localStorage.getItem('lifeOS_practiceOpen') === '1');
+    check('opens to the kitchen and reading list', /fine-mesh strainer/.test(await page.textContent('#practiceCard')) && /The Triggering Town/.test(await page.textContent('#practiceCard')), true);
+    await page.evaluate(() => lifeOS.renderHabits());
+    check('stays open across renders', await page.evaluate(() => document.getElementById('practiceCard').open), true);
+
+    // Which week it is, by date (weeks run Sunday to Saturday, two holiday weeks, 12 assignments)
+    const at = d => page.evaluate(t => { const p = lifeOS.practiceWeek(new Date(t)); return [p.state, p.num ?? null]; }, d);
+    check('weeks by date', [await at('2026-11-08T08:00:00-05:00'), await at('2026-11-14T23:30:00-05:00'), await at('2026-11-26T12:00:00-05:00'),
+        await at('2026-12-22T12:00:00-05:00'), await at('2027-01-03T09:00:00-05:00'), await at('2027-02-13T22:00:00-05:00'), await at('2027-02-14T09:00:00-05:00')],
+        [['on', 1], ['on', 1], ['on', 3], ['pause', 6], ['on', 7], ['on', 12], ['done', null]]);
+
+    // Thanksgiving week: roasting + images, with the whole term listed and this week marked
+    await page.evaluate(() => lifeOS.renderPractice(new Date('2026-11-24T19:00:00-05:00')));
+    const text = (await page.textContent('#practiceCard')).replace(/\s+/g, ' ');
+    check('week 3 card', [await summary(), /Weekend project ?Dry-brine and roast a whole bird/.test(text), /Wednesday journal ?A family moment/.test(text)],
+        ["This week's practice Week 3 of 12 Roasting, resting and carryover heat · Images carry the feeling", true, true]);
+    check('term list marks this week', await page.$$eval('.practice-term li', els => [els.length, els.findIndex(e => e.classList.contains('current')), els.filter(e => e.classList.contains('paused')).length]), [14, 2, 2]);
+    await page.evaluate(() => lifeOS.renderPractice(new Date('2026-12-22T19:00:00-05:00')));
+    check('holiday week points to week 7', await summary(), "This week's practice Holiday break Week 7 starts Sun, Jan 3");
+    await page.evaluate(() => lifeOS.renderPractice(new Date('2027-02-20T19:00:00-05:00')));
+    check('after the term', await summary(), "This week's practice Term 1 complete Plan the next term with Claude");
+
+    // Every assignment is filled in, and none uses an em dash
+    check('every week complete', await page.evaluate(() => PRACTICE_TERM.weeks.every(w => w.pause ? !!w.note
+        : ['method', 'why', 'weekend', 'weeknight', 'doneWhen', 'study'].every(k => w.cook[k]) && ['focus', 'read', 'wed', 'sat', 'craft', 'check'].every(k => w.write[k]))), true);
+    check('no em dashes in the curriculum', await page.evaluate(() => JSON.stringify(PRACTICE_TERM).includes('—')), false);
+    check('fits a 390px phone', await page.evaluate(() => document.documentElement.scrollWidth <= 390), true);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASSED');
