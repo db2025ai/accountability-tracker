@@ -860,6 +860,12 @@ const PRACTICE_GOALS = [
     { category: 'Writing', name: 'Writing craft session (read + imitate)', target: 'weekly' }
 ];
 const PRACTICE_GOALS_VERSION = 1;
+
+// Daily calorie + macro tracking. Meals are still logged through Claude; the app ticks this goal on
+// each day the logged calories reach TRACKING_SHARE of the calorie target, so a fully logged day
+// counts and a lone snack doesn't. addTrackingGoal adds it once to existing data.
+const TRACKING_GOAL = { category: 'Physical Health', name: 'Track calories + macros (log 75% of target)', target: 'daily' };
+const TRACKING_SHARE = 0.75;
 // Goals the curriculum replaces: the whole Cooking category and the old journaling / open writing goals
 const PRACTICE_REPLACES = g => g.category === 'Cooking' || /written journaling|open writing session/i.test(g.name);
 
@@ -905,6 +911,7 @@ class LifeOS {
             settings: {
                 scoringCutover: DEFAULT_SCORING_CUTOVER,
                 practiceGoals: PRACTICE_GOALS_VERSION, // defaults already have the curriculum goals
+                trackingGoal: 1, // and the tracking goal
                 defaultBudgets: {
                     'Food & Dining': 400,
                     'Groceries': 600,
@@ -954,6 +961,7 @@ class LifeOS {
             { category: 'Physical Health', name: '2 Strength Training', target: 'x2' },
             { category: 'Physical Health', name: '2 Cardio Training (1 swim)', target: 'x2' },
             { category: 'Physical Health', name: '10 Min Stretching/Mobility', target: 'daily' },
+            { ...TRACKING_GOAL },
             { category: 'Physical Health', name: 'Core Work Out x1 (can be cardio focused core)', target: 'x1' },
             // Budgeting
             { category: 'Budgeting', name: 'Buy breakfast x1/week', target: 'x1' },
@@ -1025,7 +1033,24 @@ class LifeOS {
         }
         if (!data.settings.scoringCutover) data.settings.scoringCutover = DEFAULT_SCORING_CUTOVER;
         if (this.migratePracticeGoals(data)) this._practiceGoalsMigrated = true;
+        if (this.addTrackingGoal(data)) this._trackingGoalAdded = true;
         return data;
+    }
+
+    // Once per data set: add the daily calorie + macro tracking goal next to the protein goal (or at
+    // the end of Physical Health). Only data.goals changes, so it starts with the next new week.
+    // Returns true when it changed.
+    addTrackingGoal(data) {
+        if (!Array.isArray(data.goals) || data.settings.trackingGoal) return false;
+        data.settings.trackingGoal = 1;
+        if (data.goals.some(g => this.TRACKING_GOAL.test(g.name))) return true;
+        let at = data.goals.findIndex(g => this.PROTEIN_GOAL.test(g.name)) + 1;
+        if (!at) {
+            const last = data.goals.map(g => g.category).lastIndexOf(TRACKING_GOAL.category);
+            at = last < 0 ? data.goals.length : last + 1;
+        }
+        data.goals.splice(at, 0, { ...TRACKING_GOAL });
+        return true;
     }
 
     // Once per data set: swap the old cooking and writing goals for the curriculum's (PRACTICE_GOALS),
@@ -1158,6 +1183,10 @@ class LifeOS {
 
     // normalizeData only changes this.data; keep the curriculum goal swap once it has happened
     savePracticeGoalsMigration() {
+        if (this._trackingGoalAdded) {
+            this._trackingGoalAdded = false;
+            this.logActivity('Daily calorie + macro tracking goal added'); // saves
+        }
         if (!this._practiceGoalsMigrated) return;
         this._practiceGoalsMigrated = false;
         this.logActivity('Cooking and writing goals switched to the practice curriculum'); // saves
@@ -2900,6 +2929,9 @@ class LifeOS {
     // ========================================
     // A daily goal whose name matches this is checked off on days protein hits the target
     get PROTEIN_GOAL() { return /protein target/i; }
+    // A daily goal whose name matches this is checked off on days the logged calories reach
+    // TRACKING_SHARE of the target (a fully tracked day)
+    get TRACKING_GOAL() { return /track calories/i; }
 
     renderNutrition() {
         const body = document.getElementById('nutritionBody');
@@ -2953,7 +2985,7 @@ class LifeOS {
             <div class="nutrition-small">Carbs ${fmt(t.carbs)}g &middot; Fat ${fmt(t.fat)}g &middot; ${t.meals} ${t.meals === 1 ? 'meal' : 'meals'}</div>
             <div class="nutrition-streak">
                 <div class="nutrition-days">${cells}</div>
-                <div class="nutrition-row-note">Protein target hit ${hits} of the last 14 days</div>
+                <div class="nutrition-row-note">Protein target hit ${hits} of the last 14 days &middot; fully tracked ${days.filter(d => (byDate.get(d)?.calories || 0) >= TRACKING_SHARE * T.calories).length} of 14</div>
             </div>`;
     }
 
@@ -2987,14 +3019,17 @@ class LifeOS {
         }
     }
 
-    // Tick the protein goal on each loaded day that reached the target. Leaves "doesn't apply"
-    // days alone. Returns true if any cell changed.
+    // Tick the protein goal on each loaded day that reached the target, and the tracking goal on each
+    // day with TRACKING_SHARE of the calorie target logged. Leaves "doesn't apply" days alone.
+    // Returns true if any cell changed.
     applyProteinCheckoffs() {
         const n = this._nutrition;
         if (!n || n.error) return false;
         let changed = false;
         for (const day of n.days) {
             if (day.protein >= n.targets.protein && this.autoTickGoal(this.PROTEIN_GOAL, day.date)) changed = true;
+            if (n.targets.calories > 0 && day.calories >= TRACKING_SHARE * n.targets.calories
+                && this.autoTickGoal(this.TRACKING_GOAL, day.date)) changed = true;
         }
         return changed;
     }

@@ -944,6 +944,8 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     const nSeed = JSON.parse(JSON.stringify(seed));
     nSeed.goals.push(nGoal);
     nSeed.weeks[1].entries[goals.length] = { goal: { ...nGoal }, tracking: ['', '', '', '', '', '', ''] };
+    // The week already has the tracking row (as a week created after the goal was added would)
+    nSeed.weeks[1].entries[goals.length + 1] = { goal: { category: 'Physical Health', name: 'Track calories + macros (log 75% of target)', target: 'daily' }, tracking: ['', '', '', '', '', '', ''] };
     nSeed.healthLog = [{ date: '2026-10-10', weight: 207 }];
     const calls = [];
     let weighInsServed = false;
@@ -981,6 +983,16 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         const e = Object.values(lifeOS.data.weeks[1].entries).find(x => /protein target/i.test(x.goal.name));
         return [e.tracking[1], e.tracking[2]];
     }), ['X', '']);
+    check('tracking goal added once, right after the protein goal', await page.evaluate(() => {
+        const names = lifeOS.data.goals.map(g => g.name);
+        const i = names.indexOf('Protein target (190g)');
+        return [names[i + 1], names.filter(n => /track calories/i.test(n)).length, lifeOS.data.settings.trackingGoal];
+    }), ['Track calories + macros (log 75% of target)', 1, 1]);
+    check('tracking goal ticked only on the day 75% of calories was logged', await page.evaluate(() => {
+        const e = Object.values(lifeOS.data.weeks[1].entries).find(x => /track calories/i.test(x.goal.name));
+        return [e.tracking[1], e.tracking[2]];
+    }), ['X', '']);
+    check('card counts fully tracked days', /fully tracked 1 of 14/.test(await page.textContent('#nutritionBody')), true);
     check('"High protein" breakfast goal is not mistaken for it', await page.evaluate(() =>
         Object.values(lifeOS.data.weeks[1].entries).filter(x => lifeOS.PROTEIN_GOAL.test(x.goal.name)).length), 1);
     check('weigh-in from Claude lands in the Health log', await page.evaluate(() =>
@@ -1319,7 +1331,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     check('old cooking and writing goals replaced, in place', (await names()).filter(n => /cook|writ|journal|method|technique/i.test(n)), [
         "Weekend cooking project (this week's method)", 'Weeknight technique rep', "Study this week's method (15 min)",
         "Journal 15 min x2 (this week's prompts)", 'Writing craft session (read + imitate)']);
-    check('other goals untouched', (await names()).filter(n => !/cook|writ|journal|method|technique/i.test(n)).length, goals.length - 1);
+    check('other goals untouched', (await names()).filter(n => !/cook|writ|journal|method|technique/i.test(n)).length, goals.length); // minus the old journaling goal, plus the tracking goal
     check('Writing category added; swap saved once', await page.evaluate(() => {
         const stored = JSON.parse(localStorage.getItem('lifeOSData'));
         return [lifeOS.data.categories.includes('Writing'), stored.settings.practiceGoals, stored.activityLog.filter(a => /practice curriculum/.test(a.text)).length];
