@@ -1445,6 +1445,25 @@ tr:hover .strike-dec { opacity: 1; }
     color: var(--text);
 }
 
+.practice-links {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.practice-links a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    overflow-wrap: anywhere;
+}
+
+.practice-block > .practice-links {
+    margin-top: 6px;
+    font-size: 0.9rem;
+}
+
 .practice-prep {
     margin: 6px 0 0;
     padding-left: 18px;
