@@ -1373,6 +1373,11 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         return [keys.every(k => PRACTICE_LINKS[k]?.url.startsWith('https://')), /Peterson/.test(JSON.stringify(PRACTICE_TERM))];
     }), [true, false]);
     await page.evaluate(() => lifeOS.renderPractice(new Date('2026-11-17T19:00:00-05:00')));
+    check('feedback every other week, Professional Chef is the main reading', await page.evaluate(() => {
+        const weeks = PRACTICE_TERM.weeks.filter(w => !w.pause);
+        return [weeks.map((w, i) => w.write.feedback ? i + 1 : 0).filter(Boolean), weeks.filter(w => /Professional Chef/.test(w.cook.study)).length];
+    }), [[2, 4, 6, 8, 10], 10]);
+    check('week 2 shows the feedback row', /Feedback ?Send me \(Claude\) one piece/.test(await page.textContent('#practiceCard')), true);
     check('week 2 links Escoffier, opening a new tab', await page.$$eval('#practiceCard .practice-list a', as => as.map(a => [a.textContent, a.target, a.rel])),
         [['Escoffier, A Guide to Modern Cookery (free)', '_blank', 'noopener']]);
     check('fits a 390px phone', await page.evaluate(() => document.documentElement.scrollWidth <= 390), true);

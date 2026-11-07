@@ -5764,8 +5764,10 @@ const MEDITATIONS = {
 // deliberate practice (Kellogg & Whiteford): a targeted skill a week, Pennebaker-style journaling
 // (facts, then feelings, then meaning) and a read-then-imitate craft session.
 // Weekend first: the week starts Sunday and the weekend cook makes what the weeknight rep uses.
-// Every source is free: public-domain or freely posted texts (PRACTICE_LINKS, shown as links on the
-// card) or a Boston Public Library loan. Don't add anything that has to be bought.
+// Sources: one bought textbook (The Professional Chef, the CIA's own text, as the main cooking
+// reading), Salt Fat Acid Heat (already owned), and otherwise free: public-domain or freely posted
+// texts (PRACTICE_LINKS, shown as links on the card) or a Boston Public Library loan. Don't add
+// another book that has to be bought.
 const PRACTICE_LINKS = {
     escoffier: { label: 'Escoffier, A Guide to Modern Cookery (free)', url: 'https://www.gutenberg.org/ebooks/71395' },
     pepin: { label: 'Jacques Pépin Foundation technique videos', url: 'https://jp.foundation' },
@@ -5780,9 +5782,10 @@ const PRACTICE_TERM = {
     title: 'Term 1: Foundations',
     start: '2026-11-08',
     journalRule: 'Every entry, 15 min: what happened, what you felt, what it means now.',
+    next: 'Next term adds Joseph Williams, Style: Lessons in Clarity and Grace, for prose at the sentence level.',
     prepLinks: ['escoffier', 'bpl'],
     prep: {
-        cook: ['Sharp chef\'s knife + honing steel', 'Heavy stockpot (12 qt) and a fine-mesh strainer', 'Roasting pan with a rack', 'Instant-read thermometer and a digital scale', 'Whisk, bench scraper, unflavored gelatin', 'Free: Escoffier, A Guide to Modern Cookery (Project Gutenberg, works on a Kindle)', 'Library: Jacques Pépin, Complete Techniques and Kenji López-Alt, The Food Lab'],
+        cook: ['Sharp chef\'s knife + honing steel', 'Heavy stockpot (12 qt) and a fine-mesh strainer', 'Roasting pan with a rack', 'Instant-read thermometer and a digital scale', 'Whisk, bench scraper, unflavored gelatin', 'Buy: The Professional Chef (Culinary Institute of America). A used older edition is fine', 'Own: Samin Nosrat, Salt Fat Acid Heat', 'Free: Escoffier, A Guide to Modern Cookery (Project Gutenberg, works on a Kindle)', 'Library (optional): Jacques Pépin, Complete Techniques'],
         write: ['Your journal for the Wednesday and Saturday entries', 'A legal pad for drafts', 'A free Boston Public Library eCard for the books (Libby app)', 'Natalie Goldberg, Writing Down the Bones', 'Mary Oliver, A Poetry Handbook', 'Anne Lamott, Bird by Bird', 'Richard Hugo, The Triggering Town']
     },
     weeks: [
@@ -5793,7 +5796,7 @@ const PRACTICE_TERM = {
                 weekend: 'Break a whole chicken into 8 pieces and roast or sear them. Freeze the carcass, back and wing tips for stock.',
                 weeknight: 'Cut a full mirepoix (onion, carrot, celery) into even brunoise (3 mm dice), timed. Cook it into a soup or a soffritto pasta.',
                 doneWhen: 'Brunoise even enough to cook evenly; chicken broken down in under 10 minutes.',
-                study: 'Pépin\'s knife skills and chicken videos (Jacques Pépin Foundation), or the knife and poultry sections of his Complete Techniques (library).',
+                study: 'The Professional Chef: the knife skills chapter and poultry fabrication. Watch Pépin\'s free knife and chicken videos too.',
                 links: ['pepin']
             },
             write: {
@@ -5813,7 +5816,7 @@ const PRACTICE_TERM = {
                 weekend: 'White chicken stock from last week\'s carcass plus extra backs or feet, and brown stock from roasted beef or veal bones with tomato paste. Simmer, never boil. Freeze in 1-cup portions.',
                 weeknight: 'Chill a cup of each: it should set. Then make a pan sauce with your stock and one with boxed stock, and compare the body.',
                 doneWhen: 'Stock sets like loose jelly when cold and stays clear.',
-                study: 'Escoffier, Chapter I, Nos. 7 to 10: brown and white stocks. Read the formula, then cook it.',
+                study: 'The Professional Chef: the stocks chapter. Cross-check Escoffier, Chapter I, Nos. 7 to 10.',
                 links: ['escoffier']
             },
             write: {
@@ -5822,7 +5825,8 @@ const PRACTICE_TERM = {
                 wed: 'Write down one overheard line or small detail from today, then why it stuck with you.',
                 sat: 'How it felt to be you on one specific day this week. Skip the play-by-play.',
                 craft: 'Keep a list of 10 things you noticed this week. Turn the best three into a 10-line poem.',
-                check: 'Details are observed, not summarized.'
+                check: 'Details are observed, not summarized.',
+                feedback: 'Send me (Claude) one piece from this week, a photo of the page is fine, for feedback on this week\'s skill.'
             }
         },
         {
@@ -5832,8 +5836,7 @@ const PRACTICE_TERM = {
                 weekend: 'Dry-brine and roast a whole bird (the Thanksgiving turkey or a chicken) by thermometer, rest it, and make a pan gravy thickened with roux and your own stock.',
                 weeknight: 'Reverse-sear a thick pork chop: low oven to 5°F under your target, then a hard sear.',
                 doneWhen: 'Pulled within 3°F of target; gravy smooth with no raw-flour taste.',
-                study: 'The roasting chapter of Kenji López-Alt\'s The Food Lab (library).',
-                links: ['bpl']
+                study: 'The Professional Chef: the roasting chapter. Salt Fat Acid Heat: the Salt chapter, on salting meat ahead.'
             },
             write: {
                 focus: 'Images carry the feeling',
@@ -5852,7 +5855,7 @@ const PRACTICE_TERM = {
                 weekend: 'Béchamel, then two derivatives: Mornay (cheese) for a gratin or croque monsieur, and Soubise (onion). Stretch: lasagna with béchamel.',
                 weeknight: 'Béchamel from memory, turned into Mornay for mac and cheese. 30 minutes.',
                 doneWhen: 'No lumps, coats the back of a spoon (nappe), no floury taste.',
-                study: 'Escoffier, Chapter II, Nos. 19 to 21 (the three roux) and No. 28 (béchamel).',
+                study: 'The Professional Chef: the sauces chapter, roux and béchamel. Cross-check Escoffier, Chapter II, Nos. 19 to 21 and 28.',
                 links: ['escoffier']
             },
             write: {
@@ -5862,6 +5865,7 @@ const PRACTICE_TERM = {
                 sat: 'A work problem explained the way you\'d tell a friend. No jargon.',
                 craft: 'Revise one old poem: replace every abstract noun with an image.',
                 check: 'Passes Orwell\'s test: no stock phrases, nothing you could cut.',
+                feedback: 'Send me (Claude) one piece from this week, a photo of the page is fine, for feedback on this week\'s skill.',
                 links: ['orwell']
             }
         },
@@ -5872,7 +5876,7 @@ const PRACTICE_TERM = {
                 weekend: 'Chicken blanquette: chicken poached in your white stock, the liquid made into velouté and finished with cream and egg yolk.',
                 weeknight: 'Poach a chicken breast in stock, then make sauce suprême (velouté plus cream) from the poaching liquid.',
                 doneWhen: 'Velouté glossy and skimmed; chicken tender, never boiled.',
-                study: 'Escoffier, Chapter II, Nos. 25 to 27: velouté, chicken velouté and allemande.',
+                study: 'The Professional Chef: velouté in the sauces chapter, and poaching. Cross-check Escoffier, Chapter II, Nos. 25 to 27.',
                 links: ['escoffier']
             },
             write: {
@@ -5891,7 +5895,7 @@ const PRACTICE_TERM = {
                 weekend: 'Duck breast scored and rendered from a cold pan, with a port and cherry reduction mounted with cold butter off the heat.',
                 weeknight: 'Steak au poivre: cognac flambé, your stock, cream.',
                 doneWhen: 'Three pan sauces in a row that coat the spoon, don\'t break and are salted only at the end.',
-                study: 'The four failure modes: broken (too hot), thin (no gelatin), salty (reduced salted stock), bitter (burnt fond).'
+                study: 'The four failure modes: broken (too hot), thin (no gelatin), salty (reduced salted stock), bitter (burnt fond). Then Salt Fat Acid Heat: the Acid chapter, on balancing a sauce.'
             },
             write: {
                 focus: 'Finding the real subject',
@@ -5899,7 +5903,8 @@ const PRACTICE_TERM = {
                 wed: 'Start with an object in your home and follow it wherever it goes for 15 minutes.',
                 sat: 'What did Wednesday\'s entry turn out to be about?',
                 craft: 'A poem set off by a place in your neighborhood. Don\'t decide the subject before you start.',
-                check: 'The poem ended up somewhere you didn\'t plan.'
+                check: 'The poem ended up somewhere you didn\'t plan.',
+                feedback: 'Send me (Claude) one piece from this week, a photo of the page is fine, for feedback on this week\'s skill.'
             }
         },
         { pause: true, title: 'Holiday break', note: 'No assignment. Cook a holiday meal with any technique so far if you feel like it. Optional reading: E.B. White, "Once More to the Lake".' },
@@ -5911,7 +5916,7 @@ const PRACTICE_TERM = {
                 weekend: 'Espagnole from brown roux, brown stock, mirepoix and tomato, then demi-glace: equal parts espagnole and brown stock, reduced by half. Freeze in ice cube trays.',
                 weeknight: 'Bordelaise (red wine, shallot, demi-glace) over a seared steak.',
                 doneWhen: 'Demi-glace coats the spoon and sets firm in the fridge.',
-                study: 'Escoffier, Chapter II, Nos. 22 and 23 (espagnole, half glaze) and Chapter III, No. 32 (bordelaise).',
+                study: 'The Professional Chef: brown sauce and demi-glace in the sauces chapter. Cross-check Escoffier, Chapter II, Nos. 22 and 23, and Chapter III, No. 32 (bordelaise).',
                 links: ['escoffier']
             },
             write: {
@@ -5931,7 +5936,7 @@ const PRACTICE_TERM = {
                 weekend: 'Classical sauce tomate (salt pork, mirepoix, stock), then braise chicken cacciatore or braciole in it.',
                 weeknight: 'Marcella Hazan\'s tomato sauce with butter and onion over pasta. Compare it with the classical one.',
                 doneWhen: 'You can say why each tastes the way it does, and both are balanced for salt and acid.',
-                study: 'Escoffier, Chapter II, No. 29 (tomato sauce), then compare it with Hazan\'s method.',
+                study: 'The Professional Chef: tomato sauce in the sauces chapter, and Escoffier, Chapter II, No. 29. Then compare both with Hazan\'s method.',
                 links: ['escoffier']
             },
             write: {
@@ -5940,7 +5945,8 @@ const PRACTICE_TERM = {
                 wed: 'Read your last entry aloud and rewrite the clumsiest paragraph for rhythm.',
                 sat: 'An entry with sentences of very different lengths, on purpose.',
                 craft: 'Break one poem into lines two different ways. Keep the one that sounds better aloud.',
-                check: 'You can say why each line breaks where it does.'
+                check: 'You can say why each line breaks where it does.',
+                feedback: 'Send me (Claude) one piece from this week, a photo of the page is fine, for feedback on this week\'s skill.'
             }
         },
         {
@@ -5950,7 +5956,7 @@ const PRACTICE_TERM = {
                 weekend: 'Eggs Benedict brunch: poached eggs and hollandaise whisked by hand, no blender.',
                 weeknight: 'Béarnaise (tarragon and shallot reduction) with steak and potatoes. Break one on purpose and rescue it with warm water and a fresh yolk.',
                 doneWhen: 'Hollandaise holds for 20 minutes, and you\'ve rescued a broken one.',
-                study: 'Escoffier, Chapter II, No. 30 (hollandaise) and Chapter III, No. 62 (béarnaise).',
+                study: 'The Professional Chef: hollandaise in the sauces chapter. Salt Fat Acid Heat: the Fat chapter, on emulsions. Cross-check Escoffier, Chapter II, No. 30 and Chapter III, No. 62.',
                 links: ['escoffier']
             },
             write: {
@@ -5969,8 +5975,8 @@ const PRACTICE_TERM = {
                 weekend: 'Buy a whole round fish (branzino or striped bass), fillet it, make a quick fumet from the frame and poach the fillets in it.',
                 weeknight: 'Seared or poached fish with beurre blanc, plus mayonnaise or aioli whisked by hand.',
                 doneWhen: 'Clean fillets with little flesh left on the frame; beurre blanc holds.',
-                study: 'The fish sections of Pépin\'s Complete Techniques (library), and Escoffier, Chapter I, No. 11 (fish stock).',
-                links: ['escoffier', 'bpl']
+                study: 'The Professional Chef: fish fabrication and shallow poaching, plus beurre blanc. Cross-check Escoffier, Chapter I, No. 11 (fish stock).',
+                links: ['escoffier']
             },
             write: {
                 focus: 'Form as a constraint',
@@ -5979,6 +5985,7 @@ const PRACTICE_TERM = {
                 sat: 'An entry written as 10 numbered observations.',
                 craft: 'Write a villanelle: 19 lines, two repeating refrains.',
                 check: 'The form pushed you to at least one word you\'d never default to.',
+                feedback: 'Send me (Claude) one piece from this week, a photo of the page is fine, for feedback on this week\'s skill.',
                 links: ['bishop']
             }
         },
@@ -5989,8 +5996,7 @@ const PRACTICE_TERM = {
                 weekend: 'Coq au vin or beef short ribs braised in red wine and your brown stock, with the liquid reduced into the sauce.',
                 weeknight: 'Chicken thighs braised with leeks and white wine in 45 minutes.',
                 doneWhen: 'Meat fork-tender; sauce skimmed and reduced to coat a spoon.',
-                study: 'The braising section of Pépin\'s Complete Techniques (library).',
-                links: ['bpl']
+                study: 'The Professional Chef: the braising and stewing chapter. Salt Fat Acid Heat: the Heat chapter.'
             },
             write: {
                 focus: 'Revision',
@@ -9070,7 +9076,7 @@ class LifeOS {
         } else if (pw.state === 'done') {
             label = `${esc(term.title.split(':')[0])} complete`;
             sub = 'Plan the next term with Claude';
-            body = `<p class="practice-note">All ${pw.total} weeks done. Note what to drill next, then plan the next term with Claude.</p>`;
+            body = `<p class="practice-note">All ${pw.total} weeks done. Note what to drill next, then plan the next term with Claude. ${esc(term.next || '')}</p>`;
         } else if (pw.state === 'pause') {
             label = esc(pw.week.title);
             sub = next >= 0 ? `Week ${pw.num + 1} starts Sun, ${this.practiceWeekDate(next, term)}` : 'No assignment this week';
@@ -9089,7 +9095,7 @@ class LifeOS {
                     <div class="practice-kicker">Writing</div>
                     <h4 class="practice-title">${esc(write.focus)}</h4>
                     <p class="practice-why">${esc(term.journalRule)}</p>
-                    ${rows([['Read', write.read], ['Wednesday journal', write.wed], ['Saturday journal', write.sat], ['Craft session', write.craft], ['Done when', write.check], linksRow(write.links)])}
+                    ${rows([['Read', write.read], ['Wednesday journal', write.wed], ['Saturday journal', write.sat], ['Craft session', write.craft], ['Feedback', write.feedback], ['Done when', write.check], linksRow(write.links)])}
                 </div>`;
         }
 
