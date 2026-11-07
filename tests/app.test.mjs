@@ -1367,6 +1367,14 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     check('every week complete', await page.evaluate(() => PRACTICE_TERM.weeks.every(w => w.pause ? !!w.note
         : ['method', 'why', 'weekend', 'weeknight', 'doneWhen', 'study'].every(k => w.cook[k]) && ['focus', 'read', 'wed', 'sat', 'craft', 'check'].every(k => w.write[k]))), true);
     check('no em dashes in the curriculum', await page.evaluate(() => JSON.stringify(PRACTICE_TERM).includes('—')), false);
+    // Everything is free: links resolve to PRACTICE_LINKS, nothing points at a book to buy
+    check('free sources only', await page.evaluate(() => {
+        const keys = [...PRACTICE_TERM.prepLinks, ...PRACTICE_TERM.weeks.flatMap(w => w.pause ? [] : [...(w.cook.links || []), ...(w.write.links || [])])];
+        return [keys.every(k => PRACTICE_LINKS[k]?.url.startsWith('https://')), /Peterson/.test(JSON.stringify(PRACTICE_TERM))];
+    }), [true, false]);
+    await page.evaluate(() => lifeOS.renderPractice(new Date('2026-11-17T19:00:00-05:00')));
+    check('week 2 links Escoffier, opening a new tab', await page.$$eval('#practiceCard .practice-list a', as => as.map(a => [a.textContent, a.target, a.rel])),
+        [['Escoffier, A Guide to Modern Cookery (free)', '_blank', 'noopener']]);
     check('fits a 390px phone', await page.evaluate(() => document.documentElement.scrollWidth <= 390), true);
     check('no page errors', errors, []);
     await context.close();

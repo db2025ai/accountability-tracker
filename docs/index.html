@@ -1454,6 +1454,25 @@ tr:hover .strike-dec { opacity: 1; }
     color: var(--text);
 }
 
+.practice-links {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.practice-links a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    overflow-wrap: anywhere;
+}
+
+.practice-block > .practice-links {
+    margin-top: 6px;
+    font-size: 0.9rem;
+}
+
 .practice-prep {
     margin: 6px 0 0;
     padding-left: 18px;
@@ -5745,13 +5764,26 @@ const MEDITATIONS = {
 // deliberate practice (Kellogg & Whiteford): a targeted skill a week, Pennebaker-style journaling
 // (facts, then feelings, then meaning) and a read-then-imitate craft session.
 // Weekend first: the week starts Sunday and the weekend cook makes what the weeknight rep uses.
+// Every source is free: public-domain or freely posted texts (PRACTICE_LINKS, shown as links on the
+// card) or a Boston Public Library loan. Don't add anything that has to be bought.
+const PRACTICE_LINKS = {
+    escoffier: { label: 'Escoffier, A Guide to Modern Cookery (free)', url: 'https://www.gutenberg.org/ebooks/71395' },
+    pepin: { label: 'Jacques Pépin Foundation technique videos', url: 'https://jp.foundation' },
+    bpl: { label: 'Boston Public Library eCard (free, for Libby)', url: 'https://bpl.org/ecard' },
+    williams: { label: 'This Is Just To Say', url: 'https://www.poetryfoundation.org/poems/56159/this-is-just-to-say' },
+    hayden: { label: 'Those Winter Sundays', url: 'https://www.poetryfoundation.org/poems/46461/those-winter-sundays' },
+    orwell: { label: 'Politics and the English Language', url: 'https://public.websites.umich.edu/~sanders/214/other/paper/orwell.html' },
+    heaney: { label: 'Digging', url: 'https://poetryfoundation.org/poems/47555/digging' },
+    bishop: { label: 'One Art', url: 'https://poemsontheunderground.org/one-art' }
+};
 const PRACTICE_TERM = {
     title: 'Term 1: Foundations',
     start: '2026-11-08',
     journalRule: 'Every entry, 15 min: what happened, what you felt, what it means now.',
+    prepLinks: ['escoffier', 'bpl'],
     prep: {
-        cook: ['Sharp chef\'s knife + honing steel', 'Heavy stockpot (12 qt) and a fine-mesh strainer', 'Roasting pan with a rack', 'Instant-read thermometer and a digital scale', 'Whisk, bench scraper, unflavored gelatin', 'Book: James Peterson, Sauces', 'Book: Jacques Pépin, Complete Techniques'],
-        write: ['A notebook used only for this', 'Natalie Goldberg, Writing Down the Bones', 'Mary Oliver, A Poetry Handbook', 'Anne Lamott, Bird by Bird', 'Richard Hugo, The Triggering Town']
+        cook: ['Sharp chef\'s knife + honing steel', 'Heavy stockpot (12 qt) and a fine-mesh strainer', 'Roasting pan with a rack', 'Instant-read thermometer and a digital scale', 'Whisk, bench scraper, unflavored gelatin', 'Free: Escoffier, A Guide to Modern Cookery (Project Gutenberg, works on a Kindle)', 'Library: Jacques Pépin, Complete Techniques and Kenji López-Alt, The Food Lab'],
+        write: ['Your journal for the Wednesday and Saturday entries', 'A legal pad for drafts', 'A free Boston Public Library eCard for the books (Libby app)', 'Natalie Goldberg, Writing Down the Bones', 'Mary Oliver, A Poetry Handbook', 'Anne Lamott, Bird by Bird', 'Richard Hugo, The Triggering Town']
     },
     weeks: [
         {
@@ -5761,7 +5793,8 @@ const PRACTICE_TERM = {
                 weekend: 'Break a whole chicken into 8 pieces and roast or sear them. Freeze the carcass, back and wing tips for stock.',
                 weeknight: 'Cut a full mirepoix (onion, carrot, celery) into even brunoise (3 mm dice), timed. Cook it into a soup or a soffritto pasta.',
                 doneWhen: 'Brunoise even enough to cook evenly; chicken broken down in under 10 minutes.',
-                study: 'Knife cuts and poultry sections of Pépin\'s Complete Techniques.'
+                study: 'Pépin\'s knife skills and chicken videos (Jacques Pépin Foundation), or the knife and poultry sections of his Complete Techniques (library).',
+                links: ['pepin']
             },
             write: {
                 focus: 'Be specific',
@@ -5769,7 +5802,8 @@ const PRACTICE_TERM = {
                 wed: 'One moment from today, told through what you saw, heard and smelled. No "good", "busy", "stressful" or "tired".',
                 sat: 'List your 10 most-used vague words. Write about the week without any of them.',
                 craft: 'Read William Carlos Williams, "This Is Just to Say". Write your own short note apologizing for something real, in plain concrete words.',
-                check: 'No banned words, and at least three details only you would know.'
+                check: 'No banned words, and at least three details only you would know.',
+                links: ['williams', 'bpl']
             }
         },
         {
@@ -5779,7 +5813,8 @@ const PRACTICE_TERM = {
                 weekend: 'White chicken stock from last week\'s carcass plus extra backs or feet, and brown stock from roasted beef or veal bones with tomato paste. Simmer, never boil. Freeze in 1-cup portions.',
                 weeknight: 'Chill a cup of each: it should set. Then make a pan sauce with your stock and one with boxed stock, and compare the body.',
                 doneWhen: 'Stock sets like loose jelly when cold and stays clear.',
-                study: 'The stocks chapter of Peterson\'s Sauces.'
+                study: 'Escoffier, Chapter I, Nos. 7 to 10: brown and white stocks. Read the formula, then cook it.',
+                links: ['escoffier']
             },
             write: {
                 focus: 'What a journal is for',
@@ -5797,7 +5832,8 @@ const PRACTICE_TERM = {
                 weekend: 'Dry-brine and roast a whole bird (the Thanksgiving turkey or a chicken) by thermometer, rest it, and make a pan gravy thickened with roux and your own stock.',
                 weeknight: 'Reverse-sear a thick pork chop: low oven to 5°F under your target, then a hard sear.',
                 doneWhen: 'Pulled within 3°F of target; gravy smooth with no raw-flour taste.',
-                study: 'The roasting chapter of Kenji López-Alt\'s The Food Lab.'
+                study: 'The roasting chapter of Kenji López-Alt\'s The Food Lab (library).',
+                links: ['bpl']
             },
             write: {
                 focus: 'Images carry the feeling',
@@ -5805,7 +5841,8 @@ const PRACTICE_TERM = {
                 wed: 'A family moment told only through objects and actions. Never name the emotion.',
                 sat: 'The bird you roasted this week: the sound, the smell, the moment you carved it.',
                 craft: 'Imitate Hayden: a poem about a labor nobody thanked, yours or someone else\'s, built from concrete detail.',
-                check: 'A reader could name the feeling without being told it.'
+                check: 'A reader could name the feeling without being told it.',
+                links: ['hayden']
             }
         },
         {
@@ -5815,7 +5852,8 @@ const PRACTICE_TERM = {
                 weekend: 'Béchamel, then two derivatives: Mornay (cheese) for a gratin or croque monsieur, and Soubise (onion). Stretch: lasagna with béchamel.',
                 weeknight: 'Béchamel from memory, turned into Mornay for mac and cheese. 30 minutes.',
                 doneWhen: 'No lumps, coats the back of a spoon (nappe), no floury taste.',
-                study: 'The white sauces chapter of Peterson\'s Sauces.'
+                study: 'Escoffier, Chapter II, Nos. 19 to 21 (the three roux) and No. 28 (béchamel).',
+                links: ['escoffier']
             },
             write: {
                 focus: 'Concrete over abstract',
@@ -5823,7 +5861,8 @@ const PRACTICE_TERM = {
                 wed: 'Take your vaguest sentence from the last three weeks and rewrite it three ways, each more concrete.',
                 sat: 'A work problem explained the way you\'d tell a friend. No jargon.',
                 craft: 'Revise one old poem: replace every abstract noun with an image.',
-                check: 'Passes Orwell\'s test: no stock phrases, nothing you could cut.'
+                check: 'Passes Orwell\'s test: no stock phrases, nothing you could cut.',
+                links: ['orwell']
             }
         },
         {
@@ -5833,7 +5872,8 @@ const PRACTICE_TERM = {
                 weekend: 'Chicken blanquette: chicken poached in your white stock, the liquid made into velouté and finished with cream and egg yolk.',
                 weeknight: 'Poach a chicken breast in stock, then make sauce suprême (velouté plus cream) from the poaching liquid.',
                 doneWhen: 'Velouté glossy and skimmed; chicken tender, never boiled.',
-                study: 'The velouté section of Peterson\'s Sauces.'
+                study: 'Escoffier, Chapter II, Nos. 25 to 27: velouté, chicken velouté and allemande.',
+                links: ['escoffier']
             },
             write: {
                 focus: 'Facts, then feelings, then meaning',
@@ -5871,7 +5911,8 @@ const PRACTICE_TERM = {
                 weekend: 'Espagnole from brown roux, brown stock, mirepoix and tomato, then demi-glace: equal parts espagnole and brown stock, reduced by half. Freeze in ice cube trays.',
                 weeknight: 'Bordelaise (red wine, shallot, demi-glace) over a seared steak.',
                 doneWhen: 'Demi-glace coats the spoon and sets firm in the fridge.',
-                study: 'The brown sauces chapter of Peterson\'s Sauces.'
+                study: 'Escoffier, Chapter II, Nos. 22 and 23 (espagnole, half glaze) and Chapter III, No. 32 (bordelaise).',
+                links: ['escoffier']
             },
             write: {
                 focus: 'Memory and voice',
@@ -5879,7 +5920,8 @@ const PRACTICE_TERM = {
                 wed: 'A childhood memory that something in the present brought back.',
                 sat: 'The same memory written in second person ("you"). Compare the two.',
                 craft: 'Imitate "Digging": a poem setting your work against a parent\'s or grandparent\'s.',
-                check: 'It sounds like you talking, not like "a poem".'
+                check: 'It sounds like you talking, not like "a poem".',
+                links: ['heaney']
             }
         },
         {
@@ -5889,7 +5931,8 @@ const PRACTICE_TERM = {
                 weekend: 'Classical sauce tomate (salt pork, mirepoix, stock), then braise chicken cacciatore or braciole in it.',
                 weeknight: 'Marcella Hazan\'s tomato sauce with butter and onion over pasta. Compare it with the classical one.',
                 doneWhen: 'You can say why each tastes the way it does, and both are balanced for salt and acid.',
-                study: 'The tomato sauce section of Peterson\'s Sauces.'
+                study: 'Escoffier, Chapter II, No. 29 (tomato sauce), then compare it with Hazan\'s method.',
+                links: ['escoffier']
             },
             write: {
                 focus: 'Sound and the line',
@@ -5907,7 +5950,8 @@ const PRACTICE_TERM = {
                 weekend: 'Eggs Benedict brunch: poached eggs and hollandaise whisked by hand, no blender.',
                 weeknight: 'Béarnaise (tarragon and shallot reduction) with steak and potatoes. Break one on purpose and rescue it with warm water and a fresh yolk.',
                 doneWhen: 'Hollandaise holds for 20 minutes, and you\'ve rescued a broken one.',
-                study: 'The emulsified sauces chapter of Peterson\'s Sauces.'
+                study: 'Escoffier, Chapter II, No. 30 (hollandaise) and Chapter III, No. 62 (béarnaise).',
+                links: ['escoffier']
             },
             write: {
                 focus: 'Permission to draft badly',
@@ -5925,7 +5969,8 @@ const PRACTICE_TERM = {
                 weekend: 'Buy a whole round fish (branzino or striped bass), fillet it, make a quick fumet from the frame and poach the fillets in it.',
                 weeknight: 'Seared or poached fish with beurre blanc, plus mayonnaise or aioli whisked by hand.',
                 doneWhen: 'Clean fillets with little flesh left on the frame; beurre blanc holds.',
-                study: 'The fish sections of Pépin\'s Complete Techniques.'
+                study: 'The fish sections of Pépin\'s Complete Techniques (library), and Escoffier, Chapter I, No. 11 (fish stock).',
+                links: ['escoffier', 'bpl']
             },
             write: {
                 focus: 'Form as a constraint',
@@ -5933,7 +5978,8 @@ const PRACTICE_TERM = {
                 wed: 'An entry of exactly 100 words.',
                 sat: 'An entry written as 10 numbered observations.',
                 craft: 'Write a villanelle: 19 lines, two repeating refrains.',
-                check: 'The form pushed you to at least one word you\'d never default to.'
+                check: 'The form pushed you to at least one word you\'d never default to.',
+                links: ['bishop']
             }
         },
         {
@@ -5943,7 +5989,8 @@ const PRACTICE_TERM = {
                 weekend: 'Coq au vin or beef short ribs braised in red wine and your brown stock, with the liquid reduced into the sauce.',
                 weeknight: 'Chicken thighs braised with leeks and white wine in 45 minutes.',
                 doneWhen: 'Meat fork-tender; sauce skimmed and reduced to coat a spoon.',
-                study: 'The braising section of Pépin\'s Complete Techniques.'
+                study: 'The braising section of Pépin\'s Complete Techniques (library).',
+                links: ['bpl']
             },
             write: {
                 focus: 'Revision',
@@ -9006,7 +9053,10 @@ class LifeOS {
         const term = PRACTICE_TERM;
         const pw = this.practiceWeek(now, term);
         const esc = s => this.escapeHtml(s);
-        const rows = pairs => `<dl class="practice-list">${pairs.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+        const linkList = keys => (keys || []).map(k => PRACTICE_LINKS[k]).filter(Boolean)
+            .map(l => `<a href="${this.escapeAttr(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join('');
+        const rows = pairs => `<dl class="practice-list">${pairs.filter(([, v]) => v).map(([k, v, raw]) => `<dt>${k}</dt><dd>${raw ? v : esc(v)}</dd>`).join('')}</dl>`;
+        const linksRow = keys => linkList(keys) ? ['Free links', `<span class="practice-links">${linkList(keys)}</span>`, true] : ['', ''];
         const next = term.weeks.findIndex((w, i) => i > (pw.idx ?? -1) && !w.pause);
 
         let label, sub, body;
@@ -9015,7 +9065,8 @@ class LifeOS {
             sub = `${pw.days} ${pw.days === 1 ? 'day' : 'days'} to get set up`;
             const list = items => `<ul class="practice-prep">${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
             body = `<div class="practice-block"><div class="practice-kicker">Kitchen</div>${list(term.prep.cook)}</div>
-                <div class="practice-block"><div class="practice-kicker">Writing</div>${list(term.prep.write)}</div>`;
+                <div class="practice-block"><div class="practice-kicker">Writing</div>${list(term.prep.write)}</div>
+                <div class="practice-block"><div class="practice-kicker">Free links</div><span class="practice-links">${linkList(term.prepLinks)}</span></div>`;
         } else if (pw.state === 'done') {
             label = `${esc(term.title.split(':')[0])} complete`;
             sub = 'Plan the next term with Claude';
@@ -9032,13 +9083,13 @@ class LifeOS {
                     <div class="practice-kicker">Cooking</div>
                     <h4 class="practice-title">${esc(cook.method)}</h4>
                     <p class="practice-why">${esc(cook.why)}</p>
-                    ${rows([['Weekend project', cook.weekend], ['Weeknight rep', cook.weeknight], ['Done when', cook.doneWhen], ['Study', cook.study]])}
+                    ${rows([['Weekend project', cook.weekend], ['Weeknight rep', cook.weeknight], ['Done when', cook.doneWhen], ['Study', cook.study], linksRow(cook.links)])}
                 </div>
                 <div class="practice-block">
                     <div class="practice-kicker">Writing</div>
                     <h4 class="practice-title">${esc(write.focus)}</h4>
                     <p class="practice-why">${esc(term.journalRule)}</p>
-                    ${rows([['Read', write.read], ['Wednesday journal', write.wed], ['Saturday journal', write.sat], ['Craft session', write.craft], ['Done when', write.check]])}
+                    ${rows([['Read', write.read], ['Wednesday journal', write.wed], ['Saturday journal', write.sat], ['Craft session', write.craft], ['Done when', write.check], linksRow(write.links)])}
                 </div>`;
         }
 
