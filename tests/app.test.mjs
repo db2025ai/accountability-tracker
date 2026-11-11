@@ -1397,6 +1397,29 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await context.close();
 }
 
+// ================= Skincare steps under the Skincare AM / PM rows =================
+{
+    const { context, page, errors } = await newPage({ width: 390 });
+    console.log('\n— Skincare steps —');
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
+    const night = d => page.evaluate(day => { const r = lifeOS.skincareFor('Skincare PM', day); return [r.kind, r.steps.length]; }, d);
+    check('PM by weekday: Mon/Thu tretinoin, Sat mask, else regular', [await night(1), await night(4), await night(6), await night(0), await night(3)],
+        [['tret', 6], ['tret', 6], ['mask', 3], ['regular', 2], ['regular', 2]]);
+    check('only skincare goals get steps', await page.evaluate(() => [lifeOS.skincareFor('Skincare AM', 2)?.steps.length, lifeOS.skincareFor('Up by 7:15AM', 2)]), [3, null]);
+    check('tretinoin and mask never share a night', await page.evaluate(() => SKINCARE.tretDays.some(d => SKINCARE.maskDays.includes(d))), false);
+    check('no em dashes in the steps', await page.evaluate(() => JSON.stringify(SKINCARE).includes('—')), false);
+    // Today (Tue) the AM row shows a folded list; opening it survives a re-render
+    const row = () => page.$eval('.routine-steps', d => [d.querySelector('summary').textContent, d.querySelectorAll('li').length, d.open]);
+    check('AM row folded with 3 steps', await row(), ['Morning · 3 steps', 3, false]);
+    await page.click('.routine-steps > summary');
+    await page.evaluate(() => lifeOS.renderHabits());
+    check('stays open across renders', (await row())[2], true);
+    check('opening it does not check the goal', await page.evaluate(() => Object.values(lifeOS.getTodayWeek().entries).find(e => e.goal.name === 'Skincare AM').tracking[2]), '');
+    check('fits a 390px phone', await page.evaluate(() => document.documentElement.scrollWidth <= 390), true);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASSED');

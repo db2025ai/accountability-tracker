@@ -3295,6 +3295,36 @@ button.habit-checkbox {
     gap: 4px;
 }
 
+/* Skincare steps under the Skincare AM / PM rows (folded) */
+.habit-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+}
+
+.routine-steps > summary {
+    font-size: 0.78rem;
+    color: var(--primary);
+    cursor: pointer;
+    list-style: none;
+}
+
+.routine-steps > summary::-webkit-details-marker { display: none; }
+.routine-steps > summary::after { content: ' ›'; }
+.routine-steps[open] > summary::after { content: ' ⌄'; }
+
+.routine-steps ol {
+    margin: 6px 0 2px;
+    padding-left: 18px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--text-muted);
+}
+
+.routine-steps li + li { margin-top: 2px; }
+
 .streak-badge {
     display: inline-flex;
     align-items: center;
