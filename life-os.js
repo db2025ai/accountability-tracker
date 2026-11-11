@@ -861,6 +861,38 @@ const PRACTICE_GOALS = [
 ];
 const PRACTICE_GOALS_VERSION = 1;
 
+// Skincare steps shown under the "Skincare AM" / "Skincare PM" rows on the Today tab (folded).
+// Tretinoin and mask nights are weekdays (0 = Sun), never the same night. To ramp tretinoin to
+// 3x/week (after ~4 weeks with no flaking or stinging), add a day to tretDays, e.g. [1, 3, 5].
+const SKINCARE = {
+    tretDays: [1, 4], // Mon, Thu
+    maskDays: [6],    // Sat
+    am: { title: 'Morning', steps: [
+        'Rinse with water (CeraVe cleanser only if you feel grimy)',
+        'CeraVe daily moisturizing lotion',
+        'Sunscreen SPF 50, every morning'
+    ] },
+    pm: {
+        tret: { title: 'Tretinoin night', steps: [
+            'CeraVe cleanser (not the Native tonight, its fragrance can sting)',
+            'Pat dry, then wait 20 to 30 min until fully dry',
+            'Thin layer of CeraVe moisturizing cream',
+            'Pea-sized tretinoin: dot forehead, cheeks, chin, spread thin. Keep off eyelids, nose creases, mouth corners',
+            'More CeraVe cream on top',
+            'No mask, acids or scrubs tonight'
+        ] },
+        mask: { title: 'Mask night', steps: [
+            'Relief Worker mask on dry skin instead of cleanser',
+            'Leave 10 min, remove with a warm washcloth, rinse',
+            'CeraVe lotion (or cream if skin feels tight)'
+        ] },
+        regular: { title: 'Regular night', steps: [
+            'CeraVe or Native cleanser',
+            'CeraVe lotion'
+        ] }
+    }
+};
+
 // Daily calorie + macro tracking. Meals are still logged through Claude; the app ticks this goal on
 // each day the logged calories reach TRACKING_SHARE of the calorie target, so a fully logged day
 // counts and a lone snack doesn't. addTrackingGoal adds it once to existing data.
@@ -3979,6 +4011,25 @@ class LifeOS {
         card.open = open;
     }
 
+    // Today's skincare steps for a "Skincare AM" / "Skincare PM" goal, or null for any other goal
+    skincareFor(goalName, dayIdx) {
+        if (/skincare\s*am/i.test(goalName)) return { key: 'am', ...SKINCARE.am };
+        if (!/skincare\s*pm/i.test(goalName)) return null;
+        const kind = SKINCARE.tretDays.includes(dayIdx) ? 'tret' : SKINCARE.maskDays.includes(dayIdx) ? 'mask' : 'regular';
+        return { key: 'pm', kind, ...SKINCARE.pm[kind] };
+    }
+
+    // Folded step list under a skincare row; open/closed is remembered like the Done / Missed folds
+    skincareHtml(goalName, dayIdx) {
+        const r = this.skincareFor(goalName, dayIdx);
+        if (!r) return '';
+        const fold = `skincare-${r.key}`;
+        const open = (this._todayFolds || {})[fold] ? ' open' : '';
+        const steps = r.steps.map(s => `<li>${this.escapeHtml(s)}</li>`).join('');
+        return `<details class="routine-steps${r.kind ? ' ' + r.kind : ''}" data-fold="${fold}"${open}>
+            <summary>${this.escapeHtml(r.title)} · ${r.steps.length} steps</summary><ol>${steps}</ol></details>`;
+    }
+
     renderHabits() {
         this.renderPractice();
         this.updateAppBadge();
@@ -4101,10 +4152,12 @@ class LifeOS {
                 </div>`;
             }
             const canMiss = e.freq.group === 'daily';
+            const nameRow = `<div class="habit-name-row"><span class="habit-name">${name(e)}</span>${streakBadge(e)}</div>`;
+            const steps = this.skincareHtml(e.goal.name, todayDayIdx);
             return `<div class="habit-check-item pending-item">
                 <button class="habit-checkbox" data-action="done" ${attrs(e)} aria-label="Done"></button>
                 <div class="habit-item-content">
-                    <div class="habit-name-row"><span class="habit-name">${name(e)}</span>${streakBadge(e)}</div>
+                    ${steps ? `<div class="habit-main">${nameRow}${steps}</div>` : nameRow}
                     ${progress(e)}
                 </div>
                 ${playBtn(e)}
