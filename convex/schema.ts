@@ -194,4 +194,75 @@ export default defineSchema({
     daysPerWeek: v.optional(v.number()),
     updatedAt: v.string(),
   }).index("by_userId", ["userId"]),
+
+  // ---- Learning ledger (see learning.ts) ----
+  // Everything developmental Daniel reads or hears: books (Goodreads), podcasts and audiobooks
+  // (Spotify), newsletters and articles (Reader, logged by Claude). The material itself lives in
+  // Readwise; this keeps the record, the ideas and the scores.
+  learningSources: defineTable({
+    userId: v.string(),
+    kind: v.string(), // book | audiobook | podcast | newsletter | article | video | course | other
+    title: v.string(),
+    titleKey: v.string(), // lib/learning titleKey: matches one book across Goodreads, Spotify and chat
+    author: v.optional(v.string()), // or the show, for a podcast episode
+    url: v.optional(v.string()),
+    origin: v.string(), // goodreads | spotify | reader | manual
+    externalId: v.optional(v.string()), // "goodreads:<book id>", "spotify:episode:<id>", "spotify:audiobook:<id>"
+    status: v.string(), // in_progress | finished | captured | logged | backlog (lib/learning STATUSES)
+    progress: v.optional(v.number()), // 0-1
+    startedAt: v.optional(v.string()), // local YYYY-MM-DD
+    finishedAt: v.optional(v.string()),
+    developmental: v.optional(v.boolean()), // false = fiction/memoir, logged only
+    readerDocId: v.optional(v.string()), // the Reader document holding the text or transcript
+    notes: v.optional(v.string()),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_external", ["userId", "externalId"])
+    .index("by_user_titleKey", ["userId", "titleKey"])
+    .index("by_user_finished", ["userId", "finishedAt"]),
+
+  // One key idea from a source, in Daniel's words, scheduled for spaced review
+  learningIdeas: defineTable({
+    userId: v.string(),
+    sourceId: v.id("learningSources"),
+    idea: v.string(), // the key message
+    takeaway: v.optional(v.string()), // what he wrote: learned / connects to / will do
+    topics: v.array(v.string()),
+    box: v.number(), // spaced-repetition box, lib/learning INTERVALS
+    dueDate: v.string(), // local YYYY-MM-DD
+    reviews: v.number(),
+    correct: v.number(), // reviews scored 2
+    lastReviewed: v.optional(v.string()),
+    applied: v.optional(v.string()), // how he put it to use
+    appliedAt: v.optional(v.string()),
+    createdDate: v.string(), // local YYYY-MM-DD (the synthesis day)
+    createdAt: v.string(),
+  })
+    .index("by_user_due", ["userId", "dueDate"])
+    .index("by_user_created", ["userId", "createdDate"])
+    .index("by_source", ["sourceId"]),
+
+  // Every quiz answer: the question asked and a 0-2 score
+  learningReviews: defineTable({
+    userId: v.string(),
+    ideaId: v.id("learningIdeas"),
+    date: v.string(), // local YYYY-MM-DD
+    question: v.string(),
+    score: v.number(), // 0 missed, 1 partial, 2 solid
+    mode: v.string(), // quiz | socratic | synthesis
+    note: v.optional(v.string()),
+    createdAt: v.string(),
+  })
+    .index("by_user_date", ["userId", "date"])
+    .index("by_idea", ["ideaId"]),
+
+  // Small key/value store for the sync: Spotify tokens, OAuth state, last run
+  learningSyncState: defineTable({
+    userId: v.string(),
+    key: v.string(),
+    value: v.any(),
+    updatedAt: v.string(),
+  }).index("by_user_key", ["userId", "key"]),
 });
