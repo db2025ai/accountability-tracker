@@ -8,6 +8,8 @@ import { internal } from "./_generated/api";
 import { WORKOUT_TYPES, LIFTS, MUSCLES, DISTANCE_UNITS } from "./workouts";
 import { sameSecret } from "./lib/auth";
 import { parseSamples, summarizeNight, prevDate, dayLabel, timeLabel } from "./lib/sleep";
+import { KINDS, STATUSES } from "./lib/learning";
+import { SPOTIFY_SCOPES } from "./learningSync";
 
 const PROTOCOL_VERSION = "2025-06-18";
 
@@ -297,7 +299,158 @@ const TOOLS: Tool[] = [
     inputSchema: { type: "object", properties: { id: str }, required: ["id"] },
     run: (ctx, a) => ctx.runMutation(internal.plans.deletePlan, { id: String(a.id) }),
   },
+  // ---- Learning ledger (learning.ts): what Daniel finished, the ideas he kept, and his quiz scores ----
+  {
+    name: "learning_inbox",
+    description:
+      "Start of a synthesis: sources finished but not captured yet (books from Goodreads, podcasts and audiobooks from Spotify, anything logged), " +
+      "what's in progress, the backlog size and how many ideas are due for review. Run sync_learning first if the daily sync may be stale.",
+    inputSchema: { type: "object", properties: { date } },
+    run: (ctx, a) => ctx.runQuery(internal.learning.inbox, pick(a, ["date"])),
+  },
+  {
+    name: "sync_learning",
+    description: "Pull Goodreads shelves and Spotify listening now (it also runs daily at about 5 AM). Returns what changed and anything newly finished.",
+    inputSchema: { type: "object", properties: {} },
+    run: (ctx) => ctx.runAction(internal.learningSync.run, {}),
+  },
+  {
+    name: "log_source",
+    description:
+      "Record something Daniel read, heard or watched: a newsletter issue or article from Reader, a podcast outside Spotify, a book not on Goodreads, a talk. " +
+      "Matches an existing entry by externalId, or by title for books and audiobooks, and only moves its status forward. " +
+      "Set developmental false for fiction or memoir he only wants logged.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: KINDS },
+        title: str,
+        author: { type: "string", description: "Author, or the show / newsletter name" },
+        url: str,
+        status: { type: "string", enum: STATUSES, description: "Default finished" },
+        finishedAt: date,
+        startedAt: date,
+        developmental: { type: "boolean" },
+        readerDocId: { type: "string", description: "Reader document id holding the text or transcript" },
+        externalId: { type: "string", description: 'Stable id, e.g. "reader:<document id>"' },
+        notes: str,
+      },
+      required: ["kind", "title"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.learning.logSource, { ...pick(a, ["kind", "title", "author", "url", "status", "finishedAt", "startedAt", "readerDocId", "externalId", "notes"]), ...bool(a, "developmental"), origin: "manual" }),
+  },
+  {
+    name: "update_source",
+    description:
+      "Change a source by id: queue a backlog book for capture (status finished), log one without capture (status logged), " +
+      "attach the Reader document holding its transcript (readerDocId), fix its title or kind.",
+    inputSchema: {
+      type: "object",
+      properties: { id: str, status: { type: "string", enum: STATUSES }, kind: { type: "string", enum: KINDS }, title: str, author: str, url: str, finishedAt: date, developmental: { type: "boolean" }, readerDocId: str, notes: str },
+      required: ["id"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.learning.updateSource, { ...pick(a, ["id", "status", "kind", "title", "author", "url", "finishedAt", "readerDocId", "notes"]), ...bool(a, "developmental") }),
+  },
+  {
+    name: "list_sources",
+    description: "Sources filtered by kind, status and finished date (newest first), with how many ideas each has. Use status backlog to pick older books worth capturing.",
+    inputSchema: { type: "object", properties: { kind: { type: "string", enum: KINDS }, status: { type: "string", enum: STATUSES }, from: date, to: date, limit: num } },
+    run: (ctx, a) => ctx.runQuery(internal.learning.listSources, pickNum(pick(a, ["kind", "status", "from", "to", "limit"]), ["limit"])),
+  },
+  {
+    name: "save_ideas",
+    description:
+      "Save the key ideas from one source after Daniel has recalled it and written his takeaway. One idea per key message (3-5 per book, 1-3 per episode or issue), " +
+      "the idea stated plainly, his takeaway in his own words (learned / connects to / will do), and 1-3 lowercase topics (ai, strategy, leadership, health, " +
+      "parenting, finance, writing, science, biotech). Marks the source captured; each idea's first review is in 3 days.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sourceId: str,
+        date,
+        ideas: {
+          type: "array",
+          items: { type: "object", properties: { idea: str, takeaway: str, topics: { type: "array", items: str } }, required: ["idea"] },
+        },
+      },
+      required: ["sourceId", "ideas"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.learning.saveIdeas, {
+      ...pick(a, ["sourceId", "date"]),
+      ideas: (Array.isArray(a?.ideas) ? a.ideas : []).map((i: any) => ({
+        idea: String(i?.idea ?? ""),
+        ...(i?.takeaway ? { takeaway: String(i.takeaway) } : {}),
+        ...(Array.isArray(i?.topics) ? { topics: i.topics.map(String) } : {}),
+      })),
+    }),
+  },
+  {
+    name: "update_idea",
+    description: "Edit an idea by id, or record how Daniel applied it (applied: one line on what he did; dated today unless date is given).",
+    inputSchema: { type: "object", properties: { id: str, idea: str, takeaway: str, topics: { type: "array", items: str }, applied: str, date }, required: ["id"] },
+    run: (ctx, a) => ctx.runMutation(internal.learning.updateIdea, { ...pick(a, ["id", "idea", "takeaway", "applied", "date"]), ...(Array.isArray(a?.topics) ? { topics: a.topics.map(String) } : {}) }),
+  },
+  {
+    name: "delete_idea",
+    description: "Delete an idea (and its review history) by id.",
+    inputSchema: { type: "object", properties: { id: str }, required: ["id"] },
+    run: (ctx, a) => ctx.runMutation(internal.learning.deleteIdea, { id: String(a.id) }),
+  },
+  {
+    name: "get_due_reviews",
+    description:
+      "Ideas due for review on a date (default today), oldest first, with their source and Daniel's takeaway. Build each question from the idea, " +
+      "never show him the idea or takeaway before he answers. fillWithSoon tops up a short quiz with ideas due next.",
+    inputSchema: { type: "object", properties: { date, limit: { type: "number", description: "Default 10" }, fillWithSoon: { type: "boolean" }, topic: str } },
+    run: (ctx, a) => ctx.runQuery(internal.learning.dueReviews, { ...pickNum(pick(a, ["date", "limit", "topic"]), ["limit"]), ...bool(a, "fillWithSoon") }),
+  },
+  {
+    name: "record_review",
+    description:
+      "Record one answer: score 0 (missed), 1 (partial) or 2 (solid), the question asked, and mode (quiz, socratic or synthesis). " +
+      "Schedules the idea's next review: 2 moves it to a longer gap (3, 7, 21, 60, 150, 365 days), 1 repeats the gap, 0 brings it back tomorrow.",
+    inputSchema: {
+      type: "object",
+      properties: { ideaId: str, score: { type: "number", enum: [0, 1, 2] }, question: str, mode: { type: "string", enum: ["quiz", "socratic", "synthesis"] }, note: { type: "string", description: "What he missed or got right, one line" }, date },
+      required: ["ideaId", "score", "question"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.learning.recordReview, { ...pick(a, ["ideaId", "question", "mode", "note", "date"]), score: Number(a?.score) }),
+  },
+  {
+    name: "get_learning_stats",
+    description:
+      "Progress over the last N days (default 30): finished by kind, ideas captured, reviews and retention (average score as %), retention by week for 8 weeks, " +
+      "ideas applied, due now, mastery by topic, whether Spotify is connected and the last sync.",
+    inputSchema: { type: "object", properties: { days: num, date } },
+    run: (ctx, a) => ctx.runQuery(internal.learning.stats, pickNum(pick(a, ["days", "date"]), ["days"])),
+  },
+  {
+    name: "connect_spotify",
+    description: "A one-time link (valid 15 minutes) Daniel opens to let Life OS read his Spotify listening. Only needed once, or if the sync says Spotify isn't connected.",
+    inputSchema: { type: "object", properties: {} },
+    run: async (ctx) => {
+      if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+        return { error: "SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET aren't set on the Convex deployment yet." };
+      }
+      const state = randomToken();
+      await ctx.runMutation(internal.learning.setState, { key: "spotifyOAuth", value: { state, at: Date.now() } });
+      return { url: `${siteUrl()}/spotify/start?state=${state}`, redirectUri: `${siteUrl()}/spotify/callback`, expiresInMinutes: 15 };
+    },
+  },
 ];
+
+const siteUrl = () => (process.env.CONVEX_SITE_URL || "https://energetic-fly-308.convex.site").replace(/\/$/, "");
+const randomToken = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join("");
+const bool = (a: any, k: string) => (typeof a?.[k] === "boolean" ? { [k]: a[k] } : {});
+function pickNum(o: Record<string, unknown>, keys: string[]) {
+  for (const k of keys) {
+    if (o[k] === undefined) continue;
+    const n = Number(o[k]);
+    if (Number.isFinite(n)) o[k] = n;
+    else delete o[k];
+  }
+  return o as any;
+}
 
 // Same clean-up as pickWorkout, for a plan's exercises and their target sets
 function pickPlan(a: any) {
@@ -373,7 +526,9 @@ const INSTRUCTIONS =
   "photographs or dictates, and to answer how his day, week or training is going. Always confirm an estimate before " +
   "log_meal. For lifting, bench, squat, deadlift and overhead press are the focus: say when one hits a new best " +
   "or hasn't been trained in a while. When he asks for a workout, plan it with plan_workout so he can run it in the " +
-  "app's workout mode, and keep the training profile current. Dates are local (America/New_York) YYYY-MM-DD.";
+  "app's workout mode, and keep the training profile current. For learning (books, podcasts, newsletters), start a synthesis " +
+  "with learning_inbox, have Daniel recall each finished source before you fill gaps, save_ideas with his takeaway, and quiz " +
+  "him from get_due_reviews, scoring every answer with record_review. Dates are local (America/New_York) YYYY-MM-DD.";
 
 type Rpc = { jsonrpc: "2.0"; id?: string | number | null; method: string; params?: any };
 
@@ -497,7 +652,55 @@ const ingestSleep = httpAction(async (ctx, req) => {
   }
 });
 
+
+// ---- Spotify: one-time connect (connect_spotify tool -> /spotify/start -> Spotify -> /spotify/callback) ----
+const html = (msg: string, status = 200) =>
+  new Response(`<!doctype html><meta name="viewport" content="width=device-width"><body style="font:17px -apple-system,sans-serif;padding:24px">${msg}</body>`, {
+    status,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+
+async function validState(ctx: ActionCtx, given: string | null) {
+  const saved = await ctx.runQuery(internal.learning.getState, { key: "spotifyOAuth" });
+  return !!given && !!saved?.state && sameSecret(given, saved.state) && Date.now() - saved.at < 15 * 60e3;
+}
+
+const spotifyStart = httpAction(async (ctx, req) => {
+  const state = new URL(req.url).searchParams.get("state");
+  if (!(await validState(ctx, state))) return html("This link has expired. Ask Claude for a new one.", 400);
+  const q = new URLSearchParams({
+    response_type: "code",
+    client_id: process.env.SPOTIFY_CLIENT_ID || "",
+    scope: SPOTIFY_SCOPES,
+    redirect_uri: `${siteUrl()}/spotify/callback`,
+    state: state!,
+  });
+  return new Response(null, { status: 302, headers: { Location: `https://accounts.spotify.com/authorize?${q}` } });
+});
+
+const spotifyCallback = httpAction(async (ctx, req) => {
+  const u = new URL(req.url);
+  if (!(await validState(ctx, u.searchParams.get("state")))) return html("This link has expired. Ask Claude for a new one.", 400);
+  const code = u.searchParams.get("code");
+  if (!code) return html(`Spotify didn't connect (${u.searchParams.get("error") || "no code"}).`, 400);
+  const r = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${btoa(`${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`)}`,
+    },
+    body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: `${siteUrl()}/spotify/callback` }).toString(),
+  });
+  const tok = await r.json().catch(() => ({}));
+  if (!r.ok || !tok.refresh_token) return html(`Spotify didn't connect (${tok.error_description || tok.error || `HTTP ${r.status}`}).`, 400);
+  await ctx.runMutation(internal.learning.setState, { key: "spotify", value: { refreshToken: tok.refresh_token, connectedAt: new Date().toISOString() } });
+  await ctx.runMutation(internal.learning.setState, { key: "spotifyOAuth", value: null });
+  return html("Spotify is connected to Life OS. You can close this tab.");
+});
+
 const http = httpRouter();
+http.route({ path: "/spotify/start", method: "GET", handler: spotifyStart });
+http.route({ path: "/spotify/callback", method: "GET", handler: spotifyCallback });
 http.route({ path: "/ingest/sleep", method: "POST", handler: ingestSleep });
 http.route({ pathPrefix: "/mcp/", method: "POST", handler: mcp });
 http.route({ pathPrefix: "/mcp/", method: "GET", handler: noStream });

@@ -1,7 +1,8 @@
 import { convexTest } from "convex-test";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import schema from "../convex/schema";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
+import { nextReview, titleKey, parseShelf, playState, addDays } from "../convex/lib/learning";
 const modules = import.meta.glob("../convex/**/*.ts");
 const TOKEN = "t".repeat(32);
 const APP_KEY = "a".repeat(32);
@@ -217,6 +218,7 @@ test("the app key locks every public function", async () => {
     ["query", api.workouts.lastSets, { names: ["Bench press"] }],
     ["query", api.health.pendingSleep, {}],
     ["mutation", api.health.markSleepApplied, { ids: [] }],
+    ["query", api.learning.getSummary, { today: "2026-11-14" }],
   ];
   const run = (kind: string, fn: any, args: any) => (t as any)[kind](fn, args);
   const refused = async (kind: string, fn: any, args: any) => {
@@ -300,4 +302,188 @@ test("Apple Watch sleep: Shortcut endpoint, the night's math, app pickup, get_sl
   expect(sleep.averageHours).toBe(7);
   delete process.env.SHORTCUT_KEY;
   expect((await post("{}")).status).toBe(401);
+});
+
+test("learning helpers: spaced review, title match, Goodreads feed, Spotify progress", () => {
+  expect(nextReview(0, 2, "2026-11-14")).toEqual({ box: 1, dueDate: "2026-11-21" });
+  expect(nextReview(3, 1, "2026-11-14")).toEqual({ box: 3, dueDate: "2027-01-13" });
+  expect(nextReview(4, 0, "2026-11-14")).toEqual({ box: 0, dueDate: "2026-11-15" });
+  expect(nextReview(5, 2, "2026-12-30")).toEqual({ box: 5, dueDate: "2027-12-30" });
+  expect(addDays("2026-03-07", 1)).toBe("2026-03-08");
+  expect(titleKey("Inside the Box: How Constraints Make Us Better")).toBe("inside the box");
+  expect(titleKey("The Explorer's Gene (Unabridged)")).toBe(titleKey("Explorer’s Gene"));
+  const xml = `<rss><channel><item><title><![CDATA[Inside the Box: How Constraints Make Us Better]]></title><link><![CDATA[https://www.goodreads.com/review/show/1]]></link>
+    <book_id>123</book_id><author_name>David Epstein</author_name><user_read_at><![CDATA[Thu, 12 Nov 2026 00:00:00 -0800]]></user_read_at>
+    <user_date_added><![CDATA[Wed, 01 Jul 2026 10:00:00 -0700]]></user_date_added></item>
+    <item><title>Kitchen Confidential &amp; More</title><book_id>9</book_id><author_name>Anthony Bourdain</author_name><user_read_at></user_read_at>
+    <user_date_added><![CDATA[Mon, 03 Mar 2025 10:00:00 -0800]]></user_date_added></item></channel></rss>`;
+  expect(parseShelf(xml)).toEqual([
+    { bookId: "123", title: "Inside the Box: How Constraints Make Us Better", author: "David Epstein", url: "https://www.goodreads.com/review/show/1", readAt: "2026-11-12", addedAt: "2026-07-01" },
+    { bookId: "9", title: "Kitchen Confidential & More", author: "Anthony Bourdain", url: "", readAt: undefined, addedAt: "2025-03-03" },
+  ]);
+  expect(playState({ duration_ms: 3600e3, resume_point: { fully_played: false, resume_position_ms: 2900e3 } })).toEqual({ state: "finished", progress: 0.81 });
+  expect(playState({ duration_ms: 3600e3, resume_point: { fully_played: true, resume_position_ms: 0 } })).toEqual({ state: "finished", progress: 1 });
+  expect(playState({ duration_ms: 3600e3, resume_point: { fully_played: false, resume_position_ms: 600e3 } }).state).toBe("in_progress");
+  expect(playState({ duration_ms: 3600e3, resume_point: { fully_played: false, resume_position_ms: 60e3 } }).state).toBe("none");
+});
+
+test("learning ledger through the connector: log, capture, quiz, stats, app summary", async () => {
+  process.env.MCP_TOKEN = TOKEN;
+  process.env.APP_KEY = APP_KEY;
+  delete process.env.SPOTIFY_CLIENT_ID;
+  const t = convexTest(schema, modules);
+  const call = async (method: string, params?: any) => {
+    const r = await t.fetch(`/mcp/${TOKEN}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+    return r.json();
+  };
+  const tool = async (name: string, args: any) => {
+    const r = (await call("tools/call", { name, arguments: args })).result;
+    return { err: r.isError, data: r.isError ? r.content[0].text : JSON.parse(r.content[0].text) };
+  };
+  const names = (await call("tools/list")).result.tools.map((x: any) => x.name);
+  expect(names).toEqual(expect.arrayContaining(["learning_inbox", "sync_learning", "log_source", "update_source", "list_sources", "save_ideas",
+    "update_idea", "delete_idea", "get_due_reviews", "record_review", "get_learning_stats", "connect_spotify"]));
+
+  // A book and a newsletter issue; the same book again (by another title form) merges into one
+  const book = await tool("log_source", { kind: "book", title: "Inside the Box: How Constraints Make Us Better", author: "David Epstein", finishedAt: "2026-11-10" });
+  expect(book.err).toBe(false);
+  const again = await tool("log_source", { kind: "audiobook", title: "Inside the Box", status: "in_progress" });
+  expect(again.data).toEqual({ id: book.data.id, created: false, status: "finished" });
+  const issue = await tool("log_source", { kind: "newsletter", title: "Import AI 480", author: "Import AI", readerDocId: "01abc", finishedAt: "2026-11-12" });
+  await tool("log_source", { kind: "book", title: "Kitchen Confidential", developmental: false, status: "logged", finishedAt: "2026-11-01" });
+  expect((await tool("log_source", { kind: "magazine", title: "x" })).err).toBe(true);
+
+  let inbox = await tool("learning_inbox", { date: "2026-11-14" });
+  expect(inbox.data.toCapture.map((s: any) => s.title)).toEqual(["Import AI 480", "Inside the Box: How Constraints Make Us Better"]);
+  expect(inbox.data.dueReviews).toBe(0);
+
+  // Capture: ideas with his takeaway; the source is marked captured, first review in 3 days
+  const saved = await tool("save_ideas", { sourceId: book.data.id, date: "2026-11-14", ideas: [
+    { idea: "Constraints, not freedom, drive creative work", takeaway: "Set a one-page limit on board memos", topics: ["Strategy", "leadership"] },
+    { idea: "Satisficing beats maximizing for decisions and well-being", topics: ["strategy"] },
+  ] });
+  expect(saved.data.firstReview).toBe("2026-11-17");
+  await tool("save_ideas", { sourceId: issue.data.id, date: "2026-11-14", ideas: [{ idea: "AI for science is bottlenecked by experiments, not intelligence", topics: ["ai"] }] });
+  inbox = await tool("learning_inbox", { date: "2026-11-14" });
+  expect(inbox.data.toCapture).toEqual([]);
+  expect((await tool("save_ideas", { sourceId: "nope", ideas: [{ idea: "x" }] })).err).toBe(true);
+
+  // Quiz on the 17th: all three due; scores schedule the next review
+  const due = await tool("get_due_reviews", { date: "2026-11-17" });
+  expect(due.data.dueCount).toBe(3);
+  expect(due.data.ideas[0].source.title).toBe("Inside the Box: How Constraints Make Us Better");
+  expect(due.data.ideas[0].topics).toEqual(["strategy", "leadership"]);
+  const [a, b, c] = due.data.ideas.map((i: any) => i.id);
+  expect((await tool("record_review", { ideaId: a, score: 2, question: "Why do limits help?", date: "2026-11-17" })).data.nextReview).toBe("2026-11-24");
+  expect((await tool("record_review", { ideaId: b, score: 0, question: "What is satisficing?", date: "2026-11-17", note: "Mixed it up with maximizing" })).data.nextReview).toBe("2026-11-18");
+  await tool("record_review", { ideaId: c, score: 1, question: "What limits AI for science?", date: "2026-11-17" });
+  expect((await tool("record_review", { ideaId: a, score: 3, question: "x" })).err).toBe(true);
+  expect((await tool("get_due_reviews", { date: "2026-11-18" })).data.ideas.map((i: any) => i.id)).toEqual([b]);
+  expect((await tool("get_due_reviews", { date: "2026-11-18", limit: 3, fillWithSoon: true })).data.ideas.length).toBe(3);
+  await tool("update_idea", { id: a, applied: "Capped the ELT pre-read at one page", date: "2026-11-18" });
+
+  const st = await tool("get_learning_stats", { date: "2026-11-18", days: 30 });
+  expect(st.data.finished).toBe(2); // the logged memoir doesn't count
+  expect(st.data.finishedByKind).toEqual({ book: 1, newsletter: 1 });
+  expect(st.data.ideasCaptured).toBe(3);
+  expect(st.data.reviews).toBe(3);
+  expect(st.data.retention).toBe(50); // (2 + 0 + 1) / 6
+  expect(st.data.applied).toBe(1);
+  expect(st.data.topics[0]).toEqual({ topic: "strategy", ideas: 2, mastery: 10 });
+  expect(st.data.weeks[7]).toEqual({ week: "2026-11-15", reviews: 3, retention: 50 });
+  expect(st.data.ideaDays).toEqual(["2026-11-14"]);
+  expect(st.data.quizDays).toEqual(["2026-11-17"]);
+  expect(st.data.spotifyConnected).toBe(false);
+
+  // Backlog: queue an old book, or log it without capture
+  const old = await tool("log_source", { kind: "book", title: "Range", status: "backlog", finishedAt: "2024-05-01" });
+  expect((await tool("list_sources", { status: "backlog" })).data.map((s: any) => s.title)).toEqual(["Range"]);
+  expect((await tool("update_source", { id: old.data.id, status: "finished" })).data.status).toBe("finished");
+  expect((await tool("list_sources", { kind: "book", status: "captured" })).data[0].ideas).toBe(2);
+  expect((await tool("connect_spotify", {})).data.error).toMatch(/SPOTIFY_CLIENT_ID/);
+
+  // The app's card
+  const sum = await t.query(api.learning.getSummary, { today: "2026-11-18", appKey });
+  expect(sum.week).toEqual({ finished: 0, finishedByKind: {}, ideas: 0, reviews: 3, titles: [] });
+  expect(sum.month.retention).toBe(50);
+  expect(sum.dueNow).toBe(1);
+  expect(sum.toCapture.map((s: any) => s.title)).toEqual(["Range"]);
+  expect(sum.quizDays).toEqual(["2026-11-17"]);
+  // Deleting an idea takes its review history with it
+  expect((await tool("delete_idea", { id: c })).err).toBe(false);
+  expect((await t.query(api.learning.getSummary, { today: "2026-11-18", appKey })).week.reviews).toBe(2);
+});
+
+test("learning sync: Goodreads shelves and Spotify listening, Spotify connect", async () => {
+  process.env.MCP_TOKEN = TOKEN;
+  process.env.GOODREADS_USER_ID = "61848467";
+  process.env.SPOTIFY_CLIENT_ID = "cid";
+  process.env.SPOTIFY_CLIENT_SECRET = "csecret";
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-14T15:00:00Z"));
+  const t = convexTest(schema, modules);
+  const item = (id: string, title: string, author: string, read: string, added: string) =>
+    `<item><title>${title}</title><book_id>${id}</book_id><author_name>${author}</author_name><user_read_at>${read}</user_read_at><user_date_added>${added}</user_date_added></item>`;
+  const shelves: Record<string, string> = {
+    read: `<rss>${item("1", "Inside the Box: How Constraints Make Us Better", "David Epstein", "Thu, 12 Nov 2026 00:00:00 -0800", "")}${item("2", "Range", "David Epstein", "Wed, 01 May 2024 00:00:00 -0800", "")}</rss>`,
+    "currently-reading": `<rss>${item("3", "The Coming Wave", "Mustafa Suleyman", "", "Tue, 22 Jul 2025 00:00:00 -0800")}</rss>`,
+  };
+  const ok = (body: any) => new Response(typeof body === "string" ? body : JSON.stringify(body), { status: 200 });
+  const ep = (id: string, name: string, pos: number, release = "2026-11-10") => ({ id, name, release_date: release, duration_ms: 3600e3, resume_point: { fully_played: false, resume_position_ms: pos }, external_urls: { spotify: `https://open.spotify.com/episode/${id}` } });
+  const calls: string[] = [];
+  const fake = vi.fn(async (input: any, init?: any) => {
+    const url = String(input);
+    calls.push(url.replace(/^https:\/\/[^/]+/, ""));
+    if (url.includes("goodreads.com")) return ok(shelves[new URL(url).searchParams.get("shelf")!]);
+    if (url === "https://accounts.spotify.com/api/token") {
+      const body = new URLSearchParams(init.body);
+      if (body.get("grant_type") === "authorization_code") return ok({ access_token: "A", refresh_token: "R1" });
+      return ok({ access_token: "A" });
+    }
+    if (url.endsWith("/me/shows?limit=50")) return ok({ items: [{ show: { id: "s1", name: "The Knowledge Project" } }] });
+    if (url.includes("/shows/s1/episodes")) return ok({ items: [ep("e1", "Ep one", 0), ep("e2", "Ep two", 0), ep("e3", "Old one", 0, "2026-09-01")] });
+    if (url.endsWith("/episodes/e1")) return ok(ep("e1", "Ep one", 3000e3)); // 83%: finished
+    if (url.endsWith("/episodes/e2")) return ok(ep("e2", "Ep two", 900e3)); // 15 min: in progress
+    if (url.endsWith("/me/audiobooks?limit=50")) return ok({ items: [{ id: "b1", name: "The Explorer's Gene", authors: [{ name: "Alex Hutchinson" }], external_urls: { spotify: "https://open.spotify.com/show/b1" } }] });
+    if (url.includes("/audiobooks/b1/chapters")) return ok({ items: [1, 2, 3, 4].map((n) => ({ duration_ms: 1000, resume_point: { fully_played: true, resume_position_ms: 0 } })), next: null });
+    return new Response("not found", { status: 404 });
+  });
+  vi.stubGlobal("fetch", fake);
+  try {
+    // Spotify connect: tool link -> start redirect -> callback stores the refresh token
+    const r = await t.fetch(`/mcp/${TOKEN}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "connect_spotify", arguments: {} } }) });
+    const link = JSON.parse((await r.json()).result.content[0].text);
+    const state = new URL(link.url).searchParams.get("state")!;
+    const start = await t.fetch(`/spotify/start?state=${state}`, { redirect: "manual" } as any);
+    expect(start.status).toBe(302);
+    expect(start.headers.get("Location")).toMatch(/^https:\/\/accounts\.spotify\.com\/authorize\?.*scope=user-library-read\+user-read-playback-position/);
+    expect((await t.fetch(`/spotify/callback?state=wrong&code=c`)).status).toBe(400);
+    expect(await (await t.fetch(`/spotify/callback?state=${state}&code=c`)).text()).toMatch(/connected/);
+    expect((await t.query(internal.learning.getState, { key: "spotify" })).refreshToken).toBe("R1");
+
+    const report: any = await t.action(internal.learningSync.run, {});
+    expect(report.goodreads).toBe("3 books on Read and Currently Reading");
+    expect(report.spotify).toBe("2 finished, 1 in progress");
+    const all: any[] = await t.query(internal.learning.listSources, { limit: 50 });
+    const by = (title: string) => all.find((s) => s.title === title);
+    expect(by("Inside the Box: How Constraints Make Us Better").status).toBe("finished");
+    expect(by("Range").status).toBe("backlog");
+    expect(by("The Coming Wave").status).toBe("in_progress");
+    expect([by("Ep one").status, by("Ep one").author, by("Ep one").progress]).toEqual(["finished", "The Knowledge Project", 0.83]);
+    expect(by("Ep two").status).toBe("in_progress");
+    expect(by("Old one")).toBeUndefined();
+    expect([by("The Explorer's Gene").kind, by("The Explorer's Gene").status]).toEqual(["audiobook", "finished"]);
+
+    // Next day: finished episodes and audiobooks aren't fetched again; nothing is duplicated
+    calls.length = 0;
+    await t.action(internal.learningSync.run, {});
+    expect(calls.filter((c) => c.includes("/episodes/e1") || c.includes("/audiobooks/b1"))).toEqual([]);
+    expect((await t.query(internal.learning.listSources, { limit: 50 })).length).toBe(6);
+  } finally {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    delete process.env.GOODREADS_USER_ID;
+    delete process.env.SPOTIFY_CLIENT_ID;
+    delete process.env.SPOTIFY_CLIENT_SECRET;
+  }
 });

@@ -1058,6 +1058,77 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await context.close();
 }
 
+// ================= Learning card (books, podcasts, newsletters captured with Claude) =================
+{
+    console.log('\n— Learning card —');
+    {
+        const { context, page } = await newPage();
+        check('no Convex: card explains how to connect', /Connect Convex/.test(await page.textContent('#learningCard')), true);
+        await context.close();
+    }
+    const synthGoal = { category: 'Work', name: 'Information System: Daily synthesis review', target: 'daily' };
+    const quizGoal = { category: 'Work', name: 'Information System: Weekly quiz', target: 'weekly' };
+    const lSeed = JSON.parse(JSON.stringify(seed));
+    lSeed.goals.push(synthGoal, quizGoal);
+    lSeed.weeks[1].entries[goals.length] = { goal: { ...synthGoal }, tracking: ['', '-', '', '', '', '', ''] };
+    lSeed.weeks[1].entries[goals.length + 1] = { goal: { ...quizGoal }, tracking: ['', '', '', '', '', '', ''] };
+    // What learning:getSummary returns
+    const summary = {
+        week: { finished: 3, finishedByKind: { book: 1, podcast: 2 }, ideas: 4, reviews: 6,
+            titles: [{ kind: 'book', title: 'Inside the Box', author: 'David Epstein', progress: null }] },
+        month: { retention: 75, reviews: 12, applied: 2, ideas: 9 },
+        weeks: [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ week: `2026-${i < 6 ? '08' : '10'}-0${i % 9 + 1}`, reviews: i > 4 ? 4 : 0, retention: i > 4 ? 60 + 5 * i : null })),
+        dueNow: 5,
+        totalIdeas: 14,
+        topics: [{ topic: 'strategy', ideas: 6, mastery: 60 }, { topic: 'ai <x>', ideas: 3, mastery: 20 }],
+        toCapture: [{ kind: 'podcast', title: 'Ep <one>', author: 'The Knowledge Project', progress: 0.83 }, { kind: 'book', title: 'The Explorer\'s Gene', author: 'Alex Hutchinson', progress: null }],
+        toCaptureCount: 2,
+        inProgress: [{ kind: 'book', title: 'The Coming Wave', author: 'Mustafa Suleyman', progress: null }],
+        ideaDays: ['2026-10-11', '2026-10-12'],
+        quizDays: ['2026-10-12'],
+        spotifyConnected: true,
+    };
+    const ok = value => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', value }) });
+    const { context, page, errors } = await newPage({
+        seedData: lSeed,
+        init: () => localStorage.setItem('lifeOS_convexUrl', 'https://fake-test.convex.cloud'),
+    });
+    let asked = null;
+    await context.route('https://fake-test.convex.cloud/**', r => {
+        const { path, args } = JSON.parse(r.request().postData() || '{}');
+        if (path === 'learning:getSummary') { asked = args; return r.fulfill(ok(summary)); }
+        if (path === 'nutrition:getRange') return r.fulfill(ok({ targets: { calories: 2400, protein: 190, carbs: 240, fat: 75 }, days: [] }));
+        if (path === 'nutrition:pendingWeighIns') return r.fulfill(ok([]));
+        return r.fulfill(ok(null));
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.lifeOS);
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
+    await page.waitForFunction(() => lifeOS._learning && !lifeOS._learning.error && !lifeOS._learningLoading);
+    await page.waitForTimeout(200);
+    check('asks for the local day', asked && asked.today, '2026-10-13');
+    const flat = s => s.replace(/\s+/g, ' ').trim();
+    check('folded line: what is due and this week', flat(await page.textContent('#learningCard > summary')),
+        'Learning 5 ideas due for review This week: 3 finished · 4 ideas · retention 75%');
+    check('starts folded', await page.evaluate(() => document.getElementById('learningCard').open), false);
+    await page.click('#learningCard > summary');
+    check('tiles', await page.$$eval('.learning-tile', els => els.map(e => [...e.children].map(c => c.textContent).join(' '))),
+        ['3 finished this week', '4 ideas captured', '5 due for review', '75% retention, 30 days']);
+    check('waiting for capture, names escaped, progress shown', await page.$$eval('.learning-card .learning-list', ls => [...ls[0].children].map(l => l.textContent.replace(/\s+/g, ' ').trim())),
+        ['episode Ep <one> The Knowledge Project 83%', 'book The Explorer\'s Gene Alex Hutchinson']);
+    check('8 weekly bars, empty weeks flat', [await page.$$eval('.learning-bar', b => b.length), await page.$$eval('.learning-bar-fill.empty', b => b.length)], [8, 5]);
+    check('topic mastery chips', await page.$$eval('.learning-card .training-muscle', els => els.map(e => e.textContent)), ['strategy 60%', 'ai <x> 20%']);
+    check('footer', flat(await page.textContent('.learning-foot')), 'Applied this month: 2 · 14 ideas in review · Spotify connected');
+    const cells = name => page.evaluate(n => Object.values(lifeOS.data.weeks[1].entries).find(e => e.goal.name === n).tracking.slice(0, 3), name);
+    check('synthesis goal ticked on capture days, a "doesn\'t apply" day left alone', await cells(synthGoal.name), ['X', '-', '']);
+    check('weekly quiz ticked on the quiz day', await cells(quizGoal.name), ['', 'X', '']);
+    check('open state remembered', await page.evaluate(() => localStorage.getItem('lifeOS_learningOpen')), '1');
+    await page.setViewportSize({ width: 320, height: 800 });
+    check('fits a 320px phone', await page.evaluate(() => document.documentElement.scrollWidth <= 320), true);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
 // ================= Training card (workouts logged from Claude via Convex) =================
 {
     console.log('\n— Training card —');

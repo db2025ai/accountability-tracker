@@ -3227,6 +3227,122 @@ class LifeOS {
         }
     }
 
+    // ========================================
+    // Learning (books from Goodreads, podcasts and audiobooks from Spotify, newsletters from Reader).
+    // Claude captures ideas and runs the quizzes through the connector; this card only reads
+    // learning:getSummary and ticks the synthesis and weekly quiz goals.
+    // ========================================
+    get LEARNING_GOALS() {
+        return [
+            { pattern: /synthesis review/i, days: l => l.ideaDays }, // a day ideas were captured
+            { pattern: /weekly quiz/i, days: l => l.quizDays },      // a day with 3+ quiz answers
+        ];
+    }
+
+    renderLearning() {
+        const card = document.getElementById('learningCard');
+        if (!card) return;
+        const esc = s => this.escapeHtml(s);
+        const head = (label, sub) => `<summary><span class="practice-summary">
+                <span class="practice-label">Learning <b>${label}</b></span>
+                <span class="practice-sub">${sub}</span></span></summary>`;
+        let open = false;
+        try { open = localStorage.getItem('lifeOS_learningOpen') === '1'; } catch { /* storage blocked */ }
+        if (!this.convex) {
+            card.innerHTML = head('Connect Convex', 'Books, podcasts and newsletters you capture with Claude show here')
+                + '<div class="practice-body"><p class="practice-note">Connect Convex in Settings to see what you\'ve learned and what\'s due for review.</p></div>';
+            card.open = open;
+            return;
+        }
+        const l = this._learning;
+        const stale = !l || Date.now() - l.loadedAt > 60e3 || l.today !== this.localDateKey(new Date());
+        if (stale) this.loadLearning();
+        if (!l || l.error) {
+            card.innerHTML = head(l ? 'Couldn\'t load' : 'Loading&hellip;', l ? 'It will appear when the connection is back' : '&nbsp;');
+            card.open = false;
+            return;
+        }
+        const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+        const KIND = { book: ['book', 'books'], audiobook: ['audiobook', 'audiobooks'], podcast: ['episode', 'episodes'], newsletter: ['issue', 'issues'],
+            article: ['article', 'articles'], video: ['video', 'videos'], course: ['course', 'courses'], other: ['other', 'other'] };
+        const kindLabel = k => (KIND[k] || [k])[0];
+        const label = l.dueNow ? `${plural(l.dueNow, 'idea')} due for review` : l.toCaptureCount ? `${plural(l.toCaptureCount, 'source')} to capture` : 'All caught up';
+        const sub = [`This week: ${plural(l.week.finished, 'finished', 'finished')}`, plural(l.week.ideas, 'idea'),
+            l.month.retention !== null ? `retention ${l.month.retention}%` : null].filter(Boolean).join(' · ');
+
+        const tile = (n, what, cls = '') => `<div class="learning-tile${cls}"><span class="learning-big">${n}</span><span>${what}</span></div>`;
+        const tiles = `<div class="learning-tiles">
+            ${tile(l.week.finished, 'finished this week')}
+            ${tile(l.week.ideas, 'ideas captured')}
+            ${tile(l.dueNow, 'due for review', l.dueNow ? ' due' : '')}
+            ${tile(l.month.retention === null ? '&ndash;' : `${l.month.retention}%`, 'retention, 30 days')}
+        </div>`;
+        const byKind = Object.entries(l.week.finishedByKind || {}).map(([k, n]) => `${n} ${n === 1 ? (KIND[k] || [k])[0] : (KIND[k] || [k, k])[1]}`).join(' · ');
+        const item = s => `<li><span class="learning-kind">${esc(kindLabel(s.kind))}</span> <span class="learning-what">${esc(s.title)}${s.author ? ` <span class="learning-by">${esc(s.author)}</span>` : ''}</span>${s.progress && s.progress < 1 ? ` <span class="learning-by">${Math.round(s.progress * 100)}%</span>` : ''}</li>`;
+        const capture = l.toCapture.length ? `<div class="practice-kicker">Waiting for capture</div>
+            <ul class="learning-list">${l.toCapture.map(item).join('')}</ul>
+            ${l.toCaptureCount > l.toCapture.length ? `<p class="learning-hint">and ${l.toCaptureCount - l.toCapture.length} more</p>` : ''}
+            <p class="learning-hint">Tell Claude &ldquo;synth&rdquo; to recall and capture these.</p>` : '';
+        const weeks = (l.weeks || []).map(w => {
+            const h = w.retention === null ? 0 : Math.max(6, w.retention);
+            const day = new Date(`${w.week}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return `<div class="learning-bar" title="Week of ${day}: ${w.reviews ? `${w.retention}% on ${w.reviews} answers` : 'no quiz'}">
+                ${w.retention === null ? '' : `<span class="learning-bar-pct">${w.retention}</span>`}<span class="learning-bar-fill${w.retention === null ? ' empty' : ''}" style="height:${h}%"></span><span class="learning-bar-label">${day}</span></div>`;
+        }).join('');
+        const topics = (l.topics || []).map(t => `<span class="training-muscle${t.mastery >= 50 ? ' hit' : ''}">${esc(t.topic)} ${t.mastery}%</span>`).join('');
+        const reading = l.inProgress.length ? `<div class="practice-kicker">In progress</div><ul class="learning-list">${l.inProgress.map(item).join('')}</ul>` : '';
+
+        card.innerHTML = head(label, sub) + `<div class="practice-body">
+            <div class="practice-block">
+                ${tiles}
+                ${byKind ? `<p class="learning-hint">${esc(byKind)}</p>` : ''}
+                ${l.dueNow ? '<p class="learning-hint">Tell Claude &ldquo;quiz me&rdquo; to review them.</p>' : ''}
+            </div>
+            ${capture ? `<div class="practice-block">${capture}</div>` : ''}
+            <div class="practice-block">
+                <div class="practice-kicker">Retention by week</div>
+                <div class="learning-bars">${weeks}</div>
+                ${topics ? `<div class="practice-kicker learning-gap">Mastery by topic</div><div class="training-muscles">${topics}</div>` : ''}
+            </div>
+            ${reading ? `<div class="practice-block">${reading}</div>` : ''}
+            <p class="learning-hint learning-foot">Applied this month: ${l.month.applied} · ${plural(l.totalIdeas, 'idea')} in review · Spotify ${l.spotifyConnected ? 'connected' : 'not connected'}</p>
+        </div>`;
+        card.open = open;
+    }
+
+    async loadLearning() {
+        if (!this.convex || this._learningLoading) return;
+        this._learningLoading = true;
+        const today = this.localDateKey(new Date());
+        try {
+            const res = await this.convex.query('learning:getSummary', { today });
+            this._learning = { ...res, today, loadedAt: Date.now() };
+            if (this.applyLearningCheckoffs()) {
+                this.saveData();
+                this.renderAll(); // includes this card, now fresh
+            } else {
+                this.renderLearning();
+            }
+        } catch (e) {
+            console.error('[LifeOS] learning load failed:', e);
+            this._learning = { error: true, today, loadedAt: Date.now() };
+            this.renderLearning();
+        } finally {
+            this._learningLoading = false;
+        }
+    }
+
+    // Tick the synthesis goal on days ideas were captured and the weekly quiz on days with a quiz
+    applyLearningCheckoffs() {
+        const l = this._learning;
+        if (!l || l.error) return false;
+        let changed = false;
+        for (const g of this.LEARNING_GOALS) {
+            for (const day of g.days(l) || []) if (this.autoTickGoal(g.pattern, day)) changed = true;
+        }
+        return changed;
+    }
+
     // Tick the workout goals on each day a matching session was logged. Returns true if any cell changed.
     applyWorkoutCheckoffs() {
         const t = this._training;
@@ -3773,6 +3889,10 @@ class LifeOS {
         document.getElementById('practiceCard')?.addEventListener('toggle', (e) => {
             try { localStorage.setItem('lifeOS_practiceOpen', e.target.open ? '1' : '0'); } catch { /* storage blocked */ }
         });
+        document.getElementById('learningCard')?.addEventListener('toggle', (e) => {
+            if (e.target.id !== 'learningCard') return;
+            try { localStorage.setItem('lifeOS_learningOpen', e.target.open ? '1' : '0'); } catch { /* storage blocked */ }
+        });
 
         // Delegated: habit checkbox clicks — bound once, survives re-renders
         document.getElementById('habitsChecklist').addEventListener('click', (e) => {
@@ -4032,6 +4152,7 @@ class LifeOS {
 
     renderHabits() {
         this.renderPractice();
+        this.renderLearning();
         this.updateAppBadge();
         document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US', {
             weekday: 'long', month: 'long', day: 'numeric'

@@ -1325,6 +1325,124 @@ tr:hover .strike-dec { opacity: 1; }
     font-size: 1.1rem;
 }
 
+/* Learning card (Today tab): same shell as the practice card */
+.learning-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.learning-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px;
+    border-radius: 10px;
+    background: var(--surface);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    min-width: 0;
+}
+
+.learning-big {
+    font-family: var(--font-serif);
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.learning-tile.due .learning-big {
+    color: var(--primary);
+}
+
+.learning-hint {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin: 8px 0 0;
+}
+
+.learning-foot {
+    padding-top: 14px;
+}
+
+.learning-gap {
+    margin-top: 14px;
+}
+
+.learning-list {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    font-size: 0.9rem;
+}
+
+.learning-list li {
+    padding: 4px 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.learning-kind {
+    display: inline-block;
+    min-width: 64px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.learning-by {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.learning-bars {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 6px;
+    height: 96px;
+    margin-top: 8px;
+    align-items: end;
+}
+
+.learning-bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    height: 100%;
+    gap: 4px;
+}
+
+.learning-bar-fill {
+    width: 100%;
+    max-width: 26px;
+    border-radius: 4px 4px 0 0;
+    background: var(--primary);
+}
+
+.learning-bar-fill.empty {
+    height: 2px !important;
+    background: var(--border-light);
+}
+
+.learning-bar-pct {
+    font-size: 0.66rem;
+    color: var(--text-muted);
+}
+
+.learning-bar-label {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+    .learning-tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 /* This week's practice (cooking + writing curriculum): folded to one line, opens to the week */
 .practice-card {
     background: var(--card-bg);
