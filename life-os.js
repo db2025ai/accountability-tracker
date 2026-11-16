@@ -585,20 +585,22 @@ const MEDITATIONS = {
 // the five mother sauces and core methods first, a hosted dinner at the end). Writing is
 // deliberate practice (Kellogg & Whiteford): a targeted skill a week, Pennebaker-style journaling
 // (facts, then feelings, then meaning) and a read-then-imitate craft session.
-// Weekend first: the week starts Sunday and the weekend cook makes what the weeknight rep uses.
+// Weeknight first: the weeknight rep is a standalone 30 to 45 minute dinner early in the week (it may use
+// stock frozen in earlier weeks, never this week's weekend output); the weekend project closes the week.
 // Sources: one bought textbook (The Professional Chef, the CIA's own text, as the main cooking
 // reading), Salt Fat Acid Heat (already owned), and otherwise free: public-domain or freely posted
 // texts (PRACTICE_LINKS, shown as links on the card) or a Boston Public Library loan. Don't add
 // another book that has to be bought.
 const PRACTICE_LINKS = {
-    escoffier: { label: 'Escoffier, A Guide to Modern Cookery (free)', url: 'https://www.gutenberg.org/ebooks/71395' },
-    pepin: { label: 'Jacques Pépin Foundation technique videos', url: 'https://jp.foundation' },
+    escoffier: { label: 'Escoffier, A Guide to Modern Cookery (read online)', url: 'https://www.gutenberg.org/cache/epub/71395/pg71395-images.html' },
+    pepin: { label: 'Video: Jacques Pépin breaks down a chicken', url: 'https://jp.foundation/video/breaking-down-a-chicken' },
     bpl: { label: 'Boston Public Library eCard (free, for Libby)', url: 'https://bpl.org/ecard' },
     williams: { label: 'This Is Just To Say', url: 'https://www.poetryfoundation.org/poems/56159/this-is-just-to-say' },
     hayden: { label: 'Those Winter Sundays', url: 'https://www.poetryfoundation.org/poems/46461/those-winter-sundays' },
     orwell: { label: 'Politics and the English Language', url: 'https://public.websites.umich.edu/~sanders/214/other/paper/orwell.html' },
     heaney: { label: 'Digging', url: 'https://poetryfoundation.org/poems/47555/digging' },
-    bishop: { label: 'One Art', url: 'https://poemsontheunderground.org/one-art' }
+    bishop: { label: 'One Art', url: 'https://poemsontheunderground.org/one-art' },
+    didion: { label: 'Didion, Slouching Towards Bethlehem (borrow in Libby)', url: 'https://libbyapp.com/search/bpl/search/query-slouching%20towards%20bethlehem/page-1' }
 };
 const PRACTICE_TERM = {
     title: 'Term 1: Foundations',
@@ -615,10 +617,10 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Knife work, mise en place and breaking down a chicken',
                 why: 'Every program starts here. Even cuts cook evenly, and a whole bird gives you next week\'s stock.',
-                weekend: 'Break a whole chicken into 8 pieces and roast or sear them. Freeze the carcass, back and wing tips for stock.',
                 weeknight: 'Cut a full mirepoix (onion, carrot, celery) into even brunoise (3 mm dice), timed. Cook it into a soup or a soffritto pasta.',
+                weekend: 'Break a whole chicken into 8 pieces and roast or sear them. Freeze the carcass, back and wing tips for stock.',
                 doneWhen: 'Brunoise even enough to cook evenly; chicken broken down in under 10 minutes.',
-                study: 'The Professional Chef: the knife skills chapter and poultry fabrication. Watch Pépin\'s free knife and chicken videos too.',
+                study: 'The Professional Chef: the knife skills chapter and poultry fabrication. Then watch Pépin break down a chicken (link below).',
                 links: ['pepin']
             },
             write: {
@@ -635,19 +637,20 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Stocks: white and brown',
                 why: 'Stock is the base of every mother sauce. Boxed stock has almost no gelatin, which is why pan sauces go thin.',
-                weekend: 'White chicken stock from last week\'s carcass plus extra backs or feet, and brown stock from roasted beef or veal bones with tomato paste. Simmer, never boil. Freeze in 1-cup portions.',
-                weeknight: 'Chill a cup of each: it should set. Then make a pan sauce with your stock and one with boxed stock, and compare the body.',
+                weeknight: 'Baseline, 30 min: sear chicken thighs and make a pan sauce with boxed stock (shallot, wine, stock, butter). Note how thin it is. Your own stock on the weekend is the fix.',
+                weekend: 'White chicken stock from last week\'s carcass plus extra backs or feet, and brown stock from roasted beef or veal bones with tomato paste. Simmer, never boil. Chill a cup of each overnight: it should set. Freeze the rest in 1-cup portions.',
                 doneWhen: 'Stock sets like loose jelly when cold and stays clear.',
                 study: 'The Professional Chef: the stocks chapter. Cross-check Escoffier, Chapter I, Nos. 7 to 10.',
                 links: ['escoffier']
             },
             write: {
                 focus: 'What a journal is for',
-                read: 'Joan Didion, "On Keeping a Notebook".',
+                read: 'Joan Didion, "On Keeping a Notebook" (in Slouching Towards Bethlehem, free through Libby).',
                 wed: 'Write down one overheard line or small detail from today, then why it stuck with you.',
                 sat: 'How it felt to be you on one specific day this week. Skip the play-by-play.',
                 craft: 'Keep a list of 10 things you noticed this week. Turn the best three into a 10-line poem.',
                 check: 'Details are observed, not summarized.',
+                links: ['didion'],
                 feedback: 'Send me (Claude) one piece from this week, a photo of the page is fine, for feedback on this week\'s skill.'
             }
         },
@@ -655,8 +658,8 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Roasting, resting and carryover heat',
                 why: 'Roasting is a core dry-heat method, and Thanksgiving week gives you a high-stakes rep.',
-                weekend: 'Dry-brine and roast a whole bird (the Thanksgiving turkey or a chicken) by thermometer, rest it, and make a pan gravy thickened with roux and your own stock.',
                 weeknight: 'Reverse-sear a thick pork chop: low oven to 5°F under your target, then a hard sear.',
+                weekend: 'Dry-brine and roast a whole bird (the Thanksgiving turkey or a chicken) by thermometer, rest it, and make a pan gravy thickened with roux and your own stock.',
                 doneWhen: 'Pulled within 3°F of target; gravy smooth with no raw-flour taste.',
                 study: 'The Professional Chef: the roasting chapter. Salt Fat Acid Heat: the Salt chapter, on salting meat ahead.'
             },
@@ -674,8 +677,8 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Roux and béchamel (mother sauce 1)',
                 why: 'Roux thickens three of the five mother sauces. Learn white, blond and brown roux here.',
-                weekend: 'Béchamel, then two derivatives: Mornay (cheese) for a gratin or croque monsieur, and Soubise (onion). Stretch: lasagna with béchamel.',
-                weeknight: 'Béchamel from memory, turned into Mornay for mac and cheese. 30 minutes.',
+                weeknight: 'Mac and cheese from scratch, 30 min: béchamel with the book open, turned into Mornay with cheddar and Gruyère.',
+                weekend: 'Béchamel from memory, then two derivatives: Mornay (cheese) for a gratin or croque monsieur, and Soubise (onion). Stretch: lasagna with béchamel.',
                 doneWhen: 'No lumps, coats the back of a spoon (nappe), no floury taste.',
                 study: 'The Professional Chef: the sauces chapter, roux and béchamel. Cross-check Escoffier, Chapter II, Nos. 19 to 21 and 28.',
                 links: ['escoffier']
@@ -695,8 +698,8 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Velouté (mother sauce 2) and gentle poaching',
                 why: 'Velouté is stock thickened with blond roux, so it shows whether your stock is good.',
+                weeknight: 'Poach a chicken breast in your frozen white stock, then make sauce suprême (velouté plus cream) from the poaching liquid.',
                 weekend: 'Chicken blanquette: chicken poached in your white stock, the liquid made into velouté and finished with cream and egg yolk.',
-                weeknight: 'Poach a chicken breast in stock, then make sauce suprême (velouté plus cream) from the poaching liquid.',
                 doneWhen: 'Velouté glossy and skimmed; chicken tender, never boiled.',
                 study: 'The Professional Chef: velouté in the sauces chapter, and poaching. Cross-check Escoffier, Chapter II, Nos. 25 to 27.',
                 links: ['escoffier']
@@ -714,8 +717,8 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Pan sauces, done right (sauté and pan-frying)',
                 why: 'The rematch for your 70% hit rate, now with gelatin-rich stock and roux skills behind you.',
+                weeknight: 'Steak au poivre: cognac flambé, your frozen stock, cream.',
                 weekend: 'Duck breast scored and rendered from a cold pan, with a port and cherry reduction mounted with cold butter off the heat.',
-                weeknight: 'Steak au poivre: cognac flambé, your stock, cream.',
                 doneWhen: 'Three pan sauces in a row that coat the spoon, don\'t break and are salted only at the end.',
                 study: 'The four failure modes: broken (too hot), thin (no gelatin), salty (reduced salted stock), bitter (burnt fond). Then Salt Fat Acid Heat: the Acid chapter, on balancing a sauce.'
             },
@@ -735,8 +738,8 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Espagnole and demi-glace (mother sauce 3)',
                 why: 'The brown sauce family. Demi-glace in the freezer makes restaurant sauces a 15-minute job.',
-                weekend: 'Espagnole from brown roux, brown stock, mirepoix and tomato, then demi-glace: equal parts espagnole and brown stock, reduced by half. Freeze in ice cube trays.',
-                weeknight: 'Bordelaise (red wine, shallot, demi-glace) over a seared steak.',
+                weeknight: 'Seared steak with a quick red wine pan sauce from your frozen brown stock (shallot, wine, stock, cold butter). The weekend\'s demi-glace is the long version.',
+                weekend: 'Espagnole from brown roux, brown stock, mirepoix and tomato, then demi-glace: equal parts espagnole and brown stock, reduced by half. Make bordelaise with it over steak, then freeze the rest in ice cube trays.',
                 doneWhen: 'Demi-glace coats the spoon and sets firm in the fridge.',
                 study: 'The Professional Chef: brown sauce and demi-glace in the sauces chapter. Cross-check Escoffier, Chapter II, Nos. 22 and 23, and Chapter III, No. 32 (bordelaise).',
                 links: ['escoffier']
@@ -755,8 +758,8 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Tomato sauce (mother sauce 4), classical vs. Italian',
                 why: 'Same ingredient, two traditions. Tasting them side by side trains your palate.',
-                weekend: 'Classical sauce tomate (salt pork, mirepoix, stock), then braise chicken cacciatore or braciole in it.',
-                weeknight: 'Marcella Hazan\'s tomato sauce with butter and onion over pasta. Compare it with the classical one.',
+                weeknight: 'Marcella Hazan\'s tomato sauce with butter and onion over pasta, 45 min. Save a cup.',
+                weekend: 'Classical sauce tomate (salt pork, mirepoix, stock), then braise chicken cacciatore or braciole in it. Taste it next to the saved Hazan sauce.',
                 doneWhen: 'You can say why each tastes the way it does, and both are balanced for salt and acid.',
                 study: 'The Professional Chef: tomato sauce in the sauces chapter, and Escoffier, Chapter II, No. 29. Then compare both with Hazan\'s method.',
                 links: ['escoffier']
@@ -775,8 +778,8 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Hollandaise and béarnaise (mother sauce 5, warm emulsions)',
                 why: 'The sauces most likely to break, so learn to fix them, not just make them.',
-                weekend: 'Eggs Benedict brunch: poached eggs and hollandaise whisked by hand, no blender.',
                 weeknight: 'Béarnaise (tarragon and shallot reduction) with steak and potatoes. Break one on purpose and rescue it with warm water and a fresh yolk.',
+                weekend: 'Eggs Benedict brunch: poached eggs and hollandaise whisked by hand, no blender.',
                 doneWhen: 'Hollandaise holds for 20 minutes, and you\'ve rescued a broken one.',
                 study: 'The Professional Chef: hollandaise in the sauces chapter. Salt Fat Acid Heat: the Fat chapter, on emulsions. Cross-check Escoffier, Chapter II, No. 30 and Chapter III, No. 62.',
                 links: ['escoffier']
@@ -794,8 +797,8 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Fish: filleting, fumet, poaching and beurre blanc',
                 why: 'Fish butchery and cold emulsions round out the Basic-tier skill list.',
+                weeknight: 'Seared fish fillets with beurre blanc, plus aioli whisked by hand.',
                 weekend: 'Buy a whole round fish (branzino or striped bass), fillet it, make a quick fumet from the frame and poach the fillets in it.',
-                weeknight: 'Seared or poached fish with beurre blanc, plus mayonnaise or aioli whisked by hand.',
                 doneWhen: 'Clean fillets with little flesh left on the frame; beurre blanc holds.',
                 study: 'The Professional Chef: fish fabrication and shallow poaching, plus beurre blanc. Cross-check Escoffier, Chapter I, No. 11 (fish stock).',
                 links: ['escoffier']
@@ -815,8 +818,8 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Braising, using everything so far',
                 why: 'Braising pulls together stock, searing and sauce reduction in one dish.',
-                weekend: 'Coq au vin or beef short ribs braised in red wine and your brown stock, with the liquid reduced into the sauce.',
                 weeknight: 'Chicken thighs braised with leeks and white wine in 45 minutes.',
+                weekend: 'Coq au vin or beef short ribs braised in red wine and your brown stock, with the liquid reduced into the sauce.',
                 doneWhen: 'Meat fork-tender; sauce skimmed and reduced to coat a spoon.',
                 study: 'The Professional Chef: the braising and stewing chapter. Salt Fat Acid Heat: the Heat chapter.'
             },
@@ -833,8 +836,8 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Practical exam: a three-course dinner, no recipes',
                 why: 'Le Cordon Bleu ends each tier with a hosted event. This is yours.',
-                weekend: 'Host dinner: a starter with a cold emulsion, a main with a mother-sauce derivative from your own stock, and a dessert. Write the timeline and mise en place on paper first.',
                 weeknight: 'Dry run of the main, timed.',
+                weekend: 'Host dinner: a starter with a cold emulsion, a main with a mother-sauce derivative from your own stock, and a dessert. Write the timeline and mise en place on paper first.',
                 doneWhen: 'Three courses out on time, from memory. Note what to drill in Term 2.',
                 study: 'Plan the menu and prep list. Nothing new to read.'
             },
@@ -898,6 +901,10 @@ const SKINCARE = {
 // counts and a lone snack doesn't. addTrackingGoal adds it once to existing data.
 const TRACKING_GOAL = { category: 'Physical Health', name: 'Track calories + macros (log 75% of target)', target: 'daily' };
 const TRACKING_SHARE = 0.75;
+// This week's goal (Today tab card): set Monday morning, closed out at the weekend. Saving it ticks the
+// existing "Set week specific goals on Monday" goal. Sunday stays free: no prompt, only last week's close-out.
+const WEEK_GOAL_PATTERN = /set week.*goals?/i;
+const WEEK_GOAL_RESULTS = { hit: 'Hit it', partly: 'Partly', missed: 'Missed' };
 // Goals the curriculum replaces: the whole Cooking category and the old journaling / open writing goals
 const PRACTICE_REPLACES = g => g.category === 'Cooking' || /written journaling|open writing session/i.test(g.name);
 
@@ -940,6 +947,7 @@ class LifeOS {
             journalImportDates: [], // local dates of entries imported from another journal app (text is in the archive)
             activityLog: [],
             meditationLog: [],  // { date, ts, kind, minutes } — finished guided sessions
+            weekGoals: {},      // { 'YYYY-MM-DD' (the week's Sunday): { text, step, setAt, result? } }
             settings: {
                 scoringCutover: DEFAULT_SCORING_CUTOVER,
                 practiceGoals: PRACTICE_GOALS_VERSION, // defaults already have the curriculum goals
@@ -3774,6 +3782,21 @@ class LifeOS {
             try { localStorage.setItem('lifeOS_practiceOpen', e.target.open ? '1' : '0'); } catch { /* storage blocked */ }
         });
 
+        // This week's goal card: save, edit, close out (bound once, the card re-renders)
+        document.getElementById('weekGoalCard')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-wg]');
+            if (!btn) return;
+            const act = btn.dataset.wg;
+            if (act === 'save') this.saveWeekGoal();
+            else if (act === 'edit') { this._weekGoalEditing = true; this.renderWeekGoal(); document.getElementById('weekGoalText')?.focus(); }
+            else if (act === 'cancel') { this._weekGoalEditing = false; this.renderWeekGoal(); }
+            else if (act === 'result') this.setWeekGoalResult(btn.dataset.key, btn.dataset.result);
+        });
+        document.getElementById('weekGoalCard')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.id === 'weekGoalStep') { e.preventDefault(); this.saveWeekGoal(); }
+            if (e.key === 'Enter' && e.target.id === 'weekGoalText') { e.preventDefault(); document.getElementById('weekGoalStep')?.focus(); }
+        });
+
         // Delegated: habit checkbox clicks — bound once, survives re-renders
         document.getElementById('habitsChecklist').addEventListener('click', (e) => {
             // Remember which folded sections (Done, Missed, Limits…) are open across re-renders
@@ -3951,7 +3974,7 @@ class LifeOS {
         const linkList = keys => (keys || []).map(k => PRACTICE_LINKS[k]).filter(Boolean)
             .map(l => `<a href="${this.escapeAttr(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join('');
         const rows = pairs => `<dl class="practice-list">${pairs.filter(([, v]) => v).map(([k, v, raw]) => `<dt>${k}</dt><dd>${raw ? v : esc(v)}</dd>`).join('')}</dl>`;
-        const linksRow = keys => linkList(keys) ? ['Free links', `<span class="practice-links">${linkList(keys)}</span>`, true] : ['', ''];
+        const linksRow = keys => linkList(keys) ? ['Links', `<span class="practice-links">${linkList(keys)}</span>`, true] : ['', ''];
         const next = term.weeks.findIndex((w, i) => i > (pw.idx ?? -1) && !w.pause);
 
         let label, sub, body;
@@ -3978,7 +4001,7 @@ class LifeOS {
                     <div class="practice-kicker">Cooking</div>
                     <h4 class="practice-title">${esc(cook.method)}</h4>
                     <p class="practice-why">${esc(cook.why)}</p>
-                    ${rows([['Weekend project', cook.weekend], ['Weeknight rep', cook.weeknight], ['Done when', cook.doneWhen], ['Study', cook.study], linksRow(cook.links)])}
+                    ${rows([['Weeknight rep (Mon to Thu, about 45 min)', cook.weeknight], ['Weekend project', cook.weekend], ['Done when', cook.doneWhen], ['Study', cook.study], linksRow(cook.links)])}
                 </div>
                 <div class="practice-block">
                     <div class="practice-kicker">Writing</div>
@@ -4030,7 +4053,91 @@ class LifeOS {
             <summary>${this.escapeHtml(r.title)} · ${r.steps.length} steps</summary><ol>${steps}</ol></details>`;
     }
 
+    // This week's goal. Weeks run Sunday to Saturday; the key is the week's Sunday.
+    weekGoalKey(date = new Date()) {
+        return this.localDateKey(this.getWeekStartDate(date));
+    }
+
+    weekGoalFor(date = new Date()) {
+        return (this.data.weekGoals || {})[this.weekGoalKey(date)] || null;
+    }
+
+    // What the card shows: 'set' (Mon to Sat, no goal yet), 'goal' (set; close-out on Fri and Sat),
+    // 'closeout' (Sunday: last week's goal still open), or null (Sunday, nothing to do)
+    weekGoalState(now = new Date()) {
+        const day = now.getDay();
+        if (day === 0) {
+            const last = new Date(now); last.setDate(last.getDate() - 7);
+            const g = this.weekGoalFor(last);
+            return g && !g.result ? { state: 'closeout', key: this.weekGoalKey(last), goal: g } : null;
+        }
+        const g = this.weekGoalFor(now);
+        if (!g || this._weekGoalEditing) return { state: 'set', key: this.weekGoalKey(now), goal: g };
+        return { state: 'goal', key: this.weekGoalKey(now), goal: g, closeout: day >= 5 };
+    }
+
+    renderWeekGoal(now = new Date()) {
+        const card = document.getElementById('weekGoalCard');
+        if (!card) return;
+        const st = this.weekGoalState(now);
+        if (!st) { card.hidden = true; card.innerHTML = ''; return; }
+        card.hidden = false;
+        const esc = v => this.escapeHtml(v || '');
+        const results = (key, current) => `<div class="week-goal-results">${Object.entries(WEEK_GOAL_RESULTS).map(([k, label]) =>
+            `<button type="button" class="week-goal-result${current === k ? ' active' : ''}" data-wg="result" data-key="${key}" data-result="${k}">${label}</button>`).join('')}</div>`;
+
+        if (st.state === 'set') {
+            const editing = !!st.goal;
+            const late = now.getDay() > 1 && !editing;
+            card.innerHTML = `<div class="week-goal-kicker">This week's goal</div>
+                <p class="week-goal-hint">${editing ? 'Change it if the week changed.' : late ? 'Not set yet. Take two minutes now: one goal that would make this week a win.' : 'Monday morning, with intention: one goal that would make this week a win.'}</p>
+                <input type="text" id="weekGoalText" class="week-goal-input" maxlength="140" autocapitalize="sentences" placeholder="This week I will..." value="${this.escapeAttr(st.goal?.text || '')}">
+                <input type="text" id="weekGoalStep" class="week-goal-input" maxlength="140" autocapitalize="sentences" placeholder="First step, and when (optional)" value="${this.escapeAttr(st.goal?.step || '')}">
+                <div class="week-goal-actions">
+                    <button type="button" class="btn btn-primary" data-wg="save">Set goal</button>
+                    ${editing ? '<button type="button" class="btn btn-secondary" data-wg="cancel">Cancel</button>' : ''}
+                </div>`;
+        } else if (st.state === 'goal') {
+            card.innerHTML = `<div class="week-goal-head">
+                    <div class="week-goal-kicker">This week's goal</div>
+                    <button type="button" class="week-goal-edit" data-wg="edit">Edit</button>
+                </div>
+                <p class="week-goal-text">${esc(st.goal.text)}</p>
+                ${st.goal.step ? `<p class="week-goal-step">First step: ${esc(st.goal.step)}</p>` : ''}
+                ${st.closeout ? `<p class="week-goal-hint">How did it go?</p>${results(st.key, st.goal.result)}` : ''}`;
+        } else {
+            card.innerHTML = `<div class="week-goal-kicker">Last week's goal</div>
+                <p class="week-goal-text">${esc(st.goal.text)}</p>
+                <p class="week-goal-hint">How did it go? New goal tomorrow morning.</p>
+                ${results(st.key, st.goal.result)}`;
+        }
+    }
+
+    saveWeekGoal(now = new Date()) {
+        const text = document.getElementById('weekGoalText')?.value.trim();
+        const step = document.getElementById('weekGoalStep')?.value.trim() || '';
+        if (!text) { document.getElementById('weekGoalText')?.focus(); return; }
+        const key = this.weekGoalKey(now);
+        const prev = (this.data.weekGoals ||= {})[key];
+        this.data.weekGoals[key] = { ...prev, text, step, setAt: prev?.setAt || now.toISOString() };
+        // First time this week: tick "Set week specific goals on Monday" on the day it was set
+        if (!prev) this.checkOffGoal(WEEK_GOAL_PATTERN, now);
+        this._weekGoalEditing = false;
+        this.saveData();
+        this.renderHabits();
+    }
+
+    setWeekGoalResult(key, result) {
+        const g = this.data.weekGoals?.[key];
+        if (!g || !WEEK_GOAL_RESULTS[result]) return;
+        g.result = g.result === result ? undefined : result;
+        if (!g.result) delete g.result;
+        this.saveData();
+        this.renderWeekGoal();
+    }
+
     renderHabits() {
+        this.renderWeekGoal();
         this.renderPractice();
         this.updateAppBadge();
         document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US', {
@@ -5501,6 +5608,14 @@ class LifeOS {
         const week = this.getCurrentWeek();
         if (week) {
             document.getElementById('reviewWeekDate').textContent = this.formatWeekDate(week.startDate);
+        }
+
+        // This week's goal and how it went
+        const wgEl = document.getElementById('reviewWeekGoal');
+        if (wgEl) {
+            const g = week && (this.data.weekGoals || {})[this.localDateKey(this.weekStartOf(week))];
+            wgEl.hidden = !g;
+            wgEl.innerHTML = g ? `<span class="week-goal-kicker">Goal</span> ${this.escapeHtml(g.text)}${g.result ? ` <b>· ${WEEK_GOAL_RESULTS[g.result]}</b>` : ''}` : '';
         }
 
         // Strike summary

@@ -315,6 +315,9 @@
                 </div>
             </div>
 
+            <!-- This week's goal (set Monday, closed out at the weekend): renderWeekGoal() -->
+            <div class="week-goal-card" id="weekGoalCard" hidden></div>
+
             <!-- This week's practice (cooking + writing curriculum): renderPractice() -->
             <details class="practice-card" id="practiceCard"></details>
 
@@ -473,6 +476,7 @@
             <!-- Review Summary -->
             <div class="review-summary">
                 <h3>Week of <span id="reviewWeekDate"></span></h3>
+                <p class="review-week-goal" id="reviewWeekGoal" hidden></p>
 
                 <!-- Strike Summary -->
                 <div id="strikeSummaryCard" class="strike-summary-card" style="display:none;">

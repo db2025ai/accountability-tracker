@@ -1391,8 +1391,54 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     }), [[2, 4, 6, 8, 10], 10]);
     check('week 2 shows the feedback row', /Feedback ?Send me \(Claude\) one piece/.test(await page.textContent('#practiceCard')), true);
     check('week 2 links Escoffier, opening a new tab', await page.$$eval('#practiceCard .practice-list a', as => as.map(a => [a.textContent, a.target, a.rel])),
-        [['Escoffier, A Guide to Modern Cookery (free)', '_blank', 'noopener']]);
+        [['Escoffier, A Guide to Modern Cookery (read online)', '_blank', 'noopener'], ['Didion, Slouching Towards Bethlehem (borrow in Libby)', '_blank', 'noopener']]);
+    // Weeknight rep comes first and never needs this week's weekend cook
+    check('week 2: weeknight rep listed before the weekend project', await page.$$eval('#practiceCard .practice-block:first-child dt', d => d.slice(0, 2).map(x => x.textContent)),
+        ['Weeknight rep (Mon to Thu, about 45 min)', 'Weekend project']);
+    check('week 2 weeknight is a boxed-stock baseline', /Weeknight rep[^]*?Baseline, 30 min/.test(await page.textContent('#practiceCard')), true);
+    check('no link goes to a site home page', await page.evaluate(() => Object.values(PRACTICE_LINKS).every(l => new URL(l.url).pathname.length > 1)), true);
     check('fits a 390px phone', await page.evaluate(() => document.documentElement.scrollWidth <= 390), true);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
+// ================= This week's goal: set Monday, closed out at the weekend =================
+{
+    const wgSeed = JSON.parse(JSON.stringify(seed));
+    const setRow = { category: 'Mental Health', name: 'Set week specific goals on Monday', target: 'weekly' };
+    wgSeed.goals.push(setRow);
+    for (const w of wgSeed.weeks) w.entries[999] = { goal: { ...setRow }, tracking: ['', '', '', '', '', '', ''] };
+    const { context, page, errors } = await newPage({ width: 390, seedData: wgSeed });
+    console.log("\n— This week's goal —");
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
+    const card = () => page.$eval('#weekGoalCard', c => [c.hidden, c.textContent.replace(/\s+/g, ' ').trim()]);
+    // Today is Tue Oct 13: nothing set yet, so it asks now
+    check('Tuesday, unset: asks for a goal', (await card())[1].startsWith("This week's goal Not set yet"), true);
+    await page.fill('#weekGoalText', 'Ship the board deck draft <b>');
+    await page.fill('#weekGoalStep', 'Outline Monday 9am');
+    await page.click('#weekGoalCard button[data-wg="save"]');
+    check('saved and shown, escaped', await card(), [false, "This week's goal Edit Ship the board deck draft <b> First step: Outline Monday 9am"]);
+    check('ticks "Set week specific goals" on the day it was set; stored under the Sunday', await page.evaluate(() => [
+        Object.values(lifeOS.getTodayWeek().entries).find(e => /Set week specific/.test(e.goal.name)).tracking,
+        Object.keys(JSON.parse(localStorage.getItem('lifeOSData')).weekGoals)]),
+        [['', '', 'X', '', '', '', ''], ['2026-10-11']]);
+    // Edit keeps it and doesn't tick again
+    await page.click('#weekGoalCard button[data-wg="edit"]');
+    await page.fill('#weekGoalText', 'Ship the board deck draft');
+    await page.press('#weekGoalStep', 'Enter');
+    check('edit saves', (await card())[1].includes('Ship the board deck draft First step'), true);
+    const at = t => page.evaluate(d => { lifeOS.renderWeekGoal(new Date(d)); const c = document.getElementById('weekGoalCard'); return [c.hidden, c.textContent.replace(/\s+/g, ' ').trim()]; }, t);
+    check('next Monday: Monday-morning prompt', (await at('2026-10-19T08:00:00-04:00'))[1].startsWith("This week's goal Monday morning, with intention"), true);
+    check('Friday: how did it go', (await at('2026-10-16T18:00:00-04:00'))[1].endsWith('How did it go?Hit itPartlyMissed'), true);
+    await page.click('#weekGoalCard button[data-result="partly"]');
+    check('result saved', await page.evaluate(() => lifeOS.data.weekGoals['2026-10-11'].result), 'partly');
+    // Sunday: no new prompt; last week's close-out only if still open
+    check('Sunday after a closed-out week: hidden', (await at('2026-10-18T10:00:00-04:00'))[0], true);
+    await page.evaluate(() => { delete lifeOS.data.weekGoals['2026-10-11'].result; });
+    check('Sunday with last week open: close-out only', (await at('2026-10-18T10:00:00-04:00'))[1], "Last week's goal Ship the board deck draft How did it go? New goal tomorrow morning. Hit itPartlyMissed");
+    await page.evaluate(() => { lifeOS.data.weekGoals['2026-10-11'].result = 'hit'; lifeOS.navigateTo('review'); });
+    check('Weekly Review shows the goal and result', await page.$eval('#reviewWeekGoal', e => [e.hidden, e.textContent.replace(/\s+/g, ' ').trim()]), [false, 'Goal Ship the board deck draft · Hit it']);
+    check('fits a 390px phone', await page.evaluate(() => { lifeOS.navigateTo('habits'); return document.documentElement.scrollWidth <= 390; }), true);
     check('no page errors', errors, []);
     await context.close();
 }
