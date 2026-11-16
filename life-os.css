@@ -1325,6 +1325,108 @@ tr:hover .strike-dec { opacity: 1; }
     font-size: 1.1rem;
 }
 
+/* This week's goal: set Monday morning, closed out at the weekend */
+.week-goal-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    min-width: 0;
+}
+
+.week-goal-card[hidden],
+.review-week-goal[hidden] {
+    display: none;
+}
+
+.week-goal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.week-goal-kicker {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--primary);
+}
+
+.week-goal-edit {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 4px 0 4px 12px;
+}
+
+.week-goal-text {
+    font-family: var(--font-serif);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 6px 0 2px;
+    overflow-wrap: anywhere;
+}
+
+.week-goal-step,
+.week-goal-hint {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 4px 0 0;
+}
+
+.week-goal-input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;
+}
+
+.week-goal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.week-goal-results {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.week-goal-result {
+    flex: 1;
+    padding: 10px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.week-goal-result.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-primary);
+}
+
+.review-week-goal {
+    margin: 4px 0 12px;
+    overflow-wrap: anywhere;
+}
+
 /* This week's practice (cooking + writing curriculum): folded to one line, opens to the week */
 .practice-card {
     background: var(--card-bg);
