@@ -750,6 +750,36 @@ h1, h2,
     max-width: 250px;
 }
 
+/* Goal names stay pinned on the left while the day cells scroll under them.
+   Collapsed table borders scroll away with the table, so the pinned edge is drawn with a shadow. */
+.goals-grid .goal-name-head,
+.goals-grid .goal-name-cell {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--card-bg);
+    background-clip: padding-box;
+    box-shadow: inset -1px 0 0 var(--border);
+}
+.goals-grid .goal-name-head { background: var(--surface); }
+
+/* Category and total labels span the whole row; the inner label pins so it stays readable */
+.goals-grid .pin-label {
+    position: sticky;
+    left: 12px;
+    display: inline-block;
+}
+
+/* Today's column */
+.goals-grid th.today-col {
+    color: var(--primary);
+    background: var(--primary-tint);
+    box-shadow: inset 0 -2px 0 var(--primary);
+}
+.goals-grid .day-cell.today-col:not(.off-day):not(.skipped):not(.inferred-miss) {
+    background: var(--primary-tint);
+}
+
 .goals-grid .day-cell {
     cursor: pointer;
     min-width: 50px;
@@ -3289,29 +3319,40 @@ button.habit-checkbox {
 @media (max-width: 768px) {
     /* Shrink goal name col and day cells to fit screen */
     .goals-grid-container {
-        padding: 10px 6px;
+        padding: 10px 0; /* no side padding: cells scrolling under the pinned names would show through it */
     }
     .goals-grid th,
     .goals-grid td {
         padding: 8px 5px;
         font-size: 0.72rem;
     }
+    /* Full goal name, wrapped, in a pinned column (no "…" truncation) */
+    .goals-grid .goal-name-head,
     .goals-grid .goal-name-cell {
-        max-width: 100px;
+        width: 30%;
+        min-width: 88px;
+        max-width: 140px;
         font-size: 0.72rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        line-height: 1.25;
+        white-space: normal;
+        overflow-wrap: break-word;
+        padding-left: 6px;
     }
     .goals-grid .day-cell {
-        min-width: 36px;
+        min-width: 30px;
         height: 44px; /* larger touch target */
+        padding: 2px 1px;
         font-size: 1rem;
     }
+    .goals-grid th.day-header { padding: 6px 1px; }
+    .goals-grid thead th:last-child { padding: 6px 2px; letter-spacing: 0; font-size: 0.65rem; }
+    .goals-grid .pin-label { left: 6px; }
+    .goals-grid .subtotal-label,
+    .goals-grid .grand-total-label { text-align: left; }
     .goals-grid .day-cell.completed { font-size: 1.1rem; }
     .goals-grid .day-cell.missed    { font-size: 1.1rem; }
     .strike-inc, .strike-dec {
-        padding: 3px 6px;
+        padding: 3px 4px;
         font-size: 0.8rem;
         opacity: 1; /* always visible on mobile */
     }
