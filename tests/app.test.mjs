@@ -161,6 +161,11 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     check('grid marks Mon blank as inferred miss, today plain', skincareRow, ['completed', 'inferred-miss', 'today-col']);
     check('only today\'s column header is highlighted', await page.$$eval('#goalsGrid thead th.today-col', ths => ths.map(th => th.dataset.day)), ['2']);
     check('goal names stay pinned when the grid scrolls sideways', await page.$eval('#goalsGrid .goal-name-cell', td => getComputedStyle(td).position), 'sticky');
+    check('category strike count sits in the category header row', await page.$$eval('.cat-row', rows => rows.find(r => r.textContent.includes('Morning Protocol')).querySelector('.subtotal-val').textContent), '2');
+    await page.evaluate(() => [...document.querySelectorAll('#goalsGrid tr')].find(tr => tr.querySelector('.goal-name-cell')?.textContent === 'Skincare AM').querySelector('.strike-cell').click());
+    check('tapping a strike count opens − / + for that row only', await page.$$eval('#goalsGrid .goal-row.adjusting .goal-name-cell', tds => tds.map(td => td.textContent)), ['Skincare AM']);
+    await page.evaluate(() => [...document.querySelectorAll('#goalsGrid tr')].find(tr => tr.querySelector('.goal-name-cell')?.textContent === 'Skincare AM').querySelector('.strike-cell').click());
+    check('tapping it again closes it', await page.$$eval('#goalsGrid .goal-row.adjusting', trs => trs.length), 0);
     check('Morning Protocol subtotal', await page.$$eval('.subtotal-row', rows => rows.find(r => r.textContent.includes('Morning Protocol')).querySelector('.subtotal-val').textContent), '2');
 
     // − on an inferred miss lowers the count (manual goes negative), never below 0
