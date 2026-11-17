@@ -742,9 +742,23 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         lifeOS._medTimeScale = 150;
         await lifeOS.startMeditation('reflect', 3);
         lifeOS.closeMedPlayer();
-        return { log: lifeOS.data.meditationLog.at(-1), theme: lifeOS.themeOfDay(MEDITATIONS.reflect.themes).id, ended: Math.abs(lifeOS._med.endedAt - 180) <= 5 };
+        const theme = lifeOS.themeOfDay(MEDITATIONS.reflect.themes);
+        const steps = MEDITATIONS.reflect.build(3, theme);
+        const closing = steps.slice(steps.findIndex(st => st.closing) + 1).filter(st => st.say).map(st => st.say);
+        return { log: lifeOS.data.meditationLog.at(-1), theme: theme.id, ended: Math.abs(lifeOS._med.endedAt - 180) <= 5,
+            tones: (lifeOS._med.toneLog || []).length, closing, prompts: theme.prompts, carry: theme.carry };
     });
     check("a Reflect session logs the day's theme and ends on time", [themed.log.kind, themed.log.theme, themed.ended], ['reflect', themed.theme, true]);
+    check('Reflect paces its quiet stretches with breath tones', themed.tones > 10, true);
+    check("Reflect closes on the theme's last prompt, then its carry line", [themed.closing[0], themed.closing.at(-1)], [themed.prompts[2], themed.carry]);
+    // Quiet breathing left over in a 3-minute Reflect stays short (it was about a minute)
+    const quiet = await page.evaluate(() => Math.max(...MEDITATIONS.reflect.themes.map(theme => {
+        const steps = MEDITATIONS.reflect.build(3, theme);
+        const at = steps.findIndex(s => s.closing);
+        const closing = steps.slice(at + 1).reduce((t, s) => t + lifeOS.medEstimate(s), 0);
+        return 180 - 1.2 - closing - steps.slice(0, at).filter(s => !s.fill).reduce((t, s) => t + lifeOS.medEstimate(s), 0);
+    })));
+    check('3-minute Reflect leaves at most ~40s of open breathing', quiet <= 40, true);
     check('no page errors', errors, []);
     await context.close();
 }

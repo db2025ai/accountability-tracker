@@ -501,9 +501,16 @@ const MEDITATIONS = {
         blurb: "A short talk on today's theme, then a few minutes with it",
         icon: '<path d="M4 18.5h16M7 15a5 5 0 0 1 10 0M12 4.5v3M5.4 8.4l1.6 1.6M18.6 8.4 17 10"/>',
         themes: REFLECT_THEMES,
-        // The day's theme: arrive (3 and 5 min), the talk, then its prompts. 1 minute is the core idea and one prompt
+        // Quiet stretches are paced by the breathing orb and a soft tone on each in- and out-breath
+        // (user's feedback, Nov 16: the silent gaps made him drowsy), with no extra talking.
+        tones: true,
+        // The day's theme: arrive (3 and 5 min), the talk, two prompts each held for a few breaths, then
+        // the closing: the theme's last prompt as a closing reflection, and its carry line.
+        // 1 minute is the core idea, one prompt and the carry line.
         build: (min, theme = REFLECT_THEMES[0]) => {
             const short = min < 3;
+            // A prompt held for a number of easy breaths (10 s each), with a tone on each in and out
+            const hold = (say, pause) => ({ say, pause, breatheAfter: 'easy' });
             return [
                 ...(short ? [] : [
                     { say: 'Welcome. Find a comfortable position, and close your eyes if you like.', pause: 1 },
@@ -512,10 +519,15 @@ const MEDITATIONS = {
                 ]),
                 { say: `Today's theme: ${theme.title}.`, pause: 1.5 },
                 ...theme.talk.slice(0, short ? 1 : 3).map(say => ({ say, pause: 1.5 })),
-                ...theme.prompts.slice(0, min >= 5 ? 3 : short ? 1 : 2).map(say => ({ say, pause: min >= 5 ? 20 : short ? 6 : 12 })),
-                { breathe: 'easy', fill: true },
+                ...(short
+                    ? [{ say: theme.prompts[0], pause: 6 }]
+                    : theme.prompts.slice(0, 2).map(say => hold(say, min >= 5 ? 40 : 20))),
+                { breathe: 'calm', fill: true, cues: 1 },
                 { closing: true },
-                ...(short ? [] : [{ say: 'Come back to your breath, and to the room around you.', pause: 2 }]),
+                ...(short ? [] : [
+                    hold(theme.prompts[2], min >= 5 ? 30 : 10),
+                    { say: 'Come back to your breath, and to the room around you.', pause: 1.5 }
+                ]),
                 { say: theme.carry, pause: 1 }
             ];
         }
@@ -5405,8 +5417,30 @@ class LifeOS {
         speechSynthesis.speak(this.medUtterance(text));
     }
 
+    // A soft tone at the start of each breath phase: higher for in, lower for out. Only in sessions
+    // with tones (Reflect), so its quiet stretches keep a pulse without more talking.
+    medBreathTone(inhale) {
+        (this._med.toneLog ||= []).push(inhale ? 'in' : 'out');
+        try {
+            const ctx = this._medAudio || (this._medAudio = new (window.AudioContext || window.webkitAudioContext)());
+            if (ctx.state === 'suspended') ctx.resume();
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = inhale ? 392 : 294;
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.06, now + 0.35);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 2.5);
+        } catch (e) { /* no audio */ }
+    }
+
     async medBreathe(step, maxSeconds = Infinity) {
         const m = this._med;
+        const tones = MEDITATIONS[m.kind]?.tones;
         const phases = BREATH_PATTERNS[step.breathe];
         const cycleLength = phases.reduce((t, p) => t + p.seconds, 0);
         const orb = document.getElementById('medOrb');
@@ -5422,6 +5456,7 @@ class LifeOS {
                 orb.style.transform = `scale(${phase.scale})`;
                 label.textContent = phase.label;
                 if (cycle < (step.cues || 0)) this.medCue(phase.cue);
+                else if (tones && phase.seconds >= 4) this.medBreathTone(phase.scale >= 1);
                 t += phase.seconds;
                 await this.medSleepUntil(t);
             }
@@ -5430,7 +5465,13 @@ class LifeOS {
     }
 
     async medRunStep(step) {
-        if (step.say) {
+        if (step.say && step.breatheAfter) {
+            // Speak, then hold the thought for `pause` seconds of paced breathing (pauses are whole breaths)
+            await this.medSpeak(step.say);
+            const until = this.medElapsed() + step.pause;
+            await this.medBreathe({ breathe: step.breatheAfter }, step.pause + 0.5);
+            await this.medSleepUntil(until);
+        } else if (step.say) {
             await this.medSpeak(step.say);
             await this.medSleep(step.pause ?? 1);
         } else if (step.breathe) {
