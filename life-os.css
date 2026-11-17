@@ -792,14 +792,24 @@ h1, h2,
 }
 .goals-grid .cat-row .subtotal-val.is-zero { color: var(--text-light); font-weight: 400; }
 
+/* Every goal row is the same height: names stay on one line (long ones shrink a little on phones,
+   see fitGoalNames, and only the rare one that still won't fit ends in "…", with the full name on tap/hover) */
 .goals-grid .goal-name-cell {
     text-align: left;
     font-weight: 450;
     color: var(--text);
     line-height: 1.3;
-    max-width: 250px;
-    padding: 8px 8px 8px 12px;
+    max-width: 320px;
+    padding: 0 8px 0 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+.goals-grid .goal-row { height: 52px; }
+.goals-grid .goal-name-cell.fit-sm { font-size: 0.78rem; }
+.goals-grid .goal-name-cell.fit-xs { font-size: 0.72rem; }
+/* Tapping a name that still ends in "…" shows it in full for that row */
+.goals-grid .goal-name-cell.show-full { white-space: normal; height: auto !important; overflow: visible; }
 
 /* Goal names stay pinned on the left while the day cells scroll under them */
 .goals-grid .goal-name-head,
@@ -3401,34 +3411,11 @@ button.habit-checkbox {
    Mobile Goals Grid
    ======================================== */
 @media (max-width: 768px) {
-    /* No side padding: cells scrolling under the pinned names would show through it.
-       clip (not auto) keeps the page as the scroller, so the day header can stick below the app header */
+    /* clip (not auto) keeps the page as the scroller, so the day header can stick below the app header */
     .goals-grid-container {
         padding: 12px 0 10px;
         overflow-x: clip;
     }
-    .goals-grid thead th {
-        position: sticky;
-        top: calc(56px + env(safe-area-inset-top));
-        z-index: 3;
-        background: var(--card-bg);
-    }
-    .goals-grid thead .goal-name-head { z-index: 4; }
-    /* Full goal name, wrapped, in a pinned column (no "…" truncation) */
-    .goals-grid .goal-name-head,
-    .goals-grid .goal-name-cell {
-        width: 32%;
-        min-width: 92px;
-        max-width: 150px;
-        font-size: 0.8rem;
-        white-space: normal;
-        overflow-wrap: break-word;
-    }
-    .goals-grid .goal-name-cell { padding: 8px 6px 8px 12px; }
-    .goals-grid .day-cell { min-width: 31px; padding: 0 1px; }
-    .goals-grid thead th { padding-left: 1px; padding-right: 1px; }
-    .goals-grid .strike-head { font-size: 0.6rem; letter-spacing: 0.02em; }
-    .strike-cell { min-width: 34px; padding: 0 4px !important; }
 
     /* Section header actions stack vertically */
     .section-actions {
@@ -3770,9 +3757,9 @@ button.habit-checkbox {
 .deepdive-period-btn.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 .deepdive-period-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
 
-/* Narrow phones (Display Zoom, ~320-375px): the goal name sits on its own line above its marks,
-   so the week always fits without sideways scrolling */
-@media (max-width: 389px) {
+/* Phones: each goal's name sits on its own line above its seven marks. Every row is the same
+   height (one line of name + one line of marks), and the week always fits without sideways scrolling */
+@media (max-width: 768px) {
     .goals-grid table,
     .goals-grid tbody { display: block; }
     .goals-grid thead {
@@ -3806,16 +3793,19 @@ button.habit-checkbox {
     .goals-grid .goal-name-head { display: none; }
     .goals-grid .goal-name-cell {
         grid-column: 1 / -1;
+        display: block !important;
         position: static;
         width: auto;
         min-width: 0;
         max-width: none;
-        justify-content: flex-start !important;
-        padding: 10px 12px 2px;
+        height: 32px;
+        padding: 12px 12px 0;
         font-size: 0.85rem;
+        line-height: 20px;
         border-bottom: 0 !important;
     }
-    .goals-grid .day-cell { min-width: 0; height: 40px; padding: 0; }
+    .goals-grid .goal-row { height: auto; }
+    .goals-grid .day-cell { min-width: 0; height: 42px; padding: 0; }
     .goals-grid .cat-row .cat-header,
     .goals-grid .grand-total-label { grid-column: 1 / -2; justify-content: flex-start; }
     .goals-grid .strike-cell { min-width: 0; padding: 0 !important; }

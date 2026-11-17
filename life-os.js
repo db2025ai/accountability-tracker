@@ -2431,6 +2431,9 @@ class LifeOS {
         });
 
         document.getElementById('addGoalBtn').addEventListener('click', () => this.openModal('addGoalModal'));
+        // Phone rotated or window resized: re-check which goal names need the smaller size
+        let fitTimer;
+        window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => this.fitGoalNames(), 150); });
 
         // Delegated: cell clicks, strike +/-, and day-header vacation toggles
         // Bound once here instead of re-binding inside renderGoals on every render
@@ -2438,6 +2441,11 @@ class LifeOS {
             const cell = e.target.closest('.day-cell:not(.vacation-day)');
             if (cell) {
                 this.toggleGoalCell(parseInt(cell.dataset.goal), parseInt(cell.dataset.day));
+                return;
+            }
+            const nameCell = e.target.closest('.goal-name-cell');
+            if (nameCell) {
+                if (nameCell.classList.contains('show-full') || nameCell.scrollWidth > nameCell.clientWidth) nameCell.classList.toggle('show-full');
                 return;
             }
             const strikeCell = e.target.closest('.strike-cell');
@@ -2552,8 +2560,7 @@ class LifeOS {
             let rows = '';
             entries.forEach(entry => {
                 const open = this._strikeEdit === entry.idx ? ' adjusting' : '';
-                // <wbr> lets "away/airplane" wrap at the slash instead of mid-word on a phone
-                rows += `<tr class="goal-row${open}"><td class="goal-name-cell">${this.escapeHtml(entry.goal.name).replace(/\//g, '/<wbr>')}</td>`;
+                rows += `<tr class="goal-row${open}"><td class="goal-name-cell" title="${this.escapeAttr(entry.goal.name)}">${this.escapeHtml(entry.goal.name)}</td>`;
                 const goalDays = this.getGoalDays(entry.goal);
                 entry.tracking.forEach((val, dayIdx) => {
                     let cls = 'day-cell' + todayCls(dayIdx);
@@ -2596,9 +2603,23 @@ class LifeOS {
         html += `<tr class="grand-total-row"><td colspan="${days.length + 1}" class="grand-total-label"><span class="pin-label">Strikes this week</span></td><td class="strike-count grand-total-val">${grandTotal}</td></tr>`;
         html += '</tbody></table>';
         document.getElementById('goalsGrid').innerHTML = html;
+        this.fitGoalNames();
 
         this.renderGoalCharts();
         this.renderGoalsList();
+    }
+
+    // Keep every goal name on one line so all rows are the same height: a name that doesn't fit
+    // steps down to a slightly smaller size (.fit-sm, then .fit-xs) before the CSS ellipsis kicks in.
+    // Needs the section visible to measure; navigateTo re-renders the grid when Goals is shown.
+    fitGoalNames() {
+        document.querySelectorAll('#goalsGrid .goal-name-cell').forEach(td => {
+            td.classList.remove('fit-sm', 'fit-xs');
+            if (td.scrollWidth <= td.clientWidth) return;
+            td.classList.add('fit-sm');
+            if (td.scrollWidth <= td.clientWidth) return;
+            td.classList.replace('fit-sm', 'fit-xs');
+        });
     }
 
     toggleGoalCell(goalIdx, dayIdx) {
