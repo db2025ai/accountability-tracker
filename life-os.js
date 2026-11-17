@@ -2431,6 +2431,9 @@ class LifeOS {
         });
 
         document.getElementById('addGoalBtn').addEventListener('click', () => this.openModal('addGoalModal'));
+        // Phone rotated or window resized: re-check which goal names need the smaller size
+        let fitTimer;
+        window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => this.fitGoalNames(), 150); });
 
         // Delegated: cell clicks, strike +/-, and day-header vacation toggles
         // Bound once here instead of re-binding inside renderGoals on every render
@@ -2438,6 +2441,19 @@ class LifeOS {
             const cell = e.target.closest('.day-cell:not(.vacation-day)');
             if (cell) {
                 this.toggleGoalCell(parseInt(cell.dataset.goal), parseInt(cell.dataset.day));
+                return;
+            }
+            const nameCell = e.target.closest('.goal-name-cell');
+            if (nameCell) {
+                if (nameCell.classList.contains('show-full') || nameCell.scrollWidth > nameCell.clientWidth) nameCell.classList.toggle('show-full');
+                return;
+            }
+            const strikeCell = e.target.closest('.strike-cell');
+            if (strikeCell && !e.target.closest('button')) {
+                // Tapping the strikes column shows or hides the − / + for that row (always visible on hover with a mouse)
+                const idx = parseInt(strikeCell.dataset.goal);
+                this._strikeEdit = this._strikeEdit === idx ? null : idx;
+                this.renderGoals();
                 return;
             }
             const incBtn = e.target.closest('.strike-inc');
@@ -2512,18 +2528,22 @@ class LifeOS {
         vacBtn.textContent = isFullVacation ? '✓ Full Vacation' : '🏖️ Vacation';
         vacBtn.className = `btn btn-sm ${isFullVacation ? 'btn-primary' : 'btn-secondary'}`;
 
-        // Build table
+        // Build table: a quiet habit-tracker look. Each day is a round mark (see .mark in the CSS),
+        // rows are split by hairlines only, and each category's strikes sit in its header row.
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const letters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
         const weekVacDays = week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []);
-        // Today's column gets a tint so the cell you're most likely to tap is easy to find
+        // Today's column is marked so the cell you're most likely to tap is easy to find
         const todayCol = this.getWeekForDate(new Date()) === week ? new Date().getDay() : -1;
         const todayCls = i => (i === todayCol ? ' today-col' : '');
-        let html = '<table><thead><tr><th class="goal-name-head">Goal</th>';
+        let html = '<table><thead><tr><th class="goal-name-head"></th>';
         days.forEach((d, i) => {
             const isVac = weekVacDays.includes(i);
-            html += `<th class="day-header${isVac ? ' vac-header' : ''}${todayCls(i)}" data-day="${i}" title="${isVac ? 'Click to remove vacation' : 'Click to mark as vacation'}">${isVac ? '🏖️' : d}</th>`;
+            const date = this.weekDayDate(week, i).getDate();
+            html += `<th class="day-header${isVac ? ' vac-header' : ''}${todayCls(i)}" data-day="${i}" title="${d}: ${isVac ? 'tap to remove vacation' : 'tap to mark as vacation'}">`
+                + `<span class="dh-letter">${letters[i]}</span><span class="dh-date">${isVac ? '🏖️' : date}</span></th>`;
         });
-        html += '<th>Strikes</th></tr></thead><tbody>';
+        html += '<th class="strike-head" title="Strikes">Strikes</th></tr></thead><tbody>';
 
         // Group by category
         const grouped = {};
@@ -2533,56 +2553,73 @@ class LifeOS {
             grouped[cat].push({ idx: parseInt(idx), ...entry });
         });
 
+        const mark = text => `<span class="mark">${text}</span>`;
         let grandTotal = 0;
         for (const [cat, entries] of Object.entries(grouped)) {
-            html += `<tr><td class="cat-header" colspan="${days.length + 2}"><span class="pin-label">${this.escapeHtml(cat)}</span></td></tr>`;
             let catTotal = 0;
+            let rows = '';
             entries.forEach(entry => {
-                // <wbr> lets "away/airplane" wrap at the slash instead of mid-word on a phone
-                html += `<tr><td class="goal-name-cell">${this.escapeHtml(entry.goal.name).replace(/\//g, '/<wbr>')}</td>`;
+                const open = this._strikeEdit === entry.idx ? ' adjusting' : '';
+                rows += `<tr class="goal-row${open}"><td class="goal-name-cell" title="${this.escapeAttr(entry.goal.name)}">${this.escapeHtml(entry.goal.name)}</td>`;
                 const goalDays = this.getGoalDays(entry.goal);
                 entry.tracking.forEach((val, dayIdx) => {
                     let cls = 'day-cell' + todayCls(dayIdx);
                     let display = '';
                     if (weekVacDays.includes(dayIdx)) {
                         cls += ' vacation-day';
-                        display = '🏖️';
                     } else if (val === 'X' || val === 'x') {
                         cls += ' completed';
-                        display = '\u2713';
+                        display = '✓';
                     } else if (val === '1') {
                         cls += ' missed';
-                        display = '\u2717';
+                        display = '✗';
                     } else if (val === '-') {
                         cls += ' skipped';
-                        display = '\u2013';
+                        display = '–';
                     } else if (val === '' && !goalDays.includes(dayIdx)) {
                         cls += ' off-day';
                     } else if (this.isInferredMiss(week, entry, dayIdx)) {
                         cls += ' inferred-miss';
-                        display = '\u2717';
+                        display = '✗';
                     }
-                    html += `<td class="${cls}" data-goal="${entry.idx}" data-day="${dayIdx}">${display}</td>`;
+                    rows += `<td class="${cls}" data-goal="${entry.idx}" data-day="${dayIdx}">${mark(display)}</td>`;
                 });
                 const totalStrikes = this.scoreEntry(week, entry).misses;
                 catTotal += totalStrikes;
                 grandTotal += totalStrikes;
-                const decBtn = totalStrikes > 0 ? `<button class="strike-dec" data-goal="${entry.idx}">−</button>` : '';
-                html += `<td class="strike-count strike-cell" data-goal="${entry.idx}">
-                    ${decBtn}<span class="strike-num">${totalStrikes > 0 ? totalStrikes : ''}</span><button class="strike-inc" data-goal="${entry.idx}">+</button>
-                </td></tr>`;
+                const decBtn = totalStrikes > 0 ? `<button class="strike-dec" data-goal="${entry.idx}" aria-label="Remove a strike">−</button>` : '';
+                // − / + float in a small pill beside the count, so adjusting never widens the grid
+                rows += `<td class="strike-count strike-cell" data-goal="${entry.idx}" title="Tap to adjust strikes">`
+                    + `<span class="strike-num">${totalStrikes > 0 ? totalStrikes : ''}</span>`
+                    + `<span class="strike-adj">${decBtn}<button class="strike-inc" data-goal="${entry.idx}" aria-label="Add a strike">+</button></span></td></tr>`;
             });
-            // Category subtotal row
-            html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label"><span class="pin-label">${this.escapeHtml(cat)} subtotal</span></td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;
+            // Category header carries the category's strike count (the old subtotal row)
+            html += `<tr class="cat-row subtotal-row"><td class="cat-header" colspan="${days.length + 1}"><span class="pin-label">${this.escapeHtml(cat)}</span></td>`
+                + `<td class="strike-count subtotal-val${catTotal > 0 ? '' : ' is-zero'}">${catTotal > 0 ? catTotal : '0'}</td></tr>`;
+            html += rows;
         }
 
         // Grand total row
-        html += `<tr class="grand-total-row"><td colspan="${days.length + 1}" class="grand-total-label"><span class="pin-label">Total Strikes This Week</span></td><td class="strike-count grand-total-val">${grandTotal > 0 ? grandTotal : '0'}</td></tr>`;
+        html += `<tr class="grand-total-row"><td colspan="${days.length + 1}" class="grand-total-label"><span class="pin-label">Strikes this week</span></td><td class="strike-count grand-total-val">${grandTotal}</td></tr>`;
         html += '</tbody></table>';
         document.getElementById('goalsGrid').innerHTML = html;
+        this.fitGoalNames();
 
         this.renderGoalCharts();
         this.renderGoalsList();
+    }
+
+    // Keep every goal name on one line so all rows are the same height: a name that doesn't fit
+    // steps down to a slightly smaller size (.fit-sm, then .fit-xs) before the CSS ellipsis kicks in.
+    // Needs the section visible to measure; navigateTo re-renders the grid when Goals is shown.
+    fitGoalNames() {
+        document.querySelectorAll('#goalsGrid .goal-name-cell').forEach(td => {
+            td.classList.remove('fit-sm', 'fit-xs');
+            if (td.scrollWidth <= td.clientWidth) return;
+            td.classList.add('fit-sm');
+            if (td.scrollWidth <= td.clientWidth) return;
+            td.classList.replace('fit-sm', 'fit-xs');
+        });
     }
 
     toggleGoalCell(goalIdx, dayIdx) {

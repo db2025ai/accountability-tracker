@@ -715,53 +715,110 @@ h1, h2,
 
 .goals-grid table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
+/* Quiet habit-tracker grid: no boxes, just hairlines between rows and a round mark per day */
 .goals-grid th,
 .goals-grid td {
-    padding: 10px 12px;
+    padding: 6px 4px;
     text-align: center;
-    border: 1px solid var(--border);
+    vertical-align: middle;
     font-size: 0.85rem;
+    border: 0;
 }
 
-.goals-grid th {
-    background: var(--surface);
+.goals-grid .goal-row td { border-bottom: 1px solid var(--border-light); }
+
+/* Day header: letter over the date; today's date sits in a blue circle */
+.goals-grid thead th {
+    padding: 4px 2px 10px;
     color: var(--text-muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+}
+.goals-grid .day-header { cursor: pointer; user-select: none; }
+.goals-grid .dh-letter {
+    display: block;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    color: var(--text-light);
+}
+.goals-grid .dh-date {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin-top: 2px;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    color: var(--text);
+}
+.goals-grid th.today-col .dh-letter { color: var(--primary); font-weight: 600; }
+.goals-grid th.today-col .dh-date {
+    background: var(--primary);
+    color: var(--on-primary);
     font-weight: 600;
+}
+.goals-grid .strike-head {
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.5px;
+    color: var(--text-light);
+    vertical-align: bottom;
 }
 
+/* Category: serif label with its strike count on the right */
+.goals-grid .cat-row td {
+    padding: 22px 4px 6px;
+    border-bottom: 1px solid var(--border-light);
+}
+.goals-grid tbody .cat-row:first-child td { padding-top: 14px; }
 .goals-grid .cat-header {
-    background: var(--bg);
-    color: var(--text);
     text-align: left;
     font-family: var(--font-serif);
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 1rem;
+    color: var(--text);
+    padding-left: 12px !important;
 }
+.goals-grid .cat-row .subtotal-val {
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--danger);
+}
+.goals-grid .cat-row .subtotal-val.is-zero { color: var(--text-light); font-weight: 400; }
 
+/* Every goal row is the same height: names stay on one line (long ones shrink a little on phones,
+   see fitGoalNames, and only the rare one that still won't fit ends in "…", with the full name on tap/hover) */
 .goals-grid .goal-name-cell {
     text-align: left;
-    font-weight: 500;
-    max-width: 250px;
+    font-weight: 450;
+    color: var(--text);
+    line-height: 1.3;
+    max-width: 320px;
+    padding: 0 8px 0 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+.goals-grid .goal-row { height: 52px; }
+.goals-grid .goal-name-cell.fit-sm { font-size: 0.78rem; }
+.goals-grid .goal-name-cell.fit-xs { font-size: 0.72rem; }
+/* Tapping a name that still ends in "…" shows it in full for that row */
+.goals-grid .goal-name-cell.show-full { white-space: normal; height: auto !important; overflow: visible; }
 
-/* Goal names stay pinned on the left while the day cells scroll under them.
-   Collapsed table borders scroll away with the table, so the pinned edge is drawn with a shadow. */
+/* Goal names stay pinned on the left while the day cells scroll under them */
 .goals-grid .goal-name-head,
 .goals-grid .goal-name-cell {
     position: sticky;
     left: 0;
     z-index: 2;
     background: var(--card-bg);
-    background-clip: padding-box;
-    box-shadow: inset -1px 0 0 var(--border);
 }
-.goals-grid .goal-name-head { background: var(--surface); }
 
 /* Category and total labels span the whole row; the inner label pins so it stays readable */
 .goals-grid .pin-label {
@@ -770,53 +827,65 @@ h1, h2,
     display: inline-block;
 }
 
-/* Today's column */
-.goals-grid th.today-col {
-    color: var(--primary);
-    background: var(--primary-tint);
-    box-shadow: inset 0 -2px 0 var(--primary);
-}
-.goals-grid .day-cell.today-col:not(.off-day):not(.skipped):not(.inferred-miss) {
-    background: var(--primary-tint);
-}
-
+/* Day marks. The cell is the tap target; the mark inside carries the state */
 .goals-grid .day-cell {
     cursor: pointer;
-    min-width: 50px;
-    height: 36px;
+    min-width: 36px;
+    height: 44px;
+    padding: 0 2px;
     user-select: none;
-    transition: background var(--transition);
+    -webkit-tap-highlight-color: transparent;
 }
-
-.goals-grid .day-cell:hover {
-    background: var(--border-light);
-}
-
-.goals-grid .day-cell.completed {
-    color: var(--success);
+.goals-grid .mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    box-sizing: border-box;
+    border: 1.5px solid var(--border);
+    font-size: 0.8rem;
     font-weight: 700;
-    font-size: 1.2rem;
+    line-height: 1;
+    vertical-align: middle;
+    transition: background var(--transition), border-color var(--transition), transform 0.12s;
 }
-
-.goals-grid .day-cell.missed {
+.goals-grid .day-cell:active .mark { transform: scale(0.88); }
+@media (hover: hover) {
+    .goals-grid .day-cell:hover .mark { border-color: var(--primary); }
+}
+.goals-grid .day-cell.today-col .mark { border-color: var(--primary); }
+.goals-grid .day-cell.completed .mark {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-primary);
+}
+.goals-grid .day-cell.missed .mark {
+    background: var(--danger-tint);
+    border-color: var(--danger);
     color: var(--danger);
-    font-weight: 700;
-    font-size: 1.2rem;
 }
-
-/* Greyed-out cells: skipped for that day, or outside the goal's schedule */
-.goals-grid .day-cell.skipped,
-.goals-grid .day-cell.off-day {
-    background: repeating-linear-gradient(135deg, var(--surface), var(--surface) 4px, var(--border-light) 4px, var(--border-light) 8px);
+/* Blank on a scheduled day that has passed: counts as a miss */
+.goals-grid .day-cell.inferred-miss .mark {
+    border: 1.5px dashed var(--danger-light);
+    color: var(--danger-light);
+    font-weight: 500;
+}
+/* Doesn't apply (skipped) and not scheduled: no ring, just a quiet mark */
+.goals-grid .day-cell.skipped .mark {
+    border-color: transparent;
     color: var(--text-light);
 }
-
-/* Blank on a scheduled day that has passed — counts as a miss (cutover weeks) */
-.goals-grid .day-cell.inferred-miss {
-    background: var(--danger-tint);
-    color: var(--danger-light);
-    opacity: 0.7;
+.goals-grid .day-cell.off-day .mark,
+.goals-grid .day-cell.vacation-day .mark {
+    width: 5px;
+    height: 5px;
+    border: 0;
+    background: var(--border);
 }
+.goals-grid .day-cell.vacation-day { cursor: default; }
+.goals-grid .day-cell.vacation-day .mark { background: var(--primary-border); }
 
 .grid-legend {
     margin-top: 10px;
@@ -824,49 +893,79 @@ h1, h2,
     color: var(--text-muted);
 }
 
-.grid-legend .lg-done { color: var(--success); }
-.grid-legend .lg-strike { color: var(--danger); }
-.grid-legend .lg-skip { color: var(--text-light); }
-.grid-legend .lg-inferred { color: var(--danger-light); opacity: 0.7; }
-.grid-legend .lg-off {
-    display: inline-block;
-    width: 14px;
-    height: 12px;
-    vertical-align: middle;
+.grid-legend .lg-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    box-sizing: border-box;
     border: 1px solid var(--border);
-    background: repeating-linear-gradient(135deg, var(--surface), var(--surface) 3px, var(--border-light) 3px, var(--border-light) 6px);
+    font-size: 0.6rem;
+    font-weight: 700;
+    vertical-align: -3px;
+    margin-right: 2px;
 }
+.grid-legend .lg-done { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.grid-legend .lg-strike { background: var(--danger-tint); border-color: var(--danger); color: var(--danger); }
+.grid-legend .lg-skip { border-color: transparent; color: var(--text-light); }
+.grid-legend .lg-inferred { border-style: dashed; border-color: var(--danger-light); color: var(--danger-light); }
+.grid-legend .lg-off { width: 5px; height: 5px; border: 0; background: var(--border); vertical-align: 1px; margin: 0 4px; }
 
 .goals-grid .strike-count {
-    font-weight: 700;
+    font-weight: 600;
     color: var(--danger);
 }
 .strike-cell {
     white-space: nowrap;
-    padding: 2px 4px !important;
+    min-width: 44px;
+    cursor: pointer;
+    padding: 0 6px !important;
 }
 .strike-cell .strike-num {
     display: inline-block;
     min-width: 14px;
     text-align: center;
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
 }
+/* − / + appear on hover (mouse) or after tapping the strikes column (touch) */
 .strike-inc, .strike-dec {
-    background: none;
+    display: none;
+    width: 26px;
+    height: 26px;
     border: 1px solid var(--border);
-    border-radius: 3px;
+    border-radius: 50%;
+    background: var(--card-bg);
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     line-height: 1;
-    padding: 1px 4px;
-    opacity: 0;
-    transition: opacity 0.15s;
+    padding: 0;
+    vertical-align: middle;
 }
 .strike-inc { color: var(--danger); }
-tr:hover .strike-inc,
-tr:hover .strike-dec { opacity: 1; }
-@media (max-width: 768px) {
-    .strike-inc, .strike-dec { opacity: 1; }
+.strike-cell { position: relative; }
+.strike-adj {
+    display: none;
+    position: absolute;
+    right: calc(100% - 6px);
+    top: 50%;
+    transform: translateY(-50%);
+    gap: 6px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--card-bg);
+    box-shadow: 0 0 0 1px var(--border), 0 4px 12px -4px var(--overlay);
+    z-index: 3;
+}
+.strike-adj .strike-inc,
+.strike-adj .strike-dec { display: inline-block; }
+.goal-row.adjusting .strike-adj { display: flex; }
+.goal-row.adjusting td { background: var(--surface); }
+@media (hover: hover) {
+    .goal-row:hover .strike-adj { display: flex; }
 }
 
 .goal-analytics {
@@ -3169,11 +3268,6 @@ button.habit-checkbox {
         font-size: 0.95rem;
     }
 
-    .goals-grid .day-cell {
-        min-width: 40px;
-        height: 40px;
-    }
-
     .rating-btn {
         width: 36px;
         height: 36px;
@@ -3317,51 +3411,10 @@ button.habit-checkbox {
    Mobile Goals Grid
    ======================================== */
 @media (max-width: 768px) {
-    /* Shrink goal name col and day cells to fit screen */
+    /* clip (not auto) keeps the page as the scroller, so the day header can stick below the app header */
     .goals-grid-container {
-        padding: 10px 0; /* no side padding: cells scrolling under the pinned names would show through it */
-    }
-    .goals-grid th,
-    .goals-grid td {
-        padding: 8px 5px;
-        font-size: 0.72rem;
-    }
-    /* Full goal name, wrapped, in a pinned column (no "…" truncation) */
-    .goals-grid .goal-name-head,
-    .goals-grid .goal-name-cell {
-        width: 30%;
-        min-width: 88px;
-        max-width: 140px;
-        font-size: 0.72rem;
-        line-height: 1.25;
-        white-space: normal;
-        overflow-wrap: break-word;
-        padding-left: 6px;
-    }
-    .goals-grid .day-cell {
-        min-width: 30px;
-        height: 44px; /* larger touch target */
-        padding: 2px 1px;
-        font-size: 1rem;
-    }
-    .goals-grid th.day-header { padding: 6px 1px; }
-    .goals-grid thead th:last-child { padding: 6px 2px; letter-spacing: 0; font-size: 0.65rem; }
-    .goals-grid .pin-label { left: 6px; }
-    .goals-grid .subtotal-label,
-    .goals-grid .grand-total-label { text-align: left; }
-    .goals-grid .day-cell.completed { font-size: 1.1rem; }
-    .goals-grid .day-cell.missed    { font-size: 1.1rem; }
-    .strike-inc, .strike-dec {
-        padding: 3px 4px;
-        font-size: 0.8rem;
-        opacity: 1; /* always visible on mobile */
-    }
-
-    /* Subtotal / grand total rows */
-    .subtotal-row td,
-    .grand-total-row td {
-        font-size: 0.72rem;
-        padding: 6px 5px;
+        padding: 12px 0 10px;
+        overflow-x: clip;
     }
 
     /* Section header actions stack vertically */
@@ -3653,13 +3706,6 @@ button.habit-checkbox {
     font-size: 0.9rem;
 }
 
-.day-cell.vacation-day {
-    background: var(--primary-tint);
-    color: var(--text-light);
-    font-size: 0.7rem;
-    cursor: default;
-    opacity: 0.7;
-}
 
 /* ========================================
    Deep Dive Collapsible Section
@@ -3711,13 +3757,77 @@ button.habit-checkbox {
 .deepdive-period-btn.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 .deepdive-period-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
 
-/* Goals grid subtotal / grand total rows */
-.subtotal-row td { background: var(--surface); font-size: 0.72rem; padding: 3px 8px; }
-.subtotal-label { color: var(--text-muted); font-style: italic; text-align: right; }
-.subtotal-val { font-weight: 600; color: var(--text-muted); }
-.grand-total-row td { background: var(--surface-alt, var(--border)); padding: 5px 8px; border-top: 2px solid var(--border); }
-.grand-total-label { font-weight: 700; font-size: 0.8rem; text-align: right; }
-.grand-total-val { font-weight: 700; font-size: 0.9rem; color: var(--danger); }
+/* Phones: each goal's name sits on its own line above its seven marks. Every row is the same
+   height (one line of name + one line of marks), and the week always fits without sideways scrolling */
+@media (max-width: 768px) {
+    .goals-grid table,
+    .goals-grid tbody { display: block; }
+    .goals-grid thead {
+        display: block;
+        position: sticky;
+        top: calc(56px + env(safe-area-inset-top));
+        z-index: 3;
+        background: var(--card-bg);
+    }
+    .goals-grid tr {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr)) 44px;
+        align-items: stretch;
+    }
+    /* Cells fill their grid row so the hairlines under each row line up */
+    .goals-grid tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .goals-grid thead { border-bottom: 1px solid var(--border); }
+    .goals-grid thead th { position: static; border-bottom: 0; }
+    .goals-grid .strike-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 14px;
+        font-size: 0.55rem;
+        letter-spacing: 0;
+    }
+    .goals-grid .goal-name-head { display: none; }
+    .goals-grid .goal-name-cell {
+        grid-column: 1 / -1;
+        display: block !important;
+        position: static;
+        width: auto;
+        min-width: 0;
+        max-width: none;
+        height: 32px;
+        padding: 12px 12px 0;
+        font-size: 0.85rem;
+        line-height: 20px;
+        border-bottom: 0 !important;
+    }
+    .goals-grid .goal-row { height: auto; }
+    .goals-grid .day-cell { min-width: 0; height: 42px; padding: 0; }
+    .goals-grid .cat-row .cat-header,
+    .goals-grid .grand-total-label { grid-column: 1 / -2; justify-content: flex-start; }
+    .goals-grid .strike-cell { min-width: 0; padding: 0 !important; }
+}
+
+/* Goals grid total row */
+.goals-grid .grand-total-row td {
+    padding: 14px 4px 4px;
+    border-top: 1px solid var(--border);
+}
+.goals-grid .grand-total-label {
+    text-align: left;
+    padding-left: 12px !important;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.goals-grid .grand-total-val {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--danger);
+}
 
 .alltime-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .alltime-header h3 { margin-bottom: 0; }
