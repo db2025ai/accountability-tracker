@@ -759,6 +759,36 @@ h1, h2,
     max-width: 250px;
 }
 
+/* Goal names stay pinned on the left while the day cells scroll under them.
+   Collapsed table borders scroll away with the table, so the pinned edge is drawn with a shadow. */
+.goals-grid .goal-name-head,
+.goals-grid .goal-name-cell {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--card-bg);
+    background-clip: padding-box;
+    box-shadow: inset -1px 0 0 var(--border);
+}
+.goals-grid .goal-name-head { background: var(--surface); }
+
+/* Category and total labels span the whole row; the inner label pins so it stays readable */
+.goals-grid .pin-label {
+    position: sticky;
+    left: 12px;
+    display: inline-block;
+}
+
+/* Today's column */
+.goals-grid th.today-col {
+    color: var(--primary);
+    background: var(--primary-tint);
+    box-shadow: inset 0 -2px 0 var(--primary);
+}
+.goals-grid .day-cell.today-col:not(.off-day):not(.skipped):not(.inferred-miss) {
+    background: var(--primary-tint);
+}
+
 .goals-grid .day-cell {
     cursor: pointer;
     min-width: 50px;
@@ -3298,29 +3328,40 @@ button.habit-checkbox {
 @media (max-width: 768px) {
     /* Shrink goal name col and day cells to fit screen */
     .goals-grid-container {
-        padding: 10px 6px;
+        padding: 10px 0; /* no side padding: cells scrolling under the pinned names would show through it */
     }
     .goals-grid th,
     .goals-grid td {
         padding: 8px 5px;
         font-size: 0.72rem;
     }
+    /* Full goal name, wrapped, in a pinned column (no "…" truncation) */
+    .goals-grid .goal-name-head,
     .goals-grid .goal-name-cell {
-        max-width: 100px;
+        width: 30%;
+        min-width: 88px;
+        max-width: 140px;
         font-size: 0.72rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        line-height: 1.25;
+        white-space: normal;
+        overflow-wrap: break-word;
+        padding-left: 6px;
     }
     .goals-grid .day-cell {
-        min-width: 36px;
+        min-width: 30px;
         height: 44px; /* larger touch target */
+        padding: 2px 1px;
         font-size: 1rem;
     }
+    .goals-grid th.day-header { padding: 6px 1px; }
+    .goals-grid thead th:last-child { padding: 6px 2px; letter-spacing: 0; font-size: 0.65rem; }
+    .goals-grid .pin-label { left: 6px; }
+    .goals-grid .subtotal-label,
+    .goals-grid .grand-total-label { text-align: left; }
     .goals-grid .day-cell.completed { font-size: 1.1rem; }
     .goals-grid .day-cell.missed    { font-size: 1.1rem; }
     .strike-inc, .strike-dec {
-        padding: 3px 6px;
+        padding: 3px 4px;
         font-size: 0.8rem;
         opacity: 1; /* always visible on mobile */
     }
@@ -7829,10 +7870,13 @@ class LifeOS {
         // Build table
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const weekVacDays = week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []);
-        let html = '<table><thead><tr><th>Goal</th>';
+        // Today's column gets a tint so the cell you're most likely to tap is easy to find
+        const todayCol = this.getWeekForDate(new Date()) === week ? new Date().getDay() : -1;
+        const todayCls = i => (i === todayCol ? ' today-col' : '');
+        let html = '<table><thead><tr><th class="goal-name-head">Goal</th>';
         days.forEach((d, i) => {
             const isVac = weekVacDays.includes(i);
-            html += `<th class="day-header${isVac ? ' vac-header' : ''}" data-day="${i}" title="${isVac ? 'Click to remove vacation' : 'Click to mark as vacation'}">${isVac ? '🏖️' : d}</th>`;
+            html += `<th class="day-header${isVac ? ' vac-header' : ''}${todayCls(i)}" data-day="${i}" title="${isVac ? 'Click to remove vacation' : 'Click to mark as vacation'}">${isVac ? '🏖️' : d}</th>`;
         });
         html += '<th>Strikes</th></tr></thead><tbody>';
 
@@ -7846,13 +7890,14 @@ class LifeOS {
 
         let grandTotal = 0;
         for (const [cat, entries] of Object.entries(grouped)) {
-            html += `<tr><td class="cat-header" colspan="${days.length + 2}">${cat}</td></tr>`;
+            html += `<tr><td class="cat-header" colspan="${days.length + 2}"><span class="pin-label">${this.escapeHtml(cat)}</span></td></tr>`;
             let catTotal = 0;
             entries.forEach(entry => {
-                html += `<tr><td class="goal-name-cell">${this.escapeHtml(entry.goal.name)}</td>`;
+                // <wbr> lets "away/airplane" wrap at the slash instead of mid-word on a phone
+                html += `<tr><td class="goal-name-cell">${this.escapeHtml(entry.goal.name).replace(/\//g, '/<wbr>')}</td>`;
                 const goalDays = this.getGoalDays(entry.goal);
                 entry.tracking.forEach((val, dayIdx) => {
-                    let cls = 'day-cell';
+                    let cls = 'day-cell' + todayCls(dayIdx);
                     let display = '';
                     if (weekVacDays.includes(dayIdx)) {
                         cls += ' vacation-day';
@@ -7883,11 +7928,11 @@ class LifeOS {
                 </td></tr>`;
             });
             // Category subtotal row
-            html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label">${cat} subtotal</td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;
+            html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label"><span class="pin-label">${this.escapeHtml(cat)} subtotal</span></td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;
         }
 
         // Grand total row
-        html += `<tr class="grand-total-row"><td colspan="${days.length + 1}" class="grand-total-label">Total Strikes This Week</td><td class="strike-count grand-total-val">${grandTotal > 0 ? grandTotal : '0'}</td></tr>`;
+        html += `<tr class="grand-total-row"><td colspan="${days.length + 1}" class="grand-total-label"><span class="pin-label">Total Strikes This Week</span></td><td class="strike-count grand-total-val">${grandTotal > 0 ? grandTotal : '0'}</td></tr>`;
         html += '</tbody></table>';
         document.getElementById('goalsGrid').innerHTML = html;
 

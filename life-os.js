@@ -2515,10 +2515,13 @@ class LifeOS {
         // Build table
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const weekVacDays = week.vacationDays || (week.vacation ? [0,1,2,3,4,5,6] : []);
-        let html = '<table><thead><tr><th>Goal</th>';
+        // Today's column gets a tint so the cell you're most likely to tap is easy to find
+        const todayCol = this.getWeekForDate(new Date()) === week ? new Date().getDay() : -1;
+        const todayCls = i => (i === todayCol ? ' today-col' : '');
+        let html = '<table><thead><tr><th class="goal-name-head">Goal</th>';
         days.forEach((d, i) => {
             const isVac = weekVacDays.includes(i);
-            html += `<th class="day-header${isVac ? ' vac-header' : ''}" data-day="${i}" title="${isVac ? 'Click to remove vacation' : 'Click to mark as vacation'}">${isVac ? '🏖️' : d}</th>`;
+            html += `<th class="day-header${isVac ? ' vac-header' : ''}${todayCls(i)}" data-day="${i}" title="${isVac ? 'Click to remove vacation' : 'Click to mark as vacation'}">${isVac ? '🏖️' : d}</th>`;
         });
         html += '<th>Strikes</th></tr></thead><tbody>';
 
@@ -2532,13 +2535,14 @@ class LifeOS {
 
         let grandTotal = 0;
         for (const [cat, entries] of Object.entries(grouped)) {
-            html += `<tr><td class="cat-header" colspan="${days.length + 2}">${cat}</td></tr>`;
+            html += `<tr><td class="cat-header" colspan="${days.length + 2}"><span class="pin-label">${this.escapeHtml(cat)}</span></td></tr>`;
             let catTotal = 0;
             entries.forEach(entry => {
-                html += `<tr><td class="goal-name-cell">${this.escapeHtml(entry.goal.name)}</td>`;
+                // <wbr> lets "away/airplane" wrap at the slash instead of mid-word on a phone
+                html += `<tr><td class="goal-name-cell">${this.escapeHtml(entry.goal.name).replace(/\//g, '/<wbr>')}</td>`;
                 const goalDays = this.getGoalDays(entry.goal);
                 entry.tracking.forEach((val, dayIdx) => {
-                    let cls = 'day-cell';
+                    let cls = 'day-cell' + todayCls(dayIdx);
                     let display = '';
                     if (weekVacDays.includes(dayIdx)) {
                         cls += ' vacation-day';
@@ -2569,11 +2573,11 @@ class LifeOS {
                 </td></tr>`;
             });
             // Category subtotal row
-            html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label">${cat} subtotal</td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;
+            html += `<tr class="subtotal-row"><td colspan="${days.length + 1}" class="subtotal-label"><span class="pin-label">${this.escapeHtml(cat)} subtotal</span></td><td class="strike-count subtotal-val">${catTotal > 0 ? catTotal : '—'}</td></tr>`;
         }
 
         // Grand total row
-        html += `<tr class="grand-total-row"><td colspan="${days.length + 1}" class="grand-total-label">Total Strikes This Week</td><td class="strike-count grand-total-val">${grandTotal > 0 ? grandTotal : '0'}</td></tr>`;
+        html += `<tr class="grand-total-row"><td colspan="${days.length + 1}" class="grand-total-label"><span class="pin-label">Total Strikes This Week</span></td><td class="strike-count grand-total-val">${grandTotal > 0 ? grandTotal : '0'}</td></tr>`;
         html += '</tbody></table>';
         document.getElementById('goalsGrid').innerHTML = html;
 

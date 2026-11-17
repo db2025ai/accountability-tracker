@@ -158,7 +158,9 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         const r = rows.find(tr => tr.querySelector('.goal-name-cell')?.textContent === 'Skincare AM');
         return [...r.querySelectorAll('.day-cell')].map(td => td.className.replace('day-cell', '').trim()).slice(0, 3);
     });
-    check('grid marks Mon blank as inferred miss, today plain', skincareRow, ['completed', 'inferred-miss', '']);
+    check('grid marks Mon blank as inferred miss, today plain', skincareRow, ['completed', 'inferred-miss', 'today-col']);
+    check('only today\'s column header is highlighted', await page.$$eval('#goalsGrid thead th.today-col', ths => ths.map(th => th.dataset.day)), ['2']);
+    check('goal names stay pinned when the grid scrolls sideways', await page.$eval('#goalsGrid .goal-name-cell', td => getComputedStyle(td).position), 'sticky');
     check('Morning Protocol subtotal', await page.$$eval('.subtotal-row', rows => rows.find(r => r.textContent.includes('Morning Protocol')).querySelector('.subtotal-val').textContent), '2');
 
     // − on an inferred miss lowers the count (manual goes negative), never below 0
