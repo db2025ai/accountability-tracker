@@ -20,6 +20,7 @@ import type * as nutrition from "../nutrition.js";
 import type * as plans from "../plans.js";
 import type * as push from "../push.js";
 import type * as pushNode from "../pushNode.js";
+import type * as tasks from "../tasks.js";
 import type * as workouts from "../workouts.js";
 
 import type {
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   plans: typeof plans;
   push: typeof push;
   pushNode: typeof pushNode;
+  tasks: typeof tasks;
   workouts: typeof workouts;
 }>;
 
