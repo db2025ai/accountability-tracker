@@ -749,7 +749,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
             tones: (lifeOS._med.toneLog || []).length, closing, prompts: theme.prompts, carry: theme.carry };
     });
     check("a Reflect session logs the day's theme and ends on time", [themed.log.kind, themed.log.theme, themed.ended], ['reflect', themed.theme, true]);
-    check('Reflect paces its quiet stretches with breath tones', themed.tones > 10, true);
+    check('Reflect paces its quiet stretches with breath tones', themed.tones >= 8, true);
     check("Reflect closes on the theme's last prompt, then its carry line", [themed.closing[0], themed.closing.at(-1)], [themed.prompts[2], themed.carry]);
     // Quiet breathing left over in a 3-minute Reflect stays short (it was about a minute)
     const quiet = await page.evaluate(() => Math.max(...MEDITATIONS.reflect.themes.map(theme => {

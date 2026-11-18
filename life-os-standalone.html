@@ -5500,7 +5500,10 @@ const BREATH_PATTERNS = {
     sigh: [{ label: 'Breathe in', seconds: 2, scale: 0.9, cue: 'In' }, { label: 'A little more', seconds: 1, scale: 1, cue: 'A little more' }, { label: 'Long sigh out', seconds: 6, scale: 0.55, cue: 'Long sigh out' }],
     box: [{ label: 'Breathe in', seconds: 4, scale: 1, cue: 'In' }, { label: 'Hold', seconds: 4, scale: 1, cue: 'Hold' }, { label: 'Breathe out', seconds: 4, scale: 0.55, cue: 'Out' }, { label: 'Hold', seconds: 4, scale: 0.55, cue: 'Hold' }],
     sleep: [{ label: 'Breathe in', seconds: 4, scale: 1, cue: 'Breathe in' }, { label: 'Hold', seconds: 7, scale: 1, cue: 'Hold' }, { label: 'Out, slowly', seconds: 8, scale: 0.55, cue: 'And out, slowly' }],
-    easy: [{ label: 'Breathe in', seconds: 4, scale: 1 }, { label: 'Breathe out', seconds: 6, scale: 0.55 }]
+    easy: [{ label: 'Breathe in', seconds: 4, scale: 1 }, { label: 'Breathe out', seconds: 6, scale: 0.55 }],
+    // Reflect (user's ask, Nov 17: the 4/6 tones felt rushed): in 4, hold 2, out 6. A 12 s breath,
+    // 5 a minute, near the ~6 a minute slow-breathing research points to, with a longer exhale
+    settle: [{ label: 'Breathe in', seconds: 4, scale: 1, cue: 'Breathe in' }, { label: 'Hold', seconds: 2, scale: 1, cue: 'Hold' }, { label: 'Slowly out', seconds: 6, scale: 0.55, cue: 'And slowly out' }]
 };
 
 // Each session builds a script for 1, 3 or 5 minutes. Steps:
@@ -5974,23 +5977,23 @@ const MEDITATIONS = {
         // 1 minute is the core idea, one prompt and the carry line.
         build: (min, theme = REFLECT_THEMES[0]) => {
             const short = min < 3;
-            // A prompt held for a number of easy breaths (10 s each), with a tone on each in and out
-            const hold = (say, pause) => ({ say, pause, breatheAfter: 'easy' });
+            // A prompt held for whole 4-2-6 breaths (12 s each), with a tone on each in and out (not the hold)
+            const hold = (say, breaths) => ({ say, pause: breaths * 12, breatheAfter: 'settle' });
             return [
                 ...(short ? [] : [
                     { say: 'Welcome. Find a comfortable position, and close your eyes if you like.', pause: 1 },
                     { say: 'Take a few slow breaths to arrive.', pause: 0.5 },
-                    { breathe: 'calm', cycles: 2, cues: 1 }
+                    { breathe: 'settle', cycles: min >= 5 ? 2 : 1, cues: 1 }
                 ]),
                 { say: `Today's theme: ${theme.title}.`, pause: 1.5 },
                 ...theme.talk.slice(0, short ? 1 : 3).map(say => ({ say, pause: 1.5 })),
                 ...(short
                     ? [{ say: theme.prompts[0], pause: 6 }]
-                    : theme.prompts.slice(0, 2).map(say => hold(say, min >= 5 ? 40 : 20))),
-                { breathe: 'calm', fill: true, cues: 1 },
+                    : theme.prompts.slice(0, 2).map(say => hold(say, min >= 5 ? 4 : 2))),
+                { breathe: 'settle', fill: true, cues: 1 },
                 { closing: true },
                 ...(short ? [] : [
-                    hold(theme.prompts[2], min >= 5 ? 30 : 10),
+                    hold(theme.prompts[2], min >= 5 ? 2 : 1),
                     { say: 'Come back to your breath, and to the room around you.', pause: 1.5 }
                 ]),
                 { say: theme.carry, pause: 1 }
@@ -11045,7 +11048,7 @@ class LifeOS {
             else if (this.medEstimate(step) <= timeLeft() + 1) await this.medRunStep(step);
         }
         // Quiet breathing for any time left before the ending
-        if (!m.cancelled && timeLeft() > 3) await this.medBreathe({ breathe: 'easy' }, timeLeft());
+        if (!m.cancelled && timeLeft() > 3) await this.medBreathe({ breathe: session.tones ? 'settle' : 'easy' }, timeLeft());
         for (const step of closing) {
             if (m.cancelled) break;
             await this.medRunStep(step);
