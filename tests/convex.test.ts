@@ -217,6 +217,8 @@ test("the app key locks every public function", async () => {
     ["query", api.workouts.lastSets, { names: ["Bench press"] }],
     ["query", api.health.pendingSleep, {}],
     ["mutation", api.health.markSleepApplied, { ids: [] }],
+    ["query", api.tasks.pending, {}],
+    ["mutation", api.tasks.markApplied, { ids: [] }],
   ];
   const run = (kind: string, fn: any, args: any) => (t as any)[kind](fn, args);
   const refused = async (kind: string, fn: any, args: any) => {
@@ -300,4 +302,39 @@ test("Apple Watch sleep: Shortcut endpoint, the night's math, app pickup, get_sl
   expect(sleep.averageHours).toBe(7);
   delete process.env.SHORTCUT_KEY;
   expect((await post("{}")).status).toBe(401);
+});
+
+test("to-dos from chat: add_task, list_tasks, then the app picks them up", async () => {
+  process.env.MCP_TOKEN = TOKEN;
+  process.env.APP_KEY = APP_KEY;
+  const t = convexTest(schema, modules);
+  const tool = async (name: string, args: any) => {
+    const r = await t.fetch(`/mcp/${TOKEN}`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }) });
+    const body: any = await r.json();
+    return { err: body.result.isError, data: body.result.isError ? body.result.content[0].text : JSON.parse(body.result.content[0].text) };
+  };
+  const added = await tool("add_task", { text: "  Create Spotify   developer app  " });
+  expect(added.data.text).toBe("Create Spotify developer app");
+  expect((await tool("add_task", { text: "create spotify developer app" })).data.note).toMatch(/Already waiting/);
+  expect((await tool("add_task", { text: "   " })).err).toBe(true);
+  expect((await tool("add_task", { text: "x".repeat(201) })).err).toBe(true);
+  await tool("add_task", { text: "Allow Hugging Face in Claude settings" });
+
+  // The app already has one open and one finished task in its saved data
+  const now = new Date().toISOString();
+  await t.mutation(api.functions.setData, { appKey, payload: JSON.stringify({ adhocTasks: [
+    { id: "a", text: "Book dentist", completed: false, weekStart: now, created: now },
+    { id: "b", text: "Return package", completed: true, weekStart: now, created: now },
+  ] }) });
+  const listed = await tool("list_tasks", {});
+  expect(listed.data.tasks.map((x: any) => x.text)).toEqual(["Book dentist"]);
+  expect(listed.data.waitingForApp.map((x: any) => x.text)).toEqual(["Create Spotify developer app", "Allow Hugging Face in Claude settings"]);
+  expect((await tool("list_tasks", { includeDone: true })).data.tasks.length).toBe(2);
+
+  const pending = await t.query(api.tasks.pending, { appKey });
+  expect(pending.map((p: any) => p.text)).toEqual(["Create Spotify developer app", "Allow Hugging Face in Claude settings"]);
+  await t.mutation(api.tasks.markApplied, { ids: pending.map((p: any) => p.id), appKey });
+  expect((await t.query(api.tasks.pending, { appKey })).length).toBe(0);
+  expect((await tool("list_tasks", {})).data.waitingForApp).toEqual([]);
 });

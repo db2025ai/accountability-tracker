@@ -172,6 +172,20 @@ const TOOLS: Tool[] = [
     run: (ctx, a) => ctx.runQuery(internal.nutrition.weights, { days: Number(a?.days) || 30 }),
   },
   {
+    name: "add_task",
+    description:
+      "Add a one-off to-do to Life OS's Ad-Hoc Tasks list (Today tab), e.g. \"add renew passport to my to-dos\". " +
+      "One task per call, short and actionable, in his words. It appears the next time the app opens.",
+    inputSchema: { type: "object", properties: { text: { type: "string", description: "The task, under 200 characters" } }, required: ["text"] },
+    run: (ctx, a) => ctx.runMutation(internal.tasks.addTask, { text: String(a.text ?? "") }),
+  },
+  {
+    name: "list_tasks",
+    description: "His open ad-hoc tasks from the last 4 weeks, plus any added from chat the app hasn't picked up yet.",
+    inputSchema: { type: "object", properties: { includeDone: { type: "boolean", description: "Also list finished ones" } } },
+    run: (ctx, a) => ctx.runQuery(internal.tasks.listTasks, { includeDone: a?.includeDone === true }),
+  },
+  {
     name: "log_workout",
     description:
       "Log one workout to Life OS. Strength: list each exercise with its sets and set `lift` on the key lifts so progress is tracked. " +
@@ -373,7 +387,8 @@ const INSTRUCTIONS =
   "photographs or dictates, and to answer how his day, week or training is going. Always confirm an estimate before " +
   "log_meal. For lifting, bench, squat, deadlift and overhead press are the focus: say when one hits a new best " +
   "or hasn't been trained in a while. When he asks for a workout, plan it with plan_workout so he can run it in the " +
-  "app's workout mode, and keep the training profile current. Dates are local (America/New_York) YYYY-MM-DD.";
+  "app's workout mode, and keep the training profile current. When he asks to add something to his to-dos or " +
+  "task list, use add_task (list_tasks shows what's open). Dates are local (America/New_York) YYYY-MM-DD.";
 
 type Rpc = { jsonrpc: "2.0"; id?: string | number | null; method: string; params?: any };
 

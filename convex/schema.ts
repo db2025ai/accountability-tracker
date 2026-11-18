@@ -187,6 +187,15 @@ export default defineSchema({
     .index("by_user_date", ["userId", "date"])
     .index("by_user_applied", ["userId", "applied"]),
 
+  // Ad-hoc tasks sent from Claude (tasks.ts). The app copies them into data.adhocTasks on load and
+  // marks them applied, like weighIns.
+  taskInbox: defineTable({
+    userId: v.string(),
+    text: v.string(),
+    createdAt: v.string(),
+    applied: v.boolean(),
+  }).index("by_user_applied", ["userId", "applied"]),
+
   // What Claude should remember when planning: injuries, equipment, schedule, goals (one row)
   trainingProfile: defineTable({
     userId: v.string(),

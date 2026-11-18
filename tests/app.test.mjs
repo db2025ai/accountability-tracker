@@ -990,8 +990,12 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
             weighInsServed = true;
             return r.fulfill(ok(v));
         }
+        // A to-do Claude added from chat; served until it's marked applied
+        if (path === 'tasks:pending') return r.fulfill(ok(tasksApplied ? [] : [{ id: 't1', text: 'Create Spotify developer app', createdAt: '2026-10-13T22:00:00.000Z' }]));
+        if (path === 'tasks:markApplied') { tasksApplied = true; return r.fulfill(ok(null)); }
         return r.fulfill(ok(null));
     });
+    let tasksApplied = false;
     await page.reload();
     await page.waitForFunction(() => window.lifeOS);
     await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('health'); });
@@ -1019,6 +1023,12 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     check('weigh-in from Claude lands in the Health log', await page.evaluate(() =>
         lifeOS.data.healthLog.map(e => [e.date, e.weight])), [['2026-10-10', 207], ['2026-10-13', 205.4]]);
     check('weigh-in marked applied after saving', calls.filter(c => c[0] === 'nutrition:markWeighInsApplied').map(c => c[1]), [{ ids: ['w1'] }]);
+    await page.evaluate(() => { lifeOS.navigateTo('habits'); return lifeOS.syncTasks(true); });
+    check('to-do from Claude lands in this week\'s Ad-Hoc Tasks', await page.evaluate(() => [
+        lifeOS.data.adhocTasks.filter(t => t.text === 'Create Spotify developer app').length,
+        document.getElementById('adhocTasksList').textContent.includes('Create Spotify developer app'),
+    ]), [1, true]);
+    check('to-do marked applied after saving', calls.filter(c => c[0] === 'tasks:markApplied').map(c => c[1]), [{ ids: ['t1'] }]);
     check('day cells: hit, short, empty', await page.evaluate(() =>
         [...document.querySelectorAll('.nutrition-day')].slice(-3).map(d => d.className.replace('nutrition-day ', ''))), ['none', 'hit', 'short']);
     check('no page errors', errors, []);

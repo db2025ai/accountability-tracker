@@ -1208,6 +1208,7 @@ class LifeOS {
                 this.savePracticeGoalsMigration(); // after the cloud copy is in, so it can't overwrite it
                 this.maybeShowCatchUp(); // after the freshest data is in
                 this.syncSleep(true);
+                this.syncTasks(true);
             });
         }
 
@@ -1276,6 +1277,7 @@ class LifeOS {
             }
             this.maybeShowCatchUp(); // once a day, after the late-night hours
             this.updateAppBadge();
+            this.syncTasks(); // to-dos added from Claude while the app was in the background
         });
     }
 
@@ -3936,7 +3938,37 @@ class LifeOS {
         this.renderAdhocTasks();
     }
 
+    // To-dos Claude added from chat (connector add_task → Convex taskInbox): copy them into this
+    // week's Ad-Hoc Tasks, save, then mark them applied. At most once a minute unless forced.
+    async syncTasks(force = false) {
+        if (!this.convex || this._tasksSyncing) return;
+        if (!force && Date.now() - (this._tasksSyncedAt || 0) < 60e3) return;
+        this._tasksSyncing = true;
+        this._tasksSyncedAt = Date.now();
+        try {
+            const pending = await this.convex.query('tasks:pending');
+            if (!pending || !pending.length) return;
+            if (!this.data.adhocTasks) this.data.adhocTasks = [];
+            const weekStart = this.getWeekStartDate().toISOString();
+            for (const t of pending) {
+                const id = 'task_claude_' + t.id;
+                if (this.data.adhocTasks.some(x => x.id === id)) continue; // already copied, mark applied below
+                this.data.adhocTasks.push({ id, text: t.text, completed: false, weekStart, created: t.createdAt, source: 'claude' });
+            }
+            this.saveData();
+            this.renderAdhocTasks();
+            // After the list is saved, so a task can't be lost in between
+            this.convex.mutation('tasks:markApplied', { ids: pending.map(t => t.id) })
+                .catch(() => { /* copied again next time; the id check above keeps it once */ });
+        } catch (e) {
+            /* offline, locked or not deployed yet: try again later */
+        } finally {
+            this._tasksSyncing = false;
+        }
+    }
+
     renderAdhocTasks() {
+        this.syncTasks();
         const container = document.getElementById('adhocTasksList');
         if (!this.data.adhocTasks) this.data.adhocTasks = [];
 
