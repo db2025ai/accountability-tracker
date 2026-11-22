@@ -882,10 +882,10 @@ const PRACTICE_GOALS_VERSION = 1;
 
 // Skincare steps shown under the "Skincare AM" / "Skincare PM" rows on the Today tab (folded).
 // Tretinoin and mask nights are weekdays (0 = Sun), never the same night. Easing in at 1x/week;
-// after ~3 weeks with no flaking or stinging, go to 2x (e.g. [2, 5]), then 3x (e.g. [1, 3, 5]).
-// The mask sits two nights after tretinoin so it never lands on freshly treated skin.
+// after ~3 weeks with no flaking or stinging, go to 2x (e.g. [1, 4]), then 3x (e.g. [1, 3, 5]).
+// The mask sits a few nights after tretinoin so it never lands on freshly treated skin.
 const SKINCARE = {
-    tretDays: [5],    // Fri
+    tretDays: [4],    // Thu
     maskDays: [0],    // Sun
     am: { title: 'Morning', steps: [
         'Rinse with water (CeraVe cleanser only if you feel grimy)',

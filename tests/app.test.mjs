@@ -1480,7 +1480,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     console.log('\n— Skincare steps —');
     await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
     const night = d => page.evaluate(day => { const r = lifeOS.skincareFor('Skincare PM', day); return [r.kind, r.steps.length]; }, d);
-    check('PM by weekday: Fri tretinoin, Sun mask, else regular', [await night(5), await night(0), await night(1), await night(4), await night(6)],
+    check('PM by weekday: Thu tretinoin, Sun mask, else regular', [await night(4), await night(0), await night(1), await night(5), await night(6)],
         [['tret', 6], ['mask', 3], ['regular', 2], ['regular', 2], ['regular', 2]]);
     check('only skincare goals get steps', await page.evaluate(() => [lifeOS.skincareFor('Skincare AM', 2)?.steps.length, lifeOS.skincareFor('Up by 7:15AM', 2)]), [3, null]);
     check('tretinoin and mask never share a night', await page.evaluate(() => SKINCARE.tretDays.some(d => SKINCARE.maskDays.includes(d))), false);
