@@ -608,6 +608,7 @@ const MEDITATIONS = {
 // another book that has to be bought.
 const PRACTICE_LINKS = {
     escoffier: { label: 'Escoffier, A Guide to Modern Cookery (read online)', url: 'https://www.gutenberg.org/cache/epub/71395/pg71395-images.html' },
+    escoffierAlt: { label: 'Escoffier backup copy, if Gutenberg is down (Internet Archive)', url: 'https://archive.org/details/cu31924000610117' },
     pepin: { label: 'Video: Jacques Pépin breaks down a chicken', url: 'https://jp.foundation/video/breaking-down-a-chicken' },
     bpl: { label: 'Boston Public Library eCard (free, for Libby)', url: 'https://bpl.org/ecard' },
     williams: { label: 'This Is Just To Say', url: 'https://www.poetryfoundation.org/poems/56159/this-is-just-to-say' },
@@ -622,7 +623,7 @@ const PRACTICE_TERM = {
     start: '2026-11-08',
     journalRule: 'Every entry, 15 min: what happened, what you felt, what it means now.',
     next: 'Next term adds Joseph Williams, Style: Lessons in Clarity and Grace, for prose at the sentence level.',
-    prepLinks: ['escoffier', 'bpl'],
+    prepLinks: ['escoffier', 'escoffierAlt', 'bpl'],
     prep: {
         cook: ['Sharp chef\'s knife + honing steel', 'Heavy stockpot (12 qt) and a fine-mesh strainer', 'Roasting pan with a rack', 'Instant-read thermometer and a digital scale', 'Whisk, bench scraper, unflavored gelatin', 'Buy: The Professional Chef (Culinary Institute of America). A used older edition is fine', 'Own: Samin Nosrat, Salt Fat Acid Heat', 'Free: Escoffier, A Guide to Modern Cookery (Project Gutenberg, works on a Kindle)', 'Library (optional): Jacques Pépin, Complete Techniques'],
         write: ['Your journal for the Wednesday and Saturday entries', 'A legal pad for drafts', 'A free Boston Public Library eCard for the books (Libby app)', 'Natalie Goldberg, Writing Down the Bones', 'Mary Oliver, A Poetry Handbook', 'Anne Lamott, Bird by Bird', 'Richard Hugo, The Triggering Town']
@@ -656,7 +657,7 @@ const PRACTICE_TERM = {
                 weekend: 'White chicken stock from last week\'s carcass plus extra backs or feet, and brown stock from roasted beef or veal bones with tomato paste. Simmer, never boil. Chill a cup of each overnight: it should set. Freeze the rest in 1-cup portions.',
                 doneWhen: 'Stock sets like loose jelly when cold and stays clear.',
                 study: 'The Professional Chef: the stocks chapter. Cross-check Escoffier, Chapter I, Nos. 7 to 10.',
-                links: ['escoffier']
+                links: ['escoffier', 'escoffierAlt']
             },
             write: {
                 focus: 'What a journal is for',
@@ -673,16 +674,16 @@ const PRACTICE_TERM = {
             cook: {
                 method: 'Roasting, resting and carryover heat',
                 why: 'Roasting is a core dry-heat method, and Thanksgiving week gives you a high-stakes rep.',
-                weeknight: 'Reverse-sear a thick pork chop: low oven to 5°F under your target, then a hard sear.',
-                weekend: 'Dry-brine and roast a whole bird (the Thanksgiving turkey or a chicken) by thermometer, rest it, and make a pan gravy thickened with roux and your own stock.',
-                doneWhen: 'Pulled within 3°F of target; gravy smooth with no raw-flour taste.',
-                study: 'The Professional Chef: the roasting chapter. Salt Fat Acid Heat: the Salt chapter, on salting meat ahead.'
+                weeknight: 'Early in the week, before the holiday: reverse-sear a thick pork chop. Low oven to 5°F under your target, then a hard sear.',
+                weekend: 'Thanksgiving side (the turkey is covered): crispy roast potatoes. Parboil Yukon Golds in well-salted water with a pinch of baking soda, shake to rough up the edges, then roast at 450°F in plenty of hot fat (duck fat, or olive oil plus butter), turning once. Finish with flaky salt, rosemary and garlic. Parboil the day before; roast while the turkey rests.',
+                doneWhen: 'Deep golden, craggy crust that stays crisp after 10 minutes; fluffy and seasoned all the way through. Bonus: watch how much the turkey climbs while it rests.',
+                study: 'Salt Fat Acid Heat: the Salt chapter (why salted cooking water seasons from the inside) and the Fat chapter (how fat builds a crust). The Professional Chef: the roasting chapter, if you have it.'
             },
             write: {
                 focus: 'Images carry the feeling',
                 read: 'Robert Hayden, "Those Winter Sundays"; the Imagery chapter of Oliver\'s A Poetry Handbook.',
                 wed: 'A family moment told only through objects and actions. Never name the emotion.',
-                sat: 'The bird you roasted this week: the sound, the smell, the moment you carved it.',
+                sat: 'Thanksgiving: the sound, the smell, the moment your dish hit the table.',
                 craft: 'Imitate Hayden: a poem about a labor nobody thanked, yours or someone else\'s, built from concrete detail.',
                 check: 'A reader could name the feeling without being told it.',
                 links: ['hayden']
@@ -696,7 +697,7 @@ const PRACTICE_TERM = {
                 weekend: 'Béchamel from memory, then two derivatives: Mornay (cheese) for a gratin or croque monsieur, and Soubise (onion). Stretch: lasagna with béchamel.',
                 doneWhen: 'No lumps, coats the back of a spoon (nappe), no floury taste.',
                 study: 'The Professional Chef: the sauces chapter, roux and béchamel. Cross-check Escoffier, Chapter II, Nos. 19 to 21 and 28.',
-                links: ['escoffier']
+                links: ['escoffier', 'escoffierAlt']
             },
             write: {
                 focus: 'Concrete over abstract',
@@ -717,7 +718,7 @@ const PRACTICE_TERM = {
                 weekend: 'Chicken blanquette: chicken poached in your white stock, the liquid made into velouté and finished with cream and egg yolk.',
                 doneWhen: 'Velouté glossy and skimmed; chicken tender, never boiled.',
                 study: 'The Professional Chef: velouté in the sauces chapter, and poaching. Cross-check Escoffier, Chapter II, Nos. 25 to 27.',
-                links: ['escoffier']
+                links: ['escoffier', 'escoffierAlt']
             },
             write: {
                 focus: 'Facts, then feelings, then meaning',
@@ -757,7 +758,7 @@ const PRACTICE_TERM = {
                 weekend: 'Espagnole from brown roux, brown stock, mirepoix and tomato, then demi-glace: equal parts espagnole and brown stock, reduced by half. Make bordelaise with it over steak, then freeze the rest in ice cube trays.',
                 doneWhen: 'Demi-glace coats the spoon and sets firm in the fridge.',
                 study: 'The Professional Chef: brown sauce and demi-glace in the sauces chapter. Cross-check Escoffier, Chapter II, Nos. 22 and 23, and Chapter III, No. 32 (bordelaise).',
-                links: ['escoffier']
+                links: ['escoffier', 'escoffierAlt']
             },
             write: {
                 focus: 'Memory and voice',
@@ -777,7 +778,7 @@ const PRACTICE_TERM = {
                 weekend: 'Classical sauce tomate (salt pork, mirepoix, stock), then braise chicken cacciatore or braciole in it. Taste it next to the saved Hazan sauce.',
                 doneWhen: 'You can say why each tastes the way it does, and both are balanced for salt and acid.',
                 study: 'The Professional Chef: tomato sauce in the sauces chapter, and Escoffier, Chapter II, No. 29. Then compare both with Hazan\'s method.',
-                links: ['escoffier']
+                links: ['escoffier', 'escoffierAlt']
             },
             write: {
                 focus: 'Sound and the line',
@@ -797,7 +798,7 @@ const PRACTICE_TERM = {
                 weekend: 'Eggs Benedict brunch: poached eggs and hollandaise whisked by hand, no blender.',
                 doneWhen: 'Hollandaise holds for 20 minutes, and you\'ve rescued a broken one.',
                 study: 'The Professional Chef: hollandaise in the sauces chapter. Salt Fat Acid Heat: the Fat chapter, on emulsions. Cross-check Escoffier, Chapter II, No. 30 and Chapter III, No. 62.',
-                links: ['escoffier']
+                links: ['escoffier', 'escoffierAlt']
             },
             write: {
                 focus: 'Permission to draft badly',
@@ -816,7 +817,7 @@ const PRACTICE_TERM = {
                 weekend: 'Buy a whole round fish (branzino or striped bass), fillet it, make a quick fumet from the frame and poach the fillets in it.',
                 doneWhen: 'Clean fillets with little flesh left on the frame; beurre blanc holds.',
                 study: 'The Professional Chef: fish fabrication and shallow poaching, plus beurre blanc. Cross-check Escoffier, Chapter I, No. 11 (fish stock).',
-                links: ['escoffier']
+                links: ['escoffier', 'escoffierAlt']
             },
             write: {
                 focus: 'Form as a constraint',
@@ -880,11 +881,12 @@ const PRACTICE_GOALS = [
 const PRACTICE_GOALS_VERSION = 1;
 
 // Skincare steps shown under the "Skincare AM" / "Skincare PM" rows on the Today tab (folded).
-// Tretinoin and mask nights are weekdays (0 = Sun), never the same night. To ramp tretinoin to
-// 3x/week (after ~4 weeks with no flaking or stinging), add a day to tretDays, e.g. [1, 3, 5].
+// Tretinoin and mask nights are weekdays (0 = Sun), never the same night. Easing in at 1x/week;
+// after ~3 weeks with no flaking or stinging, go to 2x (e.g. [1, 4]), then 3x (e.g. [1, 3, 5]).
+// The mask sits a few nights after tretinoin so it never lands on freshly treated skin.
 const SKINCARE = {
-    tretDays: [1, 4], // Mon, Thu
-    maskDays: [6],    // Sat
+    tretDays: [4],    // Thu
+    maskDays: [0],    // Sun
     am: { title: 'Morning', steps: [
         'Rinse with water (CeraVe cleanser only if you feel grimy)',
         'CeraVe daily moisturizing lotion',

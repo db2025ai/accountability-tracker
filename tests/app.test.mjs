@@ -1398,7 +1398,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     // Thanksgiving week: roasting + images, with the whole term listed and this week marked
     await page.evaluate(() => lifeOS.renderPractice(new Date('2026-11-24T19:00:00-05:00')));
     const text = (await page.textContent('#practiceCard')).replace(/\s+/g, ' ');
-    check('week 3 card', [await summary(), /Weekend project ?Dry-brine and roast a whole bird/.test(text), /Wednesday journal ?A family moment/.test(text)],
+    check('week 3 card', [await summary(), /Weekend project ?Thanksgiving side/.test(text), /Wednesday journal ?A family moment/.test(text)],
         ["This week's practice Week 3 of 12 Roasting, resting and carryover heat · Images carry the feeling", true, true]);
     check('term list marks this week', await page.$$eval('.practice-term li', els => [els.length, els.findIndex(e => e.classList.contains('current')), els.filter(e => e.classList.contains('paused')).length]), [14, 2, 2]);
     await page.evaluate(() => lifeOS.renderPractice(new Date('2026-12-22T19:00:00-05:00')));
@@ -1421,8 +1421,8 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
         return [weeks.map((w, i) => w.write.feedback ? i + 1 : 0).filter(Boolean), weeks.filter(w => /Professional Chef/.test(w.cook.study)).length];
     }), [[2, 4, 6, 8, 10], 10]);
     check('week 2 shows the feedback row', /Feedback ?Send me \(Claude\) one piece/.test(await page.textContent('#practiceCard')), true);
-    check('week 2 links Escoffier, opening a new tab', await page.$$eval('#practiceCard .practice-list a', as => as.map(a => [a.textContent, a.target, a.rel])),
-        [['Escoffier, A Guide to Modern Cookery (read online)', '_blank', 'noopener'], ['Didion, Slouching Towards Bethlehem (borrow in Libby)', '_blank', 'noopener']]);
+    check('week 2 links Escoffier and its backup, opening a new tab', await page.$$eval('#practiceCard .practice-list a', as => as.map(a => [a.textContent, a.target, a.rel])),
+        [['Escoffier, A Guide to Modern Cookery (read online)', '_blank', 'noopener'], ['Escoffier backup copy, if Gutenberg is down (Internet Archive)', '_blank', 'noopener'], ['Didion, Slouching Towards Bethlehem (borrow in Libby)', '_blank', 'noopener']]);
     // Weeknight rep comes first and never needs this week's weekend cook
     check('week 2: weeknight rep listed before the weekend project', await page.$$eval('#practiceCard .practice-block:first-child dt', d => d.slice(0, 2).map(x => x.textContent)),
         ['Weeknight rep (Mon to Thu, about 45 min)', 'Weekend project']);
@@ -1480,8 +1480,8 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     console.log('\n— Skincare steps —');
     await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('habits'); });
     const night = d => page.evaluate(day => { const r = lifeOS.skincareFor('Skincare PM', day); return [r.kind, r.steps.length]; }, d);
-    check('PM by weekday: Mon/Thu tretinoin, Sat mask, else regular', [await night(1), await night(4), await night(6), await night(0), await night(3)],
-        [['tret', 6], ['tret', 6], ['mask', 3], ['regular', 2], ['regular', 2]]);
+    check('PM by weekday: Thu tretinoin, Sun mask, else regular', [await night(4), await night(0), await night(1), await night(5), await night(6)],
+        [['tret', 6], ['mask', 3], ['regular', 2], ['regular', 2], ['regular', 2]]);
     check('only skincare goals get steps', await page.evaluate(() => [lifeOS.skincareFor('Skincare AM', 2)?.steps.length, lifeOS.skincareFor('Up by 7:15AM', 2)]), [3, null]);
     check('tretinoin and mask never share a night', await page.evaluate(() => SKINCARE.tretDays.some(d => SKINCARE.maskDays.includes(d))), false);
     check('no em dashes in the steps', await page.evaluate(() => JSON.stringify(SKINCARE).includes('—')), false);
