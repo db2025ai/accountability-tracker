@@ -1,0 +1,56 @@
+# Deploy the Convex backend (functions, crons and the Claude connector) when the default
+# branch changes. The app itself is published by GitHub Pages from /docs, not here.
+#
+# One-time setup: add a repository secret named CONVEX_DEPLOY_KEY
+# (Settings, Secrets and variables, Actions, New repository secret). Get the value from the
+# Convex dashboard for deployment `energetic-fly-308`: Settings, Deploy key, Generate.
+# Without the secret this workflow does nothing and says so, so merges never fail because of it.
+name: Deploy Convex
+
+on:
+  push:
+    branches: [claude/accountability-tracker-dashboard-011CUoQHsjiqZm2zRvYBcqvY]
+    paths:
+      - convex/**
+      - package.json
+      - package-lock.json
+      - .github/workflows/deploy-convex.yml
+  workflow_dispatch: # Run it by hand from the Actions tab, e.g. the first time after adding the secret
+
+concurrency:
+  group: convex-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check the deploy key
+        id: key
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          if [ -z "$CONVEX_DEPLOY_KEY" ]; then
+            echo "No CONVEX_DEPLOY_KEY secret set, so there is nothing to deploy to." >> "$GITHUB_STEP_SUMMARY"
+            echo "Add it under Settings, Secrets and variables, Actions, then re-run this workflow." >> "$GITHUB_STEP_SUMMARY"
+            echo "have_key=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_key=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Convex tests
+        if: steps.key.outputs.have_key == 'true'
+        run: npm run test:convex
+      - name: Deploy
+        if: steps.key.outputs.have_key == 'true'
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex deploy
+      - name: Say what was deployed
+        if: steps.key.outputs.have_key == 'true'
+        run: echo "Deployed the Convex backend from ${GITHUB_SHA:0:7}." >> "$GITHUB_STEP_SUMMARY"
