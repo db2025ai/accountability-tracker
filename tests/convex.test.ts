@@ -367,7 +367,7 @@ function lifeOsData() {
     settings: { scoringCutover: "2026-10-11", reminders: { enabled: false, morning: "08:00", evening: "21:00", timezone: "America/New_York" } },
     weeks: [
       week("2026-11-15T05:00:00.000Z", [
-        ["X", "X", "X", "X", "X", "X", "X"], ["", "X", "X", "X", "X", "X", ""], ["", "X", "", "", "X", "", ""],
+        ["X", "X", "X", "", "X", "X", "X"], ["", "X", "X", "X", "X", "X", ""], ["", "X", "", "", "X", "", ""],
         ["", "", "", "", "", "X", ""], ["", "X", "", "", "", "", ""], ["", "", "", "", "", "", ""],
         ["", "", "", "", "", "", ""], ["", "X", "", "", "", "", ""],
       ]),
@@ -437,6 +437,10 @@ test("the rest of Life OS: today, week, trends, goals, practice, journal", async
     expect(week.lifeScore).toBe(67);
     expect(week.lastWeekScore).toBeGreaterThan(0);
     expect(week.mostStrikes[0]).toMatch(/\(1\)$/);
+    // Skincare AM was struck last week too, so the pulse's run counter sees 2
+    expect(row("Skincare AM").strikeWeeksRunning).toBe(2);
+    expect(row("Up by 7:15AM").strikeWeeksRunning).toBe(1);
+    expect(week.missesByDay).toEqual([{ day: "Tue", misses: 2 }]);
 
     const trends = (await tool("get_trends", { weeks: 3 })).data;
     expect(trends.weeks.map((w: any) => w.weekOf)).toEqual(["2026-11-08", "2026-11-15", "2026-11-22"]);

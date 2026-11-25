@@ -312,6 +312,17 @@ export function weekDetail(c: Ctx, date?: string) {
   const { total, cats } = scoreWeek(c, week);
   const prev = weekFor(c, addDays(sunday, -7));
   const prevPct = prev ? pct(scoreWeek(c, prev).total) : null;
+  // Weeks in a row (up to 4, this one included) a goal has been struck, as the app's weekly pulse counts it
+  const strikeRun = (name: string) => {
+    let run = 1;
+    for (let n = 1; n < 4; n++) {
+      const w = weekFor(c, addDays(sunday, -7 * n));
+      const e = w && entriesOf(w).find((x) => x.goal.name === name);
+      if (!e || scoreEntry(c, w, e).misses === 0) break;
+      run++;
+    }
+    return run;
+  };
   const goals = entriesOf(week).map((e) => {
     const s = scoreEntry(c, week, e);
     return {
@@ -322,9 +333,21 @@ export function weekDetail(c: Ctx, date?: string) {
       done: s.done,
       expected: s.expected,
       strikes: s.misses,
+      ...(s.misses > 0 ? { strikeWeeksRunning: strikeRun(e.goal.name) } : {}),
       ...(s.pending ? { pending: true } : {}),
     };
   });
+  // Which weekdays the daily misses pile up on (mirror of the app's isInferredMiss plus explicit ✗)
+  const cutover = sunday >= c.cutover;
+  const missesByDay = ALL_DAYS.map((d) => {
+    const n = entriesOf(week).filter((e) => {
+      if (scoringKind(c, e.goal) !== "daily" || !isExpected(c, week, e, d)) return false;
+      const v = e.tracking[d] ?? "";
+      if (parseInt(v) > 0) return true;
+      return cutover && v === "" && addDays(sunday, d) < c.today;
+    }).length;
+    return { day: DAY_NAMES[d], misses: n };
+  }).filter((x) => x.misses > 0);
   return {
     weekOf: sunday,
     range,
@@ -335,6 +358,7 @@ export function weekDetail(c: Ctx, date?: string) {
     vacationDays: vacationDays(week).map((d: number) => DAY_NAMES[d]),
     categories: Object.entries(cats).map(([category, s]) => ({ category, score: pct(s), done: s.done, expected: s.expected, strikes: s.misses })),
     mostStrikes: goals.filter((g) => g.strikes > 0).sort((a, b) => b.strikes - a.strikes).slice(0, 6).map((g) => `${g.name} (${g.strikes})`),
+    missesByDay: missesByDay.length ? missesByDay : undefined,
     goals,
     legend: MARKS_LEGEND,
     note: "Scores are done ÷ expected, as in the app. N×/week goals count once met or once the week ends (pending until then).",
