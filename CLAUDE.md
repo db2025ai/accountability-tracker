@@ -40,7 +40,7 @@ Single-page web app (PWA) for personal goal tracking, health monitoring, and dai
 - `convex/lib/auth.ts` — `requireAppKey(appKey)`: every public function calls it first (see Security)
 - `convex/lib/reminders.ts` — "what's left today" + message text. **Mirrors the schedule rules in life-os.js** (classifyFrequency, scoringKind, getGoalDays, isExpected) — change both together
 - Env vars: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (site URL), `MCP_TOKEN` (connector key, 24+ chars), `APP_KEY` (the app's key, 24+ chars), `SHORTCUT_KEY` (the sleep Shortcut's key, 24+ chars). Never print the private key or any of the keys
-- Deploy: `npx convex deploy` (uses `CONVEX_DEPLOY_KEY`)
+- Deploy: `npx convex deploy` (uses `CONVEX_DEPLOY_KEY`). **Normally automatic**: `.github/workflows/deploy-convex.yml` runs the Convex tests and deploys on every push to the default branch that touches `convex/**` or the package files, using the repo secret `CONVEX_DEPLOY_KEY`. Without that secret it skips with a note instead of failing, and the Actions tab can run it by hand (`workflow_dispatch`). The app itself is still published by GitHub Pages from `/docs`
 
 ## Security (app key)
 - **This repo is public and names the deployment, so the URL is not a secret.** What protects the data is `APP_KEY`: every public Convex function (query, mutation, action) takes `appKey: v.optional(v.string())` and calls `requireAppKey(appKey)` before anything else. It throws `ConvexError("Unauthorized")` on a missing or wrong key, and refuses everything if `APP_KEY` is unset or shorter than 24 characters. **Any new public function must do the same and be added to the list in the "the app key locks every public function" test.** Internal functions (cron, connector) don't need it.
