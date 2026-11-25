@@ -3109,6 +3109,7 @@ class LifeOS {
                 }
             } else {
                 this.renderNutrition();
+                this.renderLastWeek();
             }
         } catch (e) {
             console.error('[LifeOS] nutrition load failed:', e);
@@ -3285,6 +3286,7 @@ class LifeOS {
                 this.renderAll(); // includes this card, now fresh
             } else {
                 this.renderTraining();
+                this.renderLastWeek();
             }
         } catch (e) {
             console.error('[LifeOS] training load failed:', e);
@@ -4227,6 +4229,7 @@ class LifeOS {
     }
 
     renderHabits() {
+        this.renderLastWeekLine();
         this.renderWeekGoal();
         this.renderPractice();
         this.updateAppBadge();
@@ -5713,6 +5716,7 @@ class LifeOS {
     // ========================================
     bindReview() {
         document.getElementById('saveReviewBtn').addEventListener('click', () => this.saveWeeklyReview());
+        document.getElementById('lastWeekLine')?.addEventListener('click', () => this.navigateTo('review'));
 
         // Rating buttons
         document.getElementById('weekRating').addEventListener('click', (e) => {
@@ -5736,6 +5740,9 @@ class LifeOS {
             wgEl.hidden = !g;
             wgEl.innerHTML = g ? `<span class="week-goal-kicker">Goal</span> ${this.escapeHtml(g.text)}${g.result ? ` <b>· ${WEEK_GOAL_RESULTS[g.result]}</b>` : ''}` : '';
         }
+
+        // Last week's summary card
+        this.renderLastWeek();
 
         // Strike summary
         this.renderStrikeSummary();
@@ -5840,6 +5847,224 @@ class LifeOS {
         card.classList.remove('strike-summary-clean');
         const baseSummary = result.summary.replace(/^This week/, weekLabel);
         textEl.innerHTML = `<strong>${result.totalStrikes} strike${result.totalStrikes === 1 ? '' : 's'}</strong> · ${this.escapeHtml(baseSummary)}`;
+    }
+
+    // ========================================
+    // Last week's summary (top of Weekly Review, plus a Sunday/Monday line on Today)
+    // ========================================
+    // The finished week before the one holding `now`, scored with the same rule as everything else
+    // (scoreEntry), against the week before it and the average of up to 4 earlier weeks on the same
+    // rule. Workouts, nutrition and sleep come from the Health tab's caches and the Health log, and
+    // are left out when they don't cover the week. Null when that week isn't stored.
+    lastWeekSummary(now = new Date()) {
+        const weekAgo = (d, n) => { const x = new Date(d); x.setDate(x.getDate() - 7 * n); return x; };
+        const week = this.getWeekForDate(weekAgo(now, 1));
+        if (!week || !Object.keys(week.entries || {}).length) return null;
+        const start = this.weekStartOf(week);
+        const sameRule = w => this.isCutoverWeek(w) === this.isCutoverWeek(week);
+        const missesOf = (w, name) => {
+            const e = w && Object.values(w.entries).find(x => x.goal.name === name);
+            return e ? this.scoreEntry(w, e).misses : 0;
+        };
+
+        const total = this.scoreWeek(week);
+        const prevWeek = this.getWeekForDate(weekAgo(start, 1));
+        const prev = prevWeek && sameRule(prevWeek) ? this.scoreWeek(prevWeek) : null;
+        const earlier = [1, 2, 3, 4].map(n => this.getWeekForDate(weekAgo(start, n))).filter(w => w && sameRule(w));
+        const avg = earlier.length >= 2
+            ? Math.round(earlier.reduce((n, w) => n + this.scoreWeek(w).misses, 0) / earlier.length) : null;
+
+        // Goals: strikes, and how many weeks in a row (up to 4) each has had one
+        const goals = Object.values(week.entries).map(e => {
+            const s = this.scoreEntry(week, e);
+            return { name: e.goal.name, category: e.goal.category, misses: s.misses, expected: s.expected };
+        });
+        const struck = goals.filter(g => g.misses > 0)
+            .sort((a, b) => b.misses - a.misses || a.name.localeCompare(b.name));
+        for (const g of struck) {
+            g.run = 1;
+            for (let n = 1; n < 4 && missesOf(this.getWeekForDate(weekAgo(start, n)), g.name) > 0; n++) g.run++;
+        }
+        const scored = goals.filter(g => g.expected > 0 || g.misses > 0);
+
+        // Categories, most strikes first, with the change from the week before
+        const prevCats = prevWeek && prev ? this.scoreByCategory(prevWeek) : null;
+        const categories = Object.entries(this.scoreByCategory(week))
+            .map(([cat, s]) => ({ cat, misses: s.misses, pct: this.scorePct(s), delta: prevCats ? s.misses - (prevCats[cat]?.misses || 0) : null }))
+            .filter(c => c.misses > 0 || c.delta)
+            .sort((a, b) => b.misses - a.misses || a.cat.localeCompare(b.cat));
+
+        // Daily goals' misses by weekday (an explicit ✗ or a scheduled day left blank)
+        const byDay = [0, 1, 2, 3, 4, 5, 6].map(d => Object.values(week.entries).filter(e =>
+            this.scoringKind(e.goal) === 'daily' && this.isExpected(week, e, d) &&
+            (parseInt(e.tracking[d]) > 0 || this.isInferredMiss(week, e, d))).length);
+
+        // Health, from the same data the Health tab shows
+        const from = this.localDateKey(start), to = this.localDateKey(this.weekDayDate(week, 6));
+        const inWeek = k => k >= from && k <= to;
+        let training = null;
+        const t = this._training;
+        if (t && !t.error) {
+            const list = t.sessions.filter(s => inWeek(s.date));
+            training = {
+                sessions: list.length,
+                minutes: list.reduce((n, s) => n + (s.minutes || 0), 0),
+                strength: list.filter(s => s.type === 'strength').length,
+                cardio: list.filter(s => s.type === 'cardio' || s.type === 'swim').length,
+            };
+        }
+        let nutrition = null;
+        const nu = this._nutrition;
+        if (nu && !nu.error && nu.targets) {
+            const [y, m, d] = nu.today.split('-').map(Number);
+            const loadedFrom = this.localDateKey(new Date(y, m - 1, d - 13));
+            if (from >= loadedFrom) {
+                const T = nu.targets;
+                const days = nu.days.filter(x => inWeek(x.date));
+                // Averages use fully tracked days only, so a lone logged snack doesn't drag them down
+                const full = days.filter(x => T.calories > 0 && x.calories >= TRACKING_SHARE * T.calories);
+                const mean = key => full.length ? Math.round(full.reduce((n, x) => n + (x[key] || 0), 0) / full.length) : null;
+                nutrition = {
+                    tracked: full.length,
+                    proteinHits: days.filter(x => x.protein >= T.protein).length,
+                    protein: mean('protein'), calories: mean('calories'), fat: mean('fat'),
+                    targets: T,
+                };
+            }
+        }
+        const nights = (this.data.healthLog || []).filter(e => inWeek(e.date) && Number(e.sleep) > 0);
+        const sleep = {
+            nights: nights.length,
+            hours: nights.length ? Math.round(nights.reduce((n, e) => n + Number(e.sleep), 0) / nights.length * 10) / 10 : null,
+        };
+
+        // What to work on: a goal struck several weeks running (else the most struck), and a day misses pile up on
+        const focus = [];
+        const repeat = struck.filter(g => g.run >= 2).sort((a, b) => b.run - a.run || b.misses - a.misses)[0];
+        if (repeat) focus.push({ kind: 'repeat', name: repeat.name, run: repeat.run });
+        else if (struck[0] && struck[0].misses >= 2) focus.push({ kind: 'top', name: struck[0].name, misses: struck[0].misses });
+        const dayTotal = byDay.reduce((a, b) => a + b, 0);
+        const worst = Math.max(...byDay);
+        if (dayTotal >= 4 && worst >= 2 && worst >= 2 * dayTotal / 7) {
+            focus.push({ kind: 'day', days: byDay.map((n, i) => (n === worst ? i : -1)).filter(i => i >= 0), misses: worst });
+        }
+
+        return {
+            week, from, to,
+            score: { misses: total.misses, pct: this.scorePct(total) },
+            prev: prev ? { misses: prev.misses, pct: this.scorePct(prev) } : null,
+            avg, avgWeeks: earlier.length,
+            clean: scored.filter(g => g.misses === 0).length, scoredGoals: scored.length,
+            topGoals: struck.slice(0, 5), categories, byDay, focus,
+            training, nutrition, sleep,
+            weekGoal: (this.data.weekGoals || {})[from] || null,
+        };
+    }
+
+    // "3 fewer than the week before" etc.; css class 'better' | 'worse' | ''
+    strikeDelta(now, before) {
+        const d = now - before;
+        if (d === 0) return { text: 'same as the week before', cls: '' };
+        return { text: `${Math.abs(d)} ${d < 0 ? 'fewer' : 'more'} than the week before`, cls: d < 0 ? 'better' : 'worse' };
+    }
+
+    lastWeekRange(s) {
+        const [a, b] = [s.from, s.to].map(k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); });
+        const sameMonth = a.getMonth() === b.getMonth();
+        return `${a.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} to ${b.toLocaleDateString('en-US', sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
+    }
+
+    renderLastWeek(now = new Date()) {
+        const card = document.getElementById('lastWeekCard');
+        if (!card) return;
+        // Health numbers come from the Health tab's caches: load them if this is the first view
+        if (this.convex) {
+            const stale = c => !c || Date.now() - c.loadedAt > 60e3 || c.today !== this.localDateKey(new Date());
+            if (stale(this._nutrition)) this.loadNutrition();
+            if (stale(this._training)) this.loadTraining();
+        }
+        const s = this.lastWeekSummary(now);
+        card.hidden = !s;
+        if (!s) { card.innerHTML = ''; return; }
+        const esc = x => this.escapeHtml(String(x));
+        const fmt = x => Math.round(x).toLocaleString('en-US');
+        const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const list = arr => arr.length <= 1 ? arr.join('') : `${arr.slice(0, -1).join(', ')} and ${arr[arr.length - 1]}`;
+
+        const delta = s.prev ? this.strikeDelta(s.score.misses, s.prev.misses) : null;
+        const head = `
+            <div class="lw-head">
+                <span class="lw-kicker">Last week</span>
+                <span class="lw-dates">${esc(this.lastWeekRange(s))}</span>
+            </div>
+            <div class="lw-stats">
+                <div class="lw-stat"><b class="lw-big lw-strikes">${s.score.misses}</b> <span>${s.score.misses === 1 ? 'strike' : 'strikes'}</span></div>
+                <div class="lw-stat"><b class="lw-big">${s.score.pct}%</b> <span>done</span></div>
+                <div class="lw-stat"><b class="lw-big">${s.clean}/${s.scoredGoals}</b> <span>goals clean</span></div>
+            </div>
+            <p class="lw-compare">${delta ? `<span class="lw-delta ${delta.cls}">${delta.text}</span>` : 'No earlier week on the same scoring to compare with'}${s.avg !== null ? ` &middot; ${s.avgWeeks}-week average ${s.avg}` : ''}</p>`;
+
+        const focus = s.focus.map(f => {
+            if (f.kind === 'repeat') return `<b>${esc(f.name)}</b> has a strike ${f.run} weeks running.`;
+            if (f.kind === 'top') return `<b>${esc(f.name)}</b> had the most strikes (${f.misses}).`;
+            return `Daily misses piled up on ${list(f.days.map(d => DAY_NAMES[d]))} (${f.misses}${f.days.length > 1 ? ' each' : ''}).`;
+        });
+        const focusHtml = focus.length ? `<p class="lw-focus"><span class="lw-label-inline">Focus</span> ${focus.join(' ')}</p>` : '';
+
+        const goalsHtml = s.topGoals.length ? `
+            <div class="lw-label">Most strikes</div>
+            <ol class="lw-goals">${s.topGoals.map(g => `
+                <li><span class="lw-goal-name">${esc(g.name)}</span><span class="lw-count">${g.misses}</span>${g.run >= 2 ? `<span class="lw-run">${g.run} weeks running</span>` : ''}</li>`).join('')}
+            </ol>` : '<p class="lw-clean">No strikes. Clean week.</p>';
+
+        const catsHtml = s.categories.length ? `
+            <div class="lw-label">By category</div>
+            <ul class="lw-cats">${s.categories.map(c => {
+                const d = c.delta === null || c.delta === 0 ? '' : `<span class="lw-delta ${c.delta < 0 ? 'better' : 'worse'}" title="vs the week before" aria-label="${c.delta < 0 ? 'down' : 'up'} ${Math.abs(c.delta)} vs the week before">${c.delta > 0 ? '+' : '&minus;'}${Math.abs(c.delta)}</span>`;
+                return `<li><span class="lw-cat-name">${esc(c.cat)}</span><span class="lw-count">${c.misses}</span>${d}</li>`;
+            }).join('')}</ul>` : '';
+
+        const peak = Math.max(1, ...s.byDay);
+        const daysHtml = s.byDay.some(n => n > 0) ? `
+            <div class="lw-label">Daily misses by day</div>
+            <div class="lw-days">${s.byDay.map((n, i) => `
+                <div class="lw-day" aria-label="${DAY_NAMES[i]}: ${n} missed"><span class="lw-day-n">${n || ''}</span><span class="lw-bar"><i style="height:${Math.round(n / peak * 100)}%"></i></span><span class="lw-day-name">${DAYS[i][0]}</span></div>`).join('')}
+            </div>` : '';
+
+        const health = [];
+        if (s.training) {
+            const t = s.training;
+            const kinds = [t.strength && `${t.strength} strength`, t.cardio && `${t.cardio} cardio`].filter(Boolean).join(', ');
+            health.push(`<li><b>Workouts</b> ${t.sessions ? `${t.sessions} ${t.sessions === 1 ? 'session' : 'sessions'}${t.minutes ? ` &middot; ${fmt(t.minutes)} min` : ''}${kinds ? ` (${kinds})` : ''}` : 'none logged'}</li>`);
+        }
+        if (s.nutrition) {
+            const n = s.nutrition, T = n.targets;
+            const over = (v, target) => v !== null && target && v > target * 1.1 ? ' lw-over' : '';
+            health.push(n.tracked
+                ? `<li><b>Nutrition</b> fully tracked ${n.tracked} of 7 days &middot; protein avg <span class="${n.protein < T.protein ? 'lw-under' : ''}">${fmt(n.protein)}g</span> of ${fmt(T.protein)}g, hit ${n.proteinHits} ${n.proteinHits === 1 ? 'day' : 'days'} &middot; calories avg <span class="${over(n.calories, T.calories)}">${fmt(n.calories)}</span> of ${fmt(T.calories)}${T.fat ? ` &middot; fat avg <span class="${over(n.fat, T.fat)}">${fmt(n.fat)}g</span> of ${fmt(T.fat)}g` : ''}</li>`
+                : '<li><b>Nutrition</b> no fully tracked days</li>');
+        }
+        health.push(s.sleep.nights
+            ? `<li><b>Sleep</b> ${s.sleep.hours} h average over ${s.sleep.nights} ${s.sleep.nights === 1 ? 'night' : 'nights'}${s.sleep.nights < 5 ? ' (too few nights to read much into)' : ''}</li>`
+            : '<li><b>Sleep</b> no nights logged</li>');
+        const healthHtml = `<div class="lw-label">Health</div><ul class="lw-health">${health.join('')}</ul>`;
+
+        const g = s.weekGoal;
+        const goalHtml = g ? `<p class="lw-week-goal"><span class="week-goal-kicker">Goal</span> ${esc(g.text)}${g.result ? ` <b>&middot; ${WEEK_GOAL_RESULTS[g.result]}</b>` : ' <span class="lw-muted">&middot; not closed out</span>'}</p>` : '';
+
+        card.innerHTML = head + goalHtml + focusHtml + goalsHtml + catsHtml + daysHtml + healthHtml;
+    }
+
+    // Today tab, Sunday and Monday only: one line with last week's strikes that opens the full summary
+    renderLastWeekLine(now = new Date()) {
+        const el = document.getElementById('lastWeekLine');
+        if (!el) return;
+        const s = (now.getDay() === 0 || now.getDay() === 1) ? this.lastWeekSummary(now) : null;
+        el.hidden = !s;
+        if (!s) { el.innerHTML = ''; return; }
+        const delta = s.prev ? this.strikeDelta(s.score.misses, s.prev.misses) : null;
+        el.innerHTML = `<span class="lw-kicker">Last week</span> <span class="lw-line-text"><b>${s.score.misses} ${s.score.misses === 1 ? 'strike' : 'strikes'}</b>${delta ? `, <span class="lw-delta ${delta.cls}">${delta.text}</span>` : ''}</span> <span class="lw-open">See summary &rsaquo;</span>`;
     }
 
     renderReviewScores() {

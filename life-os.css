@@ -2675,6 +2675,149 @@ button.habit-checkbox {
     margin-bottom: 20px;
 }
 
+/* Last week's summary (renderLastWeek) and the Sunday/Monday line on Today (renderLastWeekLine) */
+.last-week-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+    min-width: 0;
+}
+.last-week-card[hidden],
+.last-week-line[hidden] { display: none; }
+.lw-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.lw-kicker {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.lw-dates { font-family: var(--font-serif); font-size: 1.15rem; font-weight: 600; }
+.lw-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.lw-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    min-width: 0;
+}
+.lw-stat span { font-size: 0.75rem; color: var(--text-muted); }
+.lw-big { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
+.lw-big.lw-strikes { color: var(--danger); }
+.lw-compare { font-size: 0.82rem; color: var(--text-muted); margin: 10px 0 0; }
+.lw-delta.better { color: var(--primary); font-weight: 600; }
+.lw-delta.worse { color: var(--danger); font-weight: 600; }
+.lw-week-goal { font-size: 0.85rem; margin: 12px 0 0; }
+.lw-muted { color: var(--text-muted); }
+.lw-focus {
+    font-size: 0.88rem;
+    line-height: 1.5;
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+}
+.lw-label-inline {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-right: 4px;
+}
+.lw-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 18px 0 6px;
+}
+.lw-clean { font-size: 0.88rem; color: var(--primary); margin: 14px 0 0; }
+.lw-goals, .lw-cats, .lw-health { list-style: none; margin: 0; padding: 0; }
+.lw-goals li, .lw-cats li {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem;
+    min-width: 0;
+}
+.lw-goals li:last-child, .lw-cats li:last-child { border-bottom: 0; }
+.lw-goal-name, .lw-cat-name { flex: 1 1 60%; min-width: 0; overflow-wrap: anywhere; }
+.lw-count { font-weight: 600; color: var(--danger); font-variant-numeric: tabular-nums; }
+.lw-run {
+    flex-basis: 100%;
+    font-size: 0.75rem;
+    color: var(--danger);
+}
+.lw-cats .lw-delta { font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.lw-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+    height: 96px;
+    align-items: end;
+}
+.lw-day {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    height: 100%;
+    gap: 3px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+.lw-bar {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+}
+.lw-day i {
+    display: block;
+    width: 100%;
+    max-width: 28px;
+    min-height: 2px;
+    border-radius: 4px 4px 0 0;
+    background: var(--danger);
+    opacity: 0.8;
+}
+.lw-day-n { min-height: 1em; color: var(--text); font-variant-numeric: tabular-nums; }
+.lw-health li { font-size: 0.86rem; line-height: 1.5; padding: 4px 0; }
+.lw-health b { margin-right: 4px; }
+.lw-under, .lw-over { color: var(--danger); font-weight: 600; }
+
+.last-week-line {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    width: 100%;
+    text-align: left;
+    background: var(--card-bg);
+    border: 0;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    font: inherit;
+    font-size: 0.9rem;
+    color: var(--text);
+    cursor: pointer;
+}
+.last-week-line .lw-line-text { flex: 1 1 auto; min-width: 0; }
+.last-week-line .lw-open { margin-left: auto; color: var(--primary); font-weight: 600; font-size: 0.85rem; }
+
 .strike-summary-card {
     display: flex;
     align-items: flex-start;
