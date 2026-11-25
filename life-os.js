@@ -5,6 +5,12 @@
 
 // Categories excluded from all-time stats (one-time tasks, low-signal noise)
 const EXCLUDE_CATS = new Set(['other', 'one-time / other', 'one-time/other', 'general']);
+// Period filters for Home's By Category and Deep Dive. "Recent" (the default) starts at the scoring
+// cutover, when tracking became reliable; the others reach back into older history as reference
+const STATS_PERIODS = [
+    { id: 'recent', label: 'Recent' }, { id: '1m', label: '1M' }, { id: '3m', label: '3M' },
+    { id: 'ytd', label: 'YTD' }, { id: 'all', label: 'All' }
+];
 
 // Weeks starting on/after this Sunday use the inferred-miss scoring rule (see scoreEntry)
 const DEFAULT_SCORING_CUTOVER = '2026-10-11';
@@ -1226,10 +1232,8 @@ class LifeOS {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
 
-        // On mobile, default to Today tab instead of Dashboard
-        if (window.innerWidth <= 768) {
-            this.navigateTo('habits');
-        }
+        // The app opens on Today (user's choice, Nov 24): Home is the weekly pulse, checked a few times a week
+        this.navigateTo('habits');
 
         // Notification taps open ?section=habits
         this.openSectionFromUrl();
@@ -1966,13 +1970,29 @@ class LifeOS {
     renderDashboard() {
         this.updateAppBadge();
         this.renderLifeScore();
-        this.renderDashStats();
         this.renderWeeklyTrend();
+        this.renderHomePulse();
+        this.renderLastWeekLine(new Date(), 'homeLastWeek', true);
+        this.renderHomeHealth();
         this.renderCategoryBars();
-        this.renderProblemAreas();
+        this.renderStreaks();
+        this.renderHeatmap();
         this.renderAllTimeStats();
         this.renderDeepDive();
-        this.renderActivityFeed();
+        this.renderTrendsFold();
+    }
+
+    // Trends and history stay folded unless opened (remembered per device)
+    renderTrendsFold() {
+        const fold = document.getElementById('homeTrends');
+        if (!fold) return;
+        const sub = document.getElementById('homeTrendsSub');
+        if (sub) sub.textContent = `Recent since ${this.reliableSinceLabel()}, older weeks as reference`;
+        if (!fold._bound) {
+            fold._bound = true;
+            try { fold.open = localStorage.getItem('lifeOS_trendsOpen') === '1'; } catch { /* private mode */ }
+            fold.addEventListener('toggle', () => { try { localStorage.setItem('lifeOS_trendsOpen', fold.open ? '1' : '0'); } catch { /* ignore */ } });
+        }
     }
 
     renderLifeScore() {
@@ -2015,85 +2035,177 @@ class LifeOS {
         });
     }
 
-    renderDashStats() {
-        const week = this.getCurrentWeek();
-        if (!week) return;
-
-        // Goals on track
-        let onTrack = 0;
-        const totalGoals = Object.keys(week.entries).length;
-        Object.values(week.entries).forEach(entry => {
-            if (this.scoreEntry(week, entry).misses === 0) onTrack++;
-        });
-        document.getElementById('dashGoalsOnTrack').textContent = onTrack;
-        document.getElementById('dashGoalsDetail').textContent = `of ${totalGoals} goals`;
-
-        // Today's progress
-        const todayDayIdx = new Date().getDay();
-        let todayDone = 0, todayTotal = 0;
-        if (week) {
-            Object.values(week.entries).forEach(entry => {
-                const freq = this.classifyFrequency(entry.goal.target);
-                // Only count items applicable today
-                const applicable = (freq.group === 'daily' || freq.group === 'fewPerWeek') &&
-                    this.scoringKind(entry.goal) !== 'limit' &&
-                    this.isExpected(week, entry, todayDayIdx);
-                if (applicable) {
-                    todayTotal++;
-                    const val = entry.tracking[todayDayIdx];
-                    if (val === 'X' || val === 'x') todayDone++;
-                }
-            });
-        }
-        document.getElementById('dashTodayProgress').textContent = `${todayDone}/${todayTotal}`;
-        document.getElementById('dashTodayDetail').textContent = 'items done today';
-
-        // Health score (based on physical health goal completion this week)
-        const healthPct = this.scorePct(this.scoreWeek(week, e =>
-            e.goal.category === 'Physical Health' || e.goal.category === 'Mental Health'));
-        document.getElementById('dashHealthScore').textContent = healthPct + '%';
-
-        // Habit streak
-        const streak = this.calculateMaxStreak();
-        document.getElementById('dashHabitStreak').textContent = streak;
+    // ========================================
+    // Home: this week's pulse and health strip (the app opens on Today; Home is checked a few times a week)
+    // ========================================
+    // Weeks from the scoring cutover on are the reliable record; older weeks (the earlier web version)
+    // stay in the data and in every "All"-style view, marked as reference
+    reliableSince() {
+        return this.data.settings?.scoringCutover || DEFAULT_SCORING_CUTOVER;
     }
 
-    calculateMaxStreak() {
-        // Count consecutive days (including today) where ≥70% of daily goals were completed
-        const sortedWeeks = [...this.data.weeks].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-        if (sortedWeeks.length === 0) return 0;
+    reliableSinceLabel() {
+        const [y, m, d] = this.reliableSince().split('-').map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
 
-        const today = new Date();
-        const todayDayIdx = today.getDay();
-        let streak = 0;
-        let weekIdx = sortedWeeks.length - 1;
-        let dayIdx = todayDayIdx;
+    weeksInPeriod(period, now = new Date()) {
+        if (period === 'recent') return this.data.weeks.filter(w => this.isCutoverWeek(w));
+        const cutoff = {
+            '1m':  new Date(now - 30 * 864e5),
+            '3m':  new Date(now - 91 * 864e5),
+            'ytd': new Date(now.getFullYear(), 0, 1),
+        }[period] || new Date(0);
+        return this.data.weeks.filter(w => new Date(w.startDate) >= cutoff);
+    }
 
-        while (weekIdx >= 0) {
-            const week = sortedWeeks[weekIdx];
-            const entries = Object.values(week.entries).filter(e => {
-                const freq = this.classifyFrequency(e.goal.target);
-                return freq.group === 'daily';
-            });
-            if (entries.length === 0) break;
+    // One line under a period filter when the weeks shown include older, less reliable ones
+    referenceNote(weeks) {
+        const older = weeks.filter(w => !this.isCutoverWeek(w)).length;
+        if (!older) return '';
+        return `<p class="reference-note">Includes ${older} ${older === 1 ? 'week' : 'weeks'} from before ${this.reliableSinceLabel()}, kept for reference (older tracking, less reliable). Faded bars are those months.</p>`;
+    }
 
-            for (let d = dayIdx; d >= 0; d--) {
-                // Only goals expected that day count; days with nothing expected are skipped
-                const expected = entries.filter(e => this.isExpected(week, e, d));
-                if (expected.length === 0) continue;
-                const done = expected.filter(e => e.tracking[d] === 'X' || e.tracking[d] === 'x').length;
-                if (done / expected.length >= 0.7) {
-                    streak++;
-                } else if (weekIdx === sortedWeeks.length - 1 && d === todayDayIdx) {
-                    continue; // today is still in progress — don't break the streak yet
-                } else {
-                    return streak;
-                }
+    // Cards that read the nutrition/training caches, redrawn when a load finishes
+    renderCacheCards() {
+        this.renderLastWeek();
+        this.renderHomeHealth();
+    }
+
+    // Strikes in days 0..lastDay of a week by the cell rule: an explicit ✗, a scheduled daily day left
+    // blank once it has passed, a use over a limit. Lets this week be compared with last week at the
+    // same point; per-week shortfalls only count once a week is over, so they're left out of both.
+    strikesThrough(week, lastDay) {
+        const vac = this.getVacationDays(week);
+        let n = 0;
+        for (const e of Object.values(week.entries)) {
+            const kind = this.scoringKind(e.goal);
+            const t = e.tracking || [];
+            let explicit = 0, inferred = 0, checks = 0;
+            for (let d = 0; d <= lastDay && d < 7; d++) {
+                if (vac.includes(d)) continue;
+                explicit += parseInt(t[d]) || 0;
+                if (this.isDone(t[d])) checks++;
+                if (kind === 'daily' && this.isInferredMiss(week, e, d)) inferred++;
             }
-            weekIdx--;
-            dayIdx = 6;
+            if (kind === 'limit') n += Math.max(explicit, checks - Math.round(this.classifyFrequency(e.goal.target).perWeek));
+            else n += explicit + inferred;
         }
-        return streak;
+        return n;
+    }
+
+    // What's worth knowing mid-week: strikes so far against the same point last week, % done, what's
+    // left today, the goals with the most strikes so far and the N-times-a-week goals running out of days
+    homePulse(now = new Date()) {
+        const week = this.getWeekForDate(now);
+        if (!week) return null;
+        const day = now.getDay();
+        const ago = new Date(now); ago.setDate(ago.getDate() - 7);
+        const last = this.getWeekForDate(ago);
+        const comparable = last && this.isCutoverWeek(last) === this.isCutoverWeek(week);
+        const lastMisses = name => {
+            const e = last && Object.values(last.entries).find(x => x.goal.name === name);
+            return e ? this.scoreEntry(last, e).misses : 0;
+        };
+        const vac = this.getVacationDays(week);
+        const struck = [], risk = [];
+        for (const e of Object.values(week.entries)) {
+            const kind = this.scoringKind(e.goal);
+            const s = this.scoreEntry(week, e);
+            if (kind === 'perWeek') {
+                const short = s.target - s.checks;
+                const daysLeft = [0, 1, 2, 3, 4, 5, 6].filter(d => d >= day && !vac.includes(d) && e.tracking[d] !== '-').length;
+                // Behind, with at most one spare day left to catch up
+                if (s.target > 0 && short > 0 && daysLeft - short <= 1) risk.push({ name: e.goal.name, done: s.checks, target: s.target, daysLeft });
+            } else if ((kind === 'daily' || kind === 'limit') && s.misses > 0) {
+                struck.push({ name: e.goal.name, misses: s.misses, lastWeek: lastMisses(e.goal.name) > 0 });
+            }
+        }
+        struck.sort((a, b) => b.misses - a.misses || (b.lastWeek - a.lastWeek) || a.name.localeCompare(b.name));
+        risk.sort((a, b) => (a.daysLeft - (a.target - a.done)) - (b.daysLeft - (b.target - b.done)) || a.name.localeCompare(b.name));
+        return {
+            week, day,
+            soFar: this.strikesThrough(week, day - 1),
+            then: comparable ? this.strikesThrough(last, day - 1) : null,
+            pct: this.scorePct(this.scoreWeek(week)),
+            left: this.todayRemainingCount(),
+            struck: struck.slice(0, 3),
+            risk: risk.slice(0, 3),
+        };
+    }
+
+    renderHomePulse(now = new Date()) {
+        const el = document.getElementById('homePulse');
+        if (!el) return;
+        const p = this.homePulse(now);
+        if (!p) { el.innerHTML = '<div class="empty-state">No week started yet. Open Goals and start one.</div>'; return; }
+        const esc = x => this.escapeHtml(x);
+        let pace;
+        if (p.day === 0) pace = 'New week. Strikes count from tomorrow.';
+        else if (p.then === null) pace = 'Nothing comparable from last week yet.';
+        else {
+            const d = p.soFar - p.then;
+            pace = `${p.then} at this point last week` + (d === 0 ? ', same pace'
+                : `, <span class="lw-delta ${d < 0 ? 'better' : 'worse'}">${Math.abs(d)} ${d < 0 ? 'fewer' : 'more'}</span>`);
+        }
+        const struck = p.struck.length ? `
+            <div class="lw-label">Most strikes so far</div>
+            <ul class="home-list">${p.struck.map(g => `
+                <li><span class="lw-goal-name">${esc(g.name)}</span><span class="lw-count">${g.misses}</span>${g.lastWeek ? '<span class="lw-run">also last week</span>' : ''}</li>`).join('')}
+            </ul>` : '';
+        const risk = p.risk.length ? `
+            <div class="lw-label">Running out of days</div>
+            <ul class="home-list">${p.risk.map(g => `
+                <li><span class="lw-goal-name">${esc(g.name)}</span><span class="home-risk">${g.done} of ${g.target} &middot; ${g.daysLeft} ${g.daysLeft === 1 ? 'day' : 'days'} left</span></li>`).join('')}
+            </ul>` : '';
+        el.innerHTML = `
+            <div class="lw-head"><span class="lw-kicker">This week so far</span></div>
+            <div class="lw-stats">
+                <div class="lw-stat"><b class="lw-big lw-strikes">${p.soFar}</b> <span>${p.soFar === 1 ? 'strike' : 'strikes'} through yesterday</span></div>
+                <div class="lw-stat"><b class="lw-big">${p.pct}%</b> <span>done</span></div>
+                <div class="lw-stat"><b class="lw-big">${p.left}</b> <span>left today</span></div>
+            </div>
+            <p class="lw-compare">${pace}</p>
+            ${struck}${risk}
+            ${!struck && !risk && p.day > 0 ? '<p class="lw-clean">Nothing slipping so far.</p>' : ''}`;
+    }
+
+    // Workouts, nutrition and sleep for this week so far (Sun to today), from the Health tab's data
+    renderHomeHealth(now = new Date()) {
+        const el = document.getElementById('homeHealth');
+        if (!el) return;
+        if (this.convex) {
+            const stale = c => !c || Date.now() - c.loadedAt > 60e3 || c.today !== this.localDateKey(new Date());
+            if (stale(this._nutrition)) this.loadNutrition();
+            if (stale(this._training)) this.loadTraining();
+        }
+        const from = this.localDateKey(this.getWeekStartDate(now)), to = this.localDateKey(now);
+        const inWeek = k => k >= from && k <= to;
+        const fmt = x => Math.round(x).toLocaleString('en-US');
+        const daysSoFar = now.getDay() + 1;
+        const tiles = [];
+        const t = this._training;
+        if (t && !t.error) {
+            const list = t.sessions.filter(x => inWeek(x.date));
+            const min = list.reduce((n, x) => n + (x.minutes || 0), 0);
+            tiles.push(['Workouts', String(list.length), list.length ? `${fmt(min)} min` : 'none yet']);
+        }
+        const nu = this._nutrition;
+        if (nu && !nu.error && nu.targets) {
+            const T = nu.targets;
+            const full = nu.days.filter(x => inWeek(x.date) && T.calories > 0 && x.calories >= TRACKING_SHARE * T.calories);
+            const protein = full.length ? Math.round(full.reduce((n, x) => n + x.protein, 0) / full.length) : null;
+            tiles.push(['Protein', protein === null ? '&ndash;' : `${fmt(protein)}g`, `avg, goal ${fmt(T.protein)}g`, protein !== null && protein < T.protein]);
+            tiles.push(['Tracked', `${full.length}/${daysSoFar}`, 'days fully logged']);
+        }
+        const nights = (this.data.healthLog || []).filter(e => inWeek(e.date) && Number(e.sleep) > 0);
+        const hours = nights.length ? Math.round(nights.reduce((n, e) => n + Number(e.sleep), 0) / nights.length * 10) / 10 : null;
+        tiles.push(['Sleep', hours === null ? '&ndash;' : `${hours} h`, nights.length ? `${nights.length} ${nights.length === 1 ? 'night' : 'nights'} logged` : 'no nights logged']);
+        el.hidden = false;
+        el.innerHTML = `<div class="lw-head"><span class="lw-kicker">Health this week</span></div>
+            <div class="home-tiles">${tiles.map(([label, value, sub, warn]) => `
+                <div class="home-tile"><span class="home-tile-label">${label}</span> <b class="home-tile-value${warn ? ' lw-under' : ''}">${value}</b> <span class="home-tile-sub">${sub}</span></div>`).join('')}
+            </div>`;
     }
 
     renderCategoryBars() {
@@ -2140,58 +2252,17 @@ class LifeOS {
         else { el.textContent = '→ Same as last week'; el.className = 'weekly-trend neutral'; }
     }
 
-    renderProblemAreas() {
-        const container = document.getElementById('problemAreas');
-        if (!container) return;
-        const week = this.getCurrentWeek();
-        if (!week) { container.innerHTML = ''; return; }
-
-        const catStats = this.scoreByCategory(week);
-
-        const worst = Object.entries(catStats)
-            .filter(([, s]) => s.expected > 0)
-            .map(([cat, s]) => ({ cat, pct: this.scorePct(s), strikes: s.misses }))
-            .sort((a, b) => a.pct - b.pct)
-            .slice(0, 3)
-            .filter(s => s.pct < 80);
-
-        if (worst.length === 0) { container.innerHTML = ''; return; }
-
-        container.innerHTML = `
-            <div class="problem-areas">
-                <h3>Needs Attention This Week</h3>
-                <div class="problem-areas-list">
-                    ${worst.map(s => `
-                        <div class="problem-area-item">
-                            <div class="problem-area-header">
-                                <span class="problem-area-name">${s.cat}</span>
-                                <span class="problem-area-pct" style="color:${s.pct < 50 ? 'var(--danger)' : 'var(--warning)'}">${s.pct}%${s.strikes > 0 ? ` · ${s.strikes} strike${s.strikes > 1 ? 's' : ''}` : ''}</span>
-                            </div>
-                            <div class="problem-bar-track">
-                                <div class="problem-bar-fill" style="width:${s.pct}%;background:${s.pct < 50 ? 'var(--danger)' : 'var(--warning)'}"></div>
-                            </div>
-                        </div>`).join('')}
-                </div>
-            </div>`;
-    }
-
     renderAllTimeStats(period) {
         const container = document.getElementById('allTimeStats');
         if (!container) return;
         if (this.data.weeks.length <= 1) { container.style.display = 'none'; return; }
         container.style.display = 'block';
 
-        if (!period) period = this.allStatsPeriod || 'all';
+        if (!period) period = this.allStatsPeriod || 'recent';
         this.allStatsPeriod = period;
 
         const now = new Date();
-        const periodCutoff = {
-            '1m':  new Date(now - 30 * 864e5),
-            '3m':  new Date(now - 91 * 864e5),
-            'ytd': new Date(now.getFullYear(), 0, 1),
-            'all': new Date(0)
-        }[period];
-        const weeks = this.data.weeks.filter(w => new Date(w.startDate) >= periodCutoff);
+        const weeks = this.weeksInPeriod(period);
 
         const catStats = {};   // cat -> { done, strikes, total, weekCount: Set, goals: { name -> {done,strikes,total} } }
         weeks.forEach(week => {
@@ -2247,10 +2318,7 @@ class LifeOS {
             </div>`;
         }).join('');
 
-        const periodBtns = [
-            { id: '1m', label: '1M' }, { id: '3m', label: '3M' },
-            { id: 'ytd', label: 'YTD' }, { id: 'all', label: 'All' }
-        ].map(p => `<button class="deepdive-period-btn allstats-period-btn${period === p.id ? ' active' : ''}" data-period="${p.id}">${p.label}</button>`).join('');
+        const periodBtns = STATS_PERIODS.map(p => `<button class="deepdive-period-btn allstats-period-btn${period === p.id ? ' active' : ''}" data-period="${p.id}">${p.label}</button>`).join('');
 
         container.innerHTML = `
             <div class="alltime-stats">
@@ -2258,6 +2326,7 @@ class LifeOS {
                     <h3>By Category <span class="alltime-weeks-label">${weeks.length} weeks</span></h3>
                     <div class="deepdive-period-filter">${periodBtns}</div>
                 </div>
+                ${this.referenceNote(weeks)}
                 <div class="alltime-grid">${cards}</div>
             </div>`;
 
@@ -2274,25 +2343,20 @@ class LifeOS {
 
         // Preserve open/closed state across re-renders
         const wasOpen = document.getElementById('deepDiveBody')?.style.display !== 'none';
-        if (!period) period = this.deepDivePeriod || 'all';
+        if (!period) period = this.deepDivePeriod || 'recent';
         this.deepDivePeriod = period;
 
         // Filter weeks by selected period
         const now = new Date();
-        const periodCutoff = {
-            '1m':  new Date(now - 30 * 864e5),
-            '3m':  new Date(now - 91 * 864e5),
-            'ytd': new Date(now.getFullYear(), 0, 1),
-            'all': new Date(0)
-        }[period];
-        const weeks = this.data.weeks.filter(w => new Date(w.startDate) >= periodCutoff);
+        const weeks = this.weeksInPeriod(period);
 
         // ── Month-over-month bars ───────────────────────────────────────
         const monthStats = {};
         weeks.forEach(week => {
             const d = new Date(week.startDate);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            if (!monthStats[key]) monthStats[key] = { done: 0, total: 0 };
+            if (!monthStats[key]) monthStats[key] = { done: 0, total: 0, reference: true };
+            if (this.isCutoverWeek(week)) monthStats[key].reference = false;
             const s = this.scoreWeek(week);
             monthStats[key].done += s.done;
             monthStats[key].total += s.expected;
@@ -2303,9 +2367,9 @@ class LifeOS {
             const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
             const color = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)';
             const monthName = new Date(key + '-15').toLocaleDateString('en-US', { month: 'short' });
-            return `<div class="trend-bar-col">
+            return `<div class="trend-bar-col${s.reference ? ' reference' : ''}">
                 <div class="trend-bar-wrap">
-                    <div class="trend-bar-fill" style="height:${pct}%;background:${color};" title="${pct}%"></div>
+                    <div class="trend-bar-fill" style="height:${pct}%;background:${color};" title="${pct}%${s.reference ? ' (before ' + this.reliableSinceLabel() + ', reference)' : ''}"></div>
                 </div>
                 <div class="trend-bar-label">${monthName}</div>
             </div>`;
@@ -2347,13 +2411,7 @@ class LifeOS {
             <span class="deepdive-val" style="color:${colorVar}">${g.pct}%</span>
         </div>`;
 
-        const periods = [
-            { id: '1m', label: '1M' },
-            { id: '3m', label: '3M' },
-            { id: 'ytd', label: 'YTD' },
-            { id: 'all', label: 'All' }
-        ];
-        const filterBtns = periods.map(p =>
+        const filterBtns = STATS_PERIODS.map(p =>
             `<button class="deepdive-period-btn${period === p.id ? ' active' : ''}" data-period="${p.id}">${p.label}</button>`
         ).join('');
 
@@ -2365,6 +2423,7 @@ class LifeOS {
                 </button>
                 <div class="deepdive-body" id="deepDiveBody" style="display:${wasOpen ? 'block' : 'none'};">
                     <div class="deepdive-period-filter">${filterBtns}</div>
+                    ${this.referenceNote(weeks)}
                     <div class="deepdive-section">
                         <h4>Month-over-Month</h4>
                         <div class="trend-bars">${monthBars || '<span class="deepdive-empty">No data for this period</span>'}</div>
@@ -2397,27 +2456,6 @@ class LifeOS {
         container.querySelectorAll('.deepdive-period-btn').forEach(btn => {
             btn.addEventListener('click', () => this.renderDeepDive(btn.dataset.period));
         });
-    }
-
-    renderActivityFeed() {
-        const feed = document.getElementById('activityFeed');
-        if (this.data.activityLog.length === 0) {
-            feed.innerHTML = `<div class="activity-item">
-                <span class="activity-dot"></span>
-                <span class="activity-text">Welcome to Life OS. Start tracking to see activity here.</span>
-                <span class="activity-time">just now</span>
-            </div>`;
-            return;
-        }
-
-        feed.innerHTML = this.data.activityLog.slice(0, 10).map(a => {
-            const ago = this.timeAgo(new Date(a.time));
-            return `<div class="activity-item">
-                <span class="activity-dot"></span>
-                <span class="activity-text">${this.escapeHtml(a.text)}</span>
-                <span class="activity-time">${ago}</span>
-            </div>`;
-        }).join('');
     }
 
     // ========================================
@@ -3109,7 +3147,7 @@ class LifeOS {
                 }
             } else {
                 this.renderNutrition();
-                this.renderLastWeek();
+                this.renderCacheCards();
             }
         } catch (e) {
             console.error('[LifeOS] nutrition load failed:', e);
@@ -3286,7 +3324,7 @@ class LifeOS {
                 this.renderAll(); // includes this card, now fresh
             } else {
                 this.renderTraining();
-                this.renderLastWeek();
+                this.renderCacheCards();
             }
         } catch (e) {
             console.error('[LifeOS] training load failed:', e);
@@ -4174,6 +4212,7 @@ class LifeOS {
         const st = this.weekGoalState(now);
         if (!st) { card.hidden = true; card.innerHTML = ''; return; }
         card.hidden = false;
+        card.classList.toggle('compact', st.state === 'goal' && !st.closeout);
         const esc = v => this.escapeHtml(v || '');
         const results = (key, current) => `<div class="week-goal-results">${Object.entries(WEEK_GOAL_RESULTS).map(([k, label]) =>
             `<button type="button" class="week-goal-result${current === k ? ' active' : ''}" data-wg="result" data-key="${key}" data-result="${k}">${label}</button>`).join('')}</div>`;
@@ -4189,6 +4228,15 @@ class LifeOS {
                     <button type="button" class="btn btn-primary" data-wg="save">Set goal</button>
                     ${editing ? '<button type="button" class="btn btn-secondary" data-wg="cancel">Cancel</button>' : ''}
                 </div>`;
+        } else if (st.state === 'goal' && !st.closeout) {
+            // Set and mid-week: one line (Today stays about today); the first step opens from it
+            card.innerHTML = `<div class="week-goal-head">
+                    <div class="week-goal-kicker">This week's goal</div>
+                    <button type="button" class="week-goal-edit" data-wg="edit">Edit</button>
+                </div>
+                ${st.goal.step
+                    ? `<details class="week-goal-fold"><summary class="week-goal-text">${esc(st.goal.text)}</summary><p class="week-goal-step">First step: ${esc(st.goal.step)}</p></details>`
+                    : `<p class="week-goal-text">${esc(st.goal.text)}</p>`}`;
         } else if (st.state === 'goal') {
             card.innerHTML = `<div class="week-goal-head">
                     <div class="week-goal-kicker">This week's goal</div>
@@ -4196,7 +4244,7 @@ class LifeOS {
                 </div>
                 <p class="week-goal-text">${esc(st.goal.text)}</p>
                 ${st.goal.step ? `<p class="week-goal-step">First step: ${esc(st.goal.step)}</p>` : ''}
-                ${st.closeout ? `<p class="week-goal-hint">How did it go?</p>${results(st.key, st.goal.result)}` : ''}`;
+                <p class="week-goal-hint">How did it go?</p>${results(st.key, st.goal.result)}`;
         } else {
             card.innerHTML = `<div class="week-goal-kicker">Last week's goal</div>
                 <p class="week-goal-text">${esc(st.goal.text)}</p>
@@ -4260,8 +4308,6 @@ class LifeOS {
         if (isTravelDay) {
             checklist.innerHTML = `<div class="travel-day-notice">🏖️ <strong>Travel day!</strong> Streaks are preserved — enjoy your time off.</div>`;
             this.renderAdhocTasks();
-            this.renderStreaks();
-            this.renderHeatmap();
             return;
         }
 
@@ -4453,8 +4499,6 @@ class LifeOS {
         checklist.innerHTML = html;
 
         this.renderAdhocTasks();
-        this.renderStreaks();
-        this.renderHeatmap();
     }
 
     calculateGoalStreak(goalName) {
@@ -5716,7 +5760,8 @@ class LifeOS {
     // ========================================
     bindReview() {
         document.getElementById('saveReviewBtn').addEventListener('click', () => this.saveWeeklyReview());
-        document.getElementById('lastWeekLine')?.addEventListener('click', () => this.navigateTo('review'));
+        ['lastWeekLine', 'homeLastWeek'].forEach(id =>
+            document.getElementById(id)?.addEventListener('click', () => this.navigateTo('review')));
 
         // Rating buttons
         document.getElementById('weekRating').addEventListener('click', (e) => {
@@ -6057,10 +6102,10 @@ class LifeOS {
     }
 
     // Today tab, Sunday and Monday only: one line with last week's strikes that opens the full summary
-    renderLastWeekLine(now = new Date()) {
-        const el = document.getElementById('lastWeekLine');
+    renderLastWeekLine(now = new Date(), id = 'lastWeekLine', always = false) {
+        const el = document.getElementById(id);
         if (!el) return;
-        const s = (now.getDay() === 0 || now.getDay() === 1) ? this.lastWeekSummary(now) : null;
+        const s = (always || now.getDay() === 0 || now.getDay() === 1) ? this.lastWeekSummary(now) : null;
         el.hidden = !s;
         if (!s) { el.innerHTML = ''; return; }
         const delta = s.prev ? this.strikeDelta(s.score.misses, s.prev.misses) : null;

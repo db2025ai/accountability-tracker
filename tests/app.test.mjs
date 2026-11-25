@@ -192,7 +192,9 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     check('week totals', dash.s, { done: 9, expected: 13, misses: 5 });
     check('category bars', dash.bars, ['Morning Protocol 50%', 'Evening Protocol 67%', 'Physical Health 67%', 'Midday Protocol 0%', 'Budgeting 100%', 'Monthly 0%', 'Mental Health 0%']);
     check('life score uses done/expected', await page.textContent('#lifeScoreValue'), String(Math.min(100, Math.round((9 / 13) * 100 * 0.6 + 15))));
-    check('goals on track (misses = 0)', await page.textContent('#dashGoalsOnTrack'), '7');
+    // Home pulse: Skincare Mon blank, Up by Mon blank, In bed Mon ✗, Drinking 2 uses on a max of 1
+    check('home pulse: strikes through yesterday by the cell rule', await page.evaluate(() => lifeOS.homePulse().soFar), 4);
+    check('home pulse: no pace against a legacy week', (await page.textContent('#homePulse')).includes('Nothing comparable from last week yet.'), true);
 
     // Health rings
     await page.evaluate(() => lifeOS.navigateTo('health'));
@@ -1448,7 +1450,8 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.fill('#weekGoalText', 'Ship the board deck draft <b>');
     await page.fill('#weekGoalStep', 'Outline Monday 9am');
     await page.click('#weekGoalCard button[data-wg="save"]');
-    check('saved and shown, escaped', await card(), [false, "This week's goal Edit Ship the board deck draft <b> First step: Outline Monday 9am"]);
+    check('saved and shown, escaped', await card(), [false, "This week's goal Edit Ship the board deck draft <b>First step: Outline Monday 9am"]);
+    check('mid-week it folds to one line; the first step opens from it', await page.$eval('#weekGoalCard', c => [c.classList.contains('compact'), c.querySelector('details.week-goal-fold').open]), [true, false]);
     check('ticks "Set week specific goals" on the day it was set; stored under the Sunday', await page.evaluate(() => [
         Object.values(lifeOS.getTodayWeek().entries).find(e => /Set week specific/.test(e.goal.name)).tracking,
         Object.keys(JSON.parse(localStorage.getItem('lifeOSData')).weekGoals)]),
@@ -1457,7 +1460,7 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.click('#weekGoalCard button[data-wg="edit"]');
     await page.fill('#weekGoalText', 'Ship the board deck draft');
     await page.press('#weekGoalStep', 'Enter');
-    check('edit saves', (await card())[1].includes('Ship the board deck draft First step'), true);
+    check('edit saves', (await card())[1].includes('Ship the board deck draftFirst step'), true);
     const at = t => page.evaluate(d => { lifeOS.renderWeekGoal(new Date(d)); const c = document.getElementById('weekGoalCard'); return [c.hidden, c.textContent.replace(/\s+/g, ' ').trim()]; }, t);
     check('next Monday: Monday-morning prompt', (await at('2026-10-19T08:00:00-04:00'))[1].startsWith("This week's goal Monday morning, with intention"), true);
     check('Friday: how did it go', (await at('2026-10-16T18:00:00-04:00'))[1].endsWith('How did it go?Hit itPartlyMissed'), true);
@@ -1548,6 +1551,64 @@ const score = (page, weekIdx, name) => page.evaluate(([wi, n]) => {
     await page.click('#lastWeekLine');
     check('tapping it opens Weekly Review', await page.evaluate(() => document.getElementById('section-review').classList.contains('active')), true);
     check('no em dashes in the card', (await card())[1].includes('—'), false);
+    check('fits a 390px phone', await page.evaluate(() => document.documentElement.scrollWidth <= 390), true);
+    check('no page errors', errors, []);
+    await context.close();
+}
+
+// ================= Home: opens on Today; Home is the weekly pulse; older weeks kept as reference =================
+{
+    const hSeed = JSON.parse(JSON.stringify(seed));
+    hSeed.weeks.push(week('2026-10-18', {
+        'Skincare AM': ['X', 'X', '', 'X', 'X', '', ''],          // by Tue: Tue missed
+        'In bed by 11:15PM': ['X', '', '', 'X', 'X', '', ''],     // by Tue: Mon, Tue
+        '2 Strength Training': ['', 'X', '', '', 'X', '', ''],
+    }));
+    hSeed.weeks.push(week('2026-10-25', {
+        'Skincare AM': ['X', 'X', 'X', '', '', '', ''],           // all done through Tue
+        'In bed by 11:15PM': ['X', '', 'X', '', '', '', ''],      // Mon missed (also last week)
+        '2 Strength Training': ['', '', '', '', '', '', ''],      // 0 of 2 with Thu..Sat left
+    }));
+    hSeed.healthLog = [{ date: '2026-10-26', sleep: 6.5 }];
+    const { context, page, errors } = await newPage({ width: 390, seedData: hSeed, time: '2026-10-29T10:00:00-04:00' });
+    console.log('\n— Home pulse —');
+    check('opens on Today, at any width', await page.isVisible('#section-habits.active'), true);
+    await page.evaluate(() => { lifeOS.closeModal('catchUpModal'); lifeOS.navigateTo('dashboard'); });
+    const p = await page.evaluate(() => { const r = lifeOS.homePulse(); return { soFar: r.soFar, then: r.then, struck: r.struck, risk: r.risk.map(g => [g.name, g.done, g.target, g.daysLeft]) }; });
+    // Thu Oct 29: through Wed. This week: In bed Mon + Wed blank, Skincare Wed, Up by Mon-Wed (3), Meditate Sun-Wed (4)
+    check('strikes so far vs the same point last week', [p.soFar, p.then],
+        await page.evaluate(() => [lifeOS.strikesThrough(lifeOS.data.weeks[3], 3), lifeOS.strikesThrough(lifeOS.data.weeks[2], 3)]));
+    check('most strikes so far flags a repeat from last week', p.struck.find(g => g.name === 'In bed by 11:15PM')?.lastWeek, true);
+    check('x2 goal running out of days', p.risk.find(g => g[0] === '2 Strength Training'), ['2 Strength Training', 0, 2, 3]);
+    check('quick actions and activity feed are gone', await page.evaluate(() => [!!document.querySelector('.quick-actions'), !!document.getElementById('activityFeed')]), [false, false]);
+    check('streaks and the heatmap live on Home now', await page.evaluate(() => [
+        !!document.querySelector('#section-dashboard #streaksGrid'), !!document.querySelector('#section-dashboard #habitHeatmap'),
+        !!document.querySelector('#section-habits #streaksGrid')]), [true, true, false]);
+    check('heatmap filled on Home', await page.$$eval('#habitHeatmap .heatmap-row', r => r.length > 0), true);
+    check('last week line always on Home', await page.$eval('#homeLastWeek', b => [b.hidden, b.textContent.includes('Last week')]), [false, true]);
+    await page.click('#homeLastWeek');
+    check('it opens Weekly Review', await page.isVisible('#section-review.active'), true);
+    await page.evaluate(() => lifeOS.navigateTo('dashboard'));
+    check('health strip: sleep this week', await page.$eval('#homeHealth', e => e.textContent.replace(/\s+/g, ' ').includes('Sleep 6.5 h 1 night logged')), true);
+    await page.evaluate(() => {
+        lifeOS._nutrition = { today: '2026-10-29', loadedAt: Date.now(), targets: { calories: 2400, protein: 190, carbs: 240, fat: 75 }, days: [
+            { date: '2026-10-24', calories: 2400, protein: 250, carbs: 0, fat: 0, meals: 3 },
+            { date: '2026-10-26', calories: 2500, protein: 180, carbs: 0, fat: 0, meals: 3 },
+            { date: '2026-10-27', calories: 400, protein: 30, carbs: 0, fat: 0, meals: 1 }] };
+        lifeOS._training = { today: '2026-10-29', loadedAt: Date.now(), plans: [], sessions: [{ date: '2026-10-27', type: 'strength', minutes: 62, name: 'Upper' }] };
+        lifeOS.renderHomeHealth();
+    });
+    check('health strip: workouts, protein on fully tracked days, days tracked', await page.$eval('#homeHealth', e => e.textContent.replace(/\s+/g, ' ').trim()),
+        'Health this week Workouts 1 62 min Protein 180g avg, goal 190g Tracked 1/5 days fully logged Sleep 6.5 h 1 night logged');
+    check('trends and history folded by default', await page.$eval('#homeTrends', d => [d.open, d.querySelector('summary').textContent.replace(/\s+/g, ' ').trim()]),
+        [false, 'Trends and history Recent since Oct 11, older weeks as reference']);
+    // Older history stays: Recent is the default, All still reaches back and marks the old weeks
+    const periods = await page.evaluate(() => [lifeOS.weeksInPeriod('recent').length, lifeOS.weeksInPeriod('all').length, lifeOS.allStatsPeriod, lifeOS.deepDivePeriod]);
+    check('Recent = weeks since the cutover by default; All keeps every week', periods, [3, 4, 'recent', 'recent']);
+    await page.evaluate(() => { lifeOS.renderDeepDive('all'); document.getElementById('deepDiveBody').style.display = 'block'; });
+    check('All: older weeks kept, with a reference note', await page.$eval('#deepDive .reference-note', e => e.textContent.startsWith('Includes 1 week from before Oct 11, kept for reference')), true);
+    check('All: the pre-cutover month is not faded when it also has reliable weeks', await page.$$eval('#deepDive .trend-bar-col.reference', c => c.length), 0);
+    check('Recent: no reference note', await page.evaluate(() => { lifeOS.renderDeepDive('recent'); return !!document.querySelector('#deepDive .reference-note'); }), false);
     check('fits a 390px phone', await page.evaluate(() => document.documentElement.scrollWidth <= 390), true);
     check('no page errors', errors, []);
     await context.close();

@@ -26,11 +26,11 @@
             <span class="logo-sub">Personal Operating System</span>
         </div>
         <ul class="nav-links">
-            <li><a href="#" class="nav-link active" data-section="dashboard"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-6h-5v6H5A1.5 1.5 0 0 1 3.5 19z"/></svg> Dashboard</a></li>
+            <li><a href="#" class="nav-link" data-section="dashboard"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-6h-5v6H5A1.5 1.5 0 0 1 3.5 19z"/></svg> Dashboard</a></li>
             <li><a href="#" class="nav-link" data-section="goals"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg> Goals</a></li>
             <li><a href="#" class="nav-link" data-section="health"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-8.9-9.4C2.2 7.4 4.3 4.5 7.4 4.5c1.9 0 3.3 1 4.6 2.7 1.3-1.7 2.7-2.7 4.6-2.7 3.1 0 5.2 2.9 4.3 6.1C19.5 15.4 12 20 12 20z"/></svg> Health</a></li>
             <li><a href="#" class="nav-link" data-section="meditate"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5h10.5a3 3 0 1 0-3-3M3 12.5h15a3 3 0 1 1-3 3M3 16.5h7"/></svg> Meditate</a></li>
-            <li><a href="#" class="nav-link" data-section="habits"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="m8 12.3 2.8 2.8L16.2 9"/></svg> Today</a></li>
+            <li><a href="#" class="nav-link active" data-section="habits"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="m8 12.3 2.8 2.8L16.2 9"/></svg> Today</a></li>
             <li><a href="#" class="nav-link" data-section="journal"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h11.5a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M8.5 8h6M8.5 11.5h6"/></svg> Reflection</a></li>
             <li><a href="#" class="nav-link" data-section="review"><svg class="icon nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg> Weekly Review</a></li>
         </ul>
@@ -56,7 +56,7 @@
         </div>
 
         <!-- ===== DASHBOARD SECTION ===== -->
-        <section class="section active" id="section-dashboard">
+        <section class="section" id="section-dashboard">
             <div class="section-header">
                 <h1>Command Center</h1>
                 <p class="section-subtitle" id="dashboardDate"></p>
@@ -75,51 +75,16 @@
                 </div>
             </div>
 
-            <!-- Quick Stats -->
-            <div class="stats-grid">
-                <div class="stat-card stat-goals">
-                    <div class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></div>
-                    <div class="stat-info">
-                        <h4>Goals On Track</h4>
-                        <div class="stat-number" id="dashGoalsOnTrack">--</div>
-                        <div class="stat-detail" id="dashGoalsDetail">of -- goals</div>
-                    </div>
-                </div>
-                <div class="stat-card stat-finance">
-                    <div class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="m8 12.3 2.8 2.8L16.2 9"/></svg></div>
-                    <div class="stat-info">
-                        <h4>Today's Progress</h4>
-                        <div class="stat-number" id="dashTodayProgress">--</div>
-                        <div class="stat-detail" id="dashTodayDetail">items done today</div>
-                    </div>
-                </div>
-                <div class="stat-card stat-health">
-                    <div class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-8.9-9.4C2.2 7.4 4.3 4.5 7.4 4.5c1.9 0 3.3 1 4.6 2.7 1.3-1.7 2.7-2.7 4.6-2.7 3.1 0 5.2 2.9 4.3 6.1C19.5 15.4 12 20 12 20z"/></svg></div>
-                    <div class="stat-info">
-                        <h4>Health Score</h4>
-                        <div class="stat-number" id="dashHealthScore">--</div>
-                        <div class="stat-detail">this week</div>
-                    </div>
-                </div>
-                <div class="stat-card stat-habits">
-                    <div class="stat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.4 2.6-5.4 3.9-8.3.4 1.8 1.5 3 2.6 3.6C12 7.5 13 5 15 3c.3 3.1 3.5 5.6 3.5 10.2 0 4.6-2.8 7.8-6.5 7.8z"/></svg></div>
-                    <div class="stat-info">
-                        <h4>Habit Streak</h4>
-                        <div class="stat-number" id="dashHabitStreak">--</div>
-                        <div class="stat-detail">days strong</div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Quick Actions -->
-            <div class="quick-actions">
-                <h3>Quick Actions</h3>
-                <div class="actions-row">
-                    <button class="action-btn" data-action="log-habit">Today's Actions</button>
-                    <button class="action-btn" data-action="journal-entry">Evening Reflection</button>
-                    <button class="action-btn" data-action="weekly-review">Start Weekly Review</button>
-                </div>
-            </div>
+
+            <!-- This week so far: renderHomePulse() -->
+            <div class="home-card" id="homePulse"></div>
+
+            <!-- Last week, opens Weekly Review: renderLastWeekLine() -->
+            <button type="button" class="last-week-line" id="homeLastWeek" hidden></button>
+
+            <!-- Workouts, nutrition, sleep this week: renderHomeHealth() -->
+            <div class="home-card" id="homeHealth" hidden></div>
 
             <!-- Category Overview -->
             <div class="category-overview">
@@ -127,26 +92,29 @@
                 <div class="category-bars" id="dashCategoryBars"></div>
             </div>
 
-            <!-- Problem Areas -->
-            <div id="problemAreas"></div>
-
-            <!-- All-Time Stats -->
-            <div id="allTimeStats" style="display:none;"></div>
-
-            <!-- Deep Dive -->
-            <div id="deepDive" style="display:none;"></div>
-
-            <!-- Recent Activity -->
-            <div class="recent-activity">
-                <h3>Recent Activity</h3>
-                <div class="activity-feed" id="activityFeed">
-                    <div class="activity-item">
-                        <span class="activity-dot"></span>
-                        <span class="activity-text">Welcome to Life OS. Start tracking to see activity here.</span>
-                        <span class="activity-time">just now</span>
-                    </div>
+            <!-- Habit Streaks -->
+            <div class="habit-streaks">
+                <h3>Streaks</h3>
+                <div class="streaks-grid" id="streaksGrid">
+                    <!-- Dynamic streaks -->
                 </div>
             </div>
+
+            <!-- Weekly Heatmap -->
+            <div class="habit-heatmap-section">
+                <h3>This Week at a Glance</h3>
+                <div class="habit-heatmap" id="habitHeatmap">
+                    <!-- Dynamic heatmap -->
+                </div>
+            </div>
+
+            <!-- Trends and history (folded; Recent by default, older weeks as reference): renderAllTimeStats(), renderDeepDive() -->
+            <details class="home-trends" id="homeTrends">
+                <summary><span>Trends and history</span> <span class="home-trends-sub" id="homeTrendsSub"></span></summary>
+                <div id="allTimeStats" style="display:none;"></div>
+                <div id="deepDive" style="display:none;"></div>
+            </details>
+
         </section>
 
         <!-- ===== GOALS SECTION ===== -->
@@ -307,7 +275,7 @@
         </section>
 
         <!-- ===== HABITS / TODAY SECTION ===== -->
-        <section class="section" id="section-habits">
+        <section class="section active" id="section-habits">
             <div class="section-header">
                 <h1>Today's Actions</h1>
                 <div class="section-actions">
@@ -348,21 +316,6 @@
                 </div>
             </div>
 
-            <!-- Habit Streaks -->
-            <div class="habit-streaks">
-                <h3>Streaks</h3>
-                <div class="streaks-grid" id="streaksGrid">
-                    <!-- Dynamic streaks -->
-                </div>
-            </div>
-
-            <!-- Weekly Heatmap -->
-            <div class="habit-heatmap-section">
-                <h3>This Week at a Glance</h3>
-                <div class="habit-heatmap" id="habitHeatmap">
-                    <!-- Dynamic heatmap -->
-                </div>
-            </div>
         </section>
 
         <!-- ===== JOURNAL / EVENING REFLECTION SECTION ===== -->
@@ -769,7 +722,7 @@
 
     <!-- Mobile Bottom Navigation -->
     <nav class="mobile-bottom-nav" id="mobileBottomNav">
-        <button class="mobile-nav-btn active" data-section="dashboard">
+        <button class="mobile-nav-btn" data-section="dashboard">
             <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-6h-5v6H5A1.5 1.5 0 0 1 3.5 19z"/></svg>
             <span class="mobile-nav-label">Home</span>
         </button>
@@ -781,7 +734,7 @@
             <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-8.9-9.4C2.2 7.4 4.3 4.5 7.4 4.5c1.9 0 3.3 1 4.6 2.7 1.3-1.7 2.7-2.7 4.6-2.7 3.1 0 5.2 2.9 4.3 6.1C19.5 15.4 12 20 12 20z"/></svg>
             <span class="mobile-nav-label">Health</span>
         </button>
-        <button class="mobile-nav-btn" data-section="habits">
+        <button class="mobile-nav-btn active" data-section="habits">
             <svg class="icon mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="m8 12.3 2.8 2.8L16.2 9"/></svg>
             <span class="mobile-nav-label">Today</span>
         </button>

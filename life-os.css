@@ -1500,6 +1500,14 @@ h1, h2,
     overflow-wrap: anywhere;
 }
 
+/* Set and mid-week: one quiet line, the first step folds open from it */
+.week-goal-card.compact { padding: 10px 16px; }
+.week-goal-card.compact .week-goal-text { font-size: 1rem; margin: 2px 0 0; }
+.week-goal-fold > summary { list-style: none; cursor: pointer; }
+.week-goal-fold > summary::-webkit-details-marker { display: none; }
+.week-goal-fold > summary::after { content: ' \203A'; color: var(--text-muted); font-family: var(--font-sans); }
+.week-goal-fold[open] > summary::after { content: ' \2039'; }
+
 .week-goal-step,
 .week-goal-hint {
     font-size: 0.85rem;
@@ -3891,7 +3899,7 @@ button.habit-checkbox {
 .trend-bar-label { font-size: 0.6rem; color: var(--text-muted); margin-top: 3px; }
 
 /* Deep Dive period filter */
-.deepdive-period-filter { display: flex; gap: 6px; margin-bottom: 14px; }
+.deepdive-period-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .deepdive-period-btn {
     padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border);
     background: var(--surface); color: var(--text-muted); font-size: 0.75rem;
@@ -4701,3 +4709,77 @@ body.workout-open { overflow: hidden; }
 }
 .sync-banner[hidden] { display: none; }
 .sync-banner span { flex: 1; min-width: 0; }
+
+/* ========================================
+   Home: this week's pulse + health strip (renderHomePulse / renderHomeHealth)
+   ======================================== */
+.home-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    min-width: 0;
+}
+.home-card[hidden] { display: none; }
+.home-list { list-style: none; margin: 0; padding: 0; }
+.home-list li {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem;
+    min-width: 0;
+}
+.home-list li:last-child { border-bottom: 0; }
+.home-risk { font-size: 0.8rem; color: var(--warning); font-weight: 600; font-variant-numeric: tabular-nums; }
+.home-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 769px) { .home-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.home-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    min-width: 0;
+}
+.home-tile-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.home-tile-value { font-family: var(--font-serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; }
+.home-tile-sub { font-size: 0.75rem; color: var(--text-muted); }
+#homeLastWeek { margin-bottom: 16px; }
+
+/* Older (pre-cutover) history: kept, shown as reference */
+.reference-note { font-size: 0.78rem; color: var(--text-muted); margin: -6px 0 12px; line-height: 1.45; }
+.trend-bar-col.reference .trend-bar-fill { opacity: 0.35; }
+.trend-bar-col.reference .trend-bar-label { font-style: italic; }
+.home-trends {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 0 20px;
+    margin-bottom: 28px;
+    min-width: 0;
+}
+.home-trends > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 16px 0;
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+.home-trends > summary::-webkit-details-marker { display: none; }
+.home-trends > summary::after { content: 'Show \203A'; position: absolute; right: 20px; }
+.home-trends { position: relative; }
+.home-trends[open] > summary::after { content: 'Hide'; }
+.home-trends > summary::after { top: 18px; font-family: var(--font-sans); font-size: 0.82rem; font-weight: 600; color: var(--primary); }
+.home-trends-sub { font-family: var(--font-sans); font-size: 0.78rem; font-weight: 400; color: var(--text-muted); padding-right: 56px; }
+.home-trends[open] { padding-bottom: 16px; }
+.home-trends .alltime-stats, .home-trends .deepdive-wrap { box-shadow: none; padding-left: 0; padding-right: 0; }
+#section-dashboard .habit-heatmap-section, #section-dashboard .habit-streaks { margin-bottom: 16px; }
