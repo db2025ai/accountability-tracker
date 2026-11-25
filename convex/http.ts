@@ -311,7 +311,70 @@ const TOOLS: Tool[] = [
     inputSchema: { type: "object", properties: { id: str }, required: ["id"] },
     run: (ctx, a) => ctx.runMutation(internal.plans.deletePlan, { id: String(a.id) }),
   },
+  // ---- The rest of Life OS, read-only (lifeos.ts): habits, strikes, weekly goal, curriculum, journal ----
+  {
+    name: "get_today",
+    description:
+      "His Life OS checklist for one day (default today): daily habits still open, done, struck or missed, " +
+      "this week's N×/week goals with ticks vs target, limits used (drinks, eating out, all Budgeting goals), monthly goals, " +
+      "his Monday goal for the week, this week's cooking and writing practice, and tonight's skincare routine. " +
+      "Read-only, from what the app last saved.",
+    inputSchema: { type: "object", properties: { date: { ...date, description: "Default today. Local YYYY-MM-DD" } } },
+    run: (ctx, a) => ctx.runQuery(internal.lifeos.today, optDate(a, "date")),
+  },
+  {
+    name: "get_week",
+    description:
+      "One week of habits (the week containing date, Sunday to Saturday; default this week): life score %, strikes, " +
+      "score and strikes by category, every goal's 7-day row with done / expected / strikes, the goals with the most strikes, " +
+      "last week's score, his Monday goal and result, and his weekly review. Use it for \"how's my week\" or a strike review.",
+    inputSchema: { type: "object", properties: { date: { ...date, description: "Any day in the week. Default today" } } },
+    run: (ctx, a) => ctx.runQuery(internal.lifeos.week, optDate(a, "date")),
+  },
+  {
+    name: "get_trends",
+    description:
+      "Life score, strikes and category scores for each of the last N weeks (default 8, up to 26), with each week's Monday goal, " +
+      "plus the goals with the most strikes and the most consistent ones over that span.",
+    inputSchema: { type: "object", properties: { weeks: { type: "number", description: "Default 8" } } },
+    run: (ctx, a) => ctx.runQuery(internal.lifeos.trends, Number.isFinite(Number(a?.weeks)) && a?.weeks != null ? { weeks: Number(a.weeks) } : {}),
+  },
+  {
+    name: "get_goals",
+    description: "Every goal in Life OS by category (Morning, Evening, Physical Health, Budgeting, Work, Cooking, Writing…) with its target, schedule and how it's scored.",
+    inputSchema: { type: "object", properties: {} },
+    run: (ctx) => ctx.runQuery(internal.lifeos.goals, {}),
+  },
+  {
+    name: "get_practice",
+    description:
+      "His cooking and writing curriculum (Term 1) for the week containing date (default this week): the cooking method, " +
+      "weeknight rep, weekend project, done-when, study reading, writing focus, reading, journal prompts, craft session, links, " +
+      "next week's topics and how this week's Cooking and Writing goals stand. outline: true adds the whole term week by week.",
+    inputSchema: { type: "object", properties: { date, outline: { type: "boolean" } } },
+    run: (ctx, a) => ctx.runQuery(internal.lifeos.practice, { ...optDate(a, "date"), ...(a?.outline === true ? { outline: true } : {}) }),
+  },
+  {
+    name: "get_journal",
+    description:
+      "His evening reflections (went well, fell short, highlights, values rating, intention), guided meditations, daily energy " +
+      "check-ins and weekly reviews between two dates (inclusive, up to 31 days), plus his journal streak. " +
+      "includeImported: true adds entries imported from his old journal app. Personal writing: use it when he asks, quote sparingly.",
+    inputSchema: {
+      type: "object",
+      properties: { from: date, to: date, includeImported: { type: "boolean" } },
+      required: ["from", "to"],
+    },
+    run: (ctx, a) =>
+      ctx.runQuery(internal.lifeos.journal, { from: String(a.from), to: String(a.to), ...(a?.includeImported === true ? { includeImported: true } : {}) }),
+  },
 ];
+
+// An optional YYYY-MM-DD argument, left out when blank
+function optDate(a: any, key: string): Record<string, string> {
+  const d = a?.[key];
+  return d === undefined || d === null || d === "" ? {} : { [key]: String(d) };
+}
 
 // Same clean-up as pickWorkout, for a plan's exercises and their target sets
 function pickPlan(a: any) {
@@ -388,7 +451,10 @@ const INSTRUCTIONS =
   "log_meal. For lifting, bench, squat, deadlift and overhead press are the focus: say when one hits a new best " +
   "or hasn't been trained in a while. When he asks for a workout, plan it with plan_workout so he can run it in the " +
   "app's workout mode, and keep the training profile current. When he asks to add something to his to-dos or " +
-  "task list, use add_task (list_tasks shows what's open). Dates are local (America/New_York) YYYY-MM-DD.";
+  "task list, use add_task (list_tasks shows what's open). For his habits and accountability, read get_today " +
+  "(today's checklist), get_week (score, strikes by goal, his Monday goal), get_trends (week over week) and get_goals; " +
+  "get_practice is his cooking and writing curriculum and get_journal his reflections and meditations. Those are " +
+  "read-only: he ticks habits in the app. Dates are local (America/New_York) YYYY-MM-DD.";
 
 type Rpc = { jsonrpc: "2.0"; id?: string | number | null; method: string; params?: any };
 

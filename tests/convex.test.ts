@@ -1,8 +1,12 @@
 import { convexTest } from "convex-test";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import schema from "../convex/schema";
 import { api } from "../convex/_generated/api";
 const modules = import.meta.glob("../convex/**/*.ts");
+import * as L from "../convex/lib/lifeos";
+import * as P from "../convex/lib/practice";
+// @ts-ignore: Vite raw import of the app, for the scoring cross-check
+import appSource from "../life-os.js?raw";
 const TOKEN = "t".repeat(32);
 const APP_KEY = "a".repeat(32);
 const appKey = APP_KEY;
@@ -337,4 +341,171 @@ test("to-dos from chat: add_task, list_tasks, then the app picks them up", async
   await t.mutation(api.tasks.markApplied, { ids: pending.map((p: any) => p.id), appKey });
   expect((await t.query(api.tasks.pending, { appKey })).length).toBe(0);
   expect((await tool("list_tasks", {})).data.waitingForApp).toEqual([]);
+});
+
+// ---- The rest of Life OS, read-only: get_today, get_week, get_trends, get_goals, get_practice, get_journal ----
+// Wed Nov 25, 2026 at noon in Boston. The data is saved by the app (setData) the way it stores it.
+const LIFEOS_NOW = new Date("2026-11-25T17:00:00Z");
+function lifeOsData() {
+  const goals = [
+    { category: "Morning Protocol", name: "Skincare AM", target: "daily" },
+    { category: "Morning Protocol", name: "Up by 7:15AM", target: "weekdays" },
+    { category: "Physical Health", name: "2 Strength Training", target: "x2" },
+    { category: "Physical Health", name: "1 Night of Drinking, 2 drinks max", target: "x1 max" },
+    { category: "Budgeting", name: "Buy lunch max x2/weekdays", target: "x2" },
+    { category: "Monthly", name: "1 networking event", target: "monthly" },
+    { category: "Cooking", name: "Weekend cooking project (this week's method)", target: "weekly" },
+    { category: "Evening Protocol", name: "Gym nights", target: "daily", days: [1, 3] },
+  ];
+  const week = (startDate: string, rows: string[][], extra: any = {}) => ({
+    startDate, ...extra,
+    entries: Object.fromEntries(goals.map((g, i) => [i, { goal: { ...g }, tracking: rows[i] }])),
+  });
+  const blank = ["", "", "", "", "", "", ""];
+  return {
+    goals,
+    settings: { scoringCutover: "2026-10-11", reminders: { enabled: false, morning: "08:00", evening: "21:00", timezone: "America/New_York" } },
+    weeks: [
+      week("2026-11-15T05:00:00.000Z", [
+        ["X", "X", "X", "X", "X", "X", "X"], ["", "X", "X", "X", "X", "X", ""], ["", "X", "", "", "X", "", ""],
+        ["", "", "", "", "", "X", ""], ["", "X", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+        ["", "", "", "", "", "", ""], ["", "X", "", "", "", "", ""],
+      ]),
+      week("2026-11-22T05:00:00.000Z", [
+        ["X", "X", "", "X", "", "", ""], ["", "X", "1", "", "", "", ""], ["", "X", "", "", "", "", ""],
+        ["X", "", "X", "", "", "", ""], ["", "", "X", "", "", "", ""], ["", "", "", "", "", "", ""],
+        [...blank], ["", "-", "", "", "", "", ""],
+      ]),
+    ],
+    weekGoals: {
+      "2026-11-15": { text: "Finish the board memo", step: "Outline", setAt: "2026-11-16T13:00:00Z", result: "hit" },
+      "2026-11-22": { text: "Ship the Q4 plan", step: "Draft section 1", setAt: "2026-11-23T14:00:00Z" },
+    },
+    eveningReflections: [
+      { date: "2026-11-24", timestamp: "2026-11-25T03:30:00Z", wentWell: "Lifted", fellShort: "Late night", highlights: ["Dinner with C"], valuesRating: 8, intention: "Bed by 11" },
+      { date: "2026-11-23", timestamp: "2026-11-24T06:30:00Z", wentWell: "Past midnight still counts for Monday" },
+    ],
+    meditationLog: [{ date: "2026-11-24", ts: "2026-11-25T03:00:00Z", kind: "reflect", minutes: 3, theme: "control" }],
+    healthLog: [{ date: "2026-11-24", energy: 4, sleep: 7.2 }],
+    weeklyReviews: [{ weekDate: "Nov 15 - Nov 21, 2026", timestamp: "2026-11-21T20:00:00Z", wins: "Gym twice", improvements: "Sleep", priorities: ["Plan"], rating: 7 }],
+  };
+}
+
+test("the rest of Life OS: today, week, trends, goals, practice, journal", async () => {
+  process.env.MCP_TOKEN = TOKEN;
+  process.env.APP_KEY = APP_KEY;
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(LIFEOS_NOW);
+  try {
+    const t = convexTest(schema, modules);
+    const tool = async (name: string, args: any) => {
+      const r = await t.fetch(`/mcp/${TOKEN}`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }) });
+      const body: any = await r.json();
+      return { err: body.result.isError, data: body.result.isError ? body.result.content[0].text : JSON.parse(body.result.content[0].text) };
+    };
+    // Nothing saved yet: answers, doesn't throw
+    expect((await tool("get_today", {})).data.weekStarted).toBe(false);
+    await t.mutation(api.functions.setData, { appKey, payload: JSON.stringify(lifeOsData()) });
+
+    const today = (await tool("get_today", {})).data;
+    expect(today.date).toBe("2026-11-25");
+    expect(today.stillOpen).toEqual(["Up by 7:15AM", "Gym nights"]);
+    expect(today.done).toEqual(["Skincare AM"]);
+    expect(today.thisWeek).toEqual([
+      { name: "2 Strength Training", ticks: 1, target: 2, met: false },
+      { name: "Weekend cooking project (this week's method)", ticks: 0, target: 1, met: false },
+    ]);
+    expect(today.limits.find((l: any) => /Drinking/.test(l.name))).toMatchObject({ usedThisWeek: 2, limit: 1, over: true });
+    expect(today.weekGoal).toMatchObject({ text: "Ship the Q4 plan", firstStep: "Draft section 1", setOn: "2026-11-23" });
+    expect(today.practice).toMatch(/^Week 3 of \d+: cook /);
+    expect(today.skincareTonight.night).toMatch(/Regular night|Tretinoin night|Mask night/);
+    // A past day: blank scheduled habits are misses, struck ones are struck
+    const tue = (await tool("get_today", { date: "2026-11-24" })).data;
+    expect(tue.missed).toEqual(["Skincare AM"]);
+    expect(tue.struck).toEqual(["Up by 7:15AM"]);
+    expect((await tool("get_today", { date: "Nov 24" })).err).toBe(true);
+
+    const week = (await tool("get_week", {})).data;
+    expect(week.weekOf).toBe("2026-11-22");
+    const row = (n: string) => week.goals.find((g: any) => g.name === n);
+    expect(row("Skincare AM")).toMatchObject({ marks: "✓✓○✓___", done: 3, expected: 4, strikes: 1 });
+    expect(row("Up by 7:15AM")).toMatchObject({ marks: "·✓✗___·", strikes: 1 });
+    expect(row("Gym nights").marks).toBe("·–·_···");
+    expect(row("2 Strength Training")).toMatchObject({ pending: true, strikes: 0 });
+    expect(week.strikes).toBe(3);
+    expect(week.lifeScore).toBe(67);
+    expect(week.lastWeekScore).toBeGreaterThan(0);
+    expect(week.mostStrikes[0]).toMatch(/\(1\)$/);
+
+    const trends = (await tool("get_trends", { weeks: 3 })).data;
+    expect(trends.weeks.map((w: any) => w.weekOf)).toEqual(["2026-11-08", "2026-11-15", "2026-11-22"]);
+    expect(trends.weeks[0].weekStarted).toBe(false);
+    expect(trends.weeks[1].weekGoal).toBe("Finish the board memo (hit)");
+
+    const goals = (await tool("get_goals", {})).data;
+    expect(goals.categories.find((c: any) => c.category === "Budgeting").goals[0].kind).toBe("limit");
+    expect(goals.categories.find((c: any) => c.category === "Evening Protocol").goals[0].schedule).toBe("Every day (Mon Wed)");
+
+    const practice = (await tool("get_practice", { outline: true })).data;
+    expect(practice.week).toMatch(/^3 of /);
+    expect(practice.weekOf).toBe("2026-11-22");
+    expect(practice.cook.method).toBeTruthy();
+    expect(practice.goalsThisWeek).toEqual([{ name: "Weekend cooking project (this week's method)", ticks: 0, target: 1 }]);
+    expect(practice.outline[0].weekOf).toBe(practice.start);
+    for (const l of [...practice.cook.links, ...practice.write.links]) expect(l.url).toMatch(/^https:\/\//);
+
+    const journal = (await tool("get_journal", { from: "2026-11-22", to: "2026-11-25" })).data;
+    expect(journal.reflections.map((r: any) => r.date)).toEqual(["2026-11-23", "2026-11-24"]);
+    expect(journal.reflections[1]).toMatchObject({ highlights: ["Dinner with C"], valuesRating: 8 });
+    expect(journal.journalStreak).toMatchObject({ current: 2, best: 2 });
+    expect(journal.meditation).toEqual([{ date: "2026-11-24", kind: "reflect", minutes: 3, theme: "control" }]);
+    expect(journal.checkins).toEqual([{ date: "2026-11-24", energy: 4, sleep: 7.2 }]);
+    expect((await tool("get_journal", { from: "2026-10-01", to: "2026-11-25" })).err).toBe(true);
+    await t.mutation(api.journal.importEntries, { appKey, entries: [{ date: "2026-11-22", text: "Old app entry" }], source: "Journal app" } as any);
+    const withImported = (await tool("get_journal", { from: "2026-11-22", to: "2026-11-25", includeImported: true })).data;
+    expect(withImported.importedEntries.map((e: any) => e.text)).toEqual(["Old app entry"]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+// The connector's copy of the scoring rule (convex/lib/lifeos.ts) must give the app's numbers.
+// Runs life-os.js's own scoreEntry on the same data and compares every goal of every week.
+test("connector scoring matches the app", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(LIFEOS_NOW);
+  try {
+    const code = appSource.slice(0, appSource.indexOf("document.addEventListener('DOMContentLoaded'"));
+    const { LifeOS, ...content } = new Function(`${code}\nreturn { LifeOS, PRACTICE_TERM, PRACTICE_LINKS, PRACTICE_GOALS, SKINCARE };`)();
+    // convex/lib/practice.ts is a copy made by build_docs.py: run it after editing life-os.js
+    expect({ PRACTICE_TERM: P.PRACTICE_TERM, PRACTICE_LINKS: P.PRACTICE_LINKS, PRACTICE_GOALS: P.PRACTICE_GOALS, SKINCARE: P.SKINCARE }).toEqual(content);
+    const data = lifeOsData();
+    // A second, legacy week (before the cutover) and a monthly goal ticked on Oct 2
+    data.weeks.unshift({
+      startDate: "2026-09-27T04:00:00.000Z",
+      entries: Object.fromEntries(data.goals.map((g, i) => [i, { goal: { ...g }, tracking: i === 5 ? ["", "", "", "", "X", "", ""] : ["X", "1", "-", "", "X", "", ""] }])),
+    } as any);
+    const app = Object.create(LifeOS.prototype);
+    app.data = data;
+    const c = L.makeCtx(data, new Date());
+    for (const week of data.weeks) {
+      expect(L.weekStartKey(c, week)).toBe(app.localDateKey(app.weekStartOf(week)));
+      for (const entry of Object.values(week.entries) as any[]) {
+        const mine = L.scoreEntry(c, week, entry);
+        const theirs = app.scoreEntry(week, entry);
+        expect({ goal: entry.goal.name, done: mine.done, expected: mine.expected, misses: mine.misses })
+          .toEqual({ goal: entry.goal.name, done: theirs.done, expected: theirs.expected, misses: theirs.misses });
+        expect(L.scoringKind(c, entry.goal)).toBe(app.scoringKind(entry.goal));
+      }
+    }
+    // Practice week and the copied curriculum
+    for (const day of ["2026-11-01", "2026-11-08", "2026-11-25", "2026-12-27", "2027-03-01"]) {
+      const a = app.practiceWeek(new Date(`${day}T12:00:00`));
+      const b: any = L.practiceWeek(day);
+      expect({ state: b.state, num: b.num, idx: b.idx }).toEqual({ state: a.state, num: a.num, idx: a.idx });
+    }
+  } finally {
+    vi.useRealTimers();
+  }
 });
